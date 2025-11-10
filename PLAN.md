@@ -1041,8 +1041,8 @@ See [CONTRIBUTING.md](docs/CONTRIBUTING.md) for:
 ## Generated Outputs
 
 This repo generates:
-1. **Training slides**: Remark.js slides for GTN
-2. **Sphinx docs**: RST files for Galaxy documentation (coming soon)
+1. **Training slides**: Remark.js slides for GTN ✅
+2. **Sphinx docs**: Markdown files for Galaxy documentation (planned - see SPHINX_PLAN.md)
 3. **Hub articles**: Markdown for galaxyproject.org (future)
 
 ## License
