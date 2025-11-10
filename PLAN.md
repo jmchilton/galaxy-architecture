@@ -119,7 +119,45 @@ galaxy-architecture/
 
 ## Implementation Phases
 
-### Phase 0: Repository Bootstrap (Day 1)
+## Progress Summary
+
+**Last Updated**: 2025-01-15
+
+### ✅ Completed Phases
+
+**Phase 0: Repository Bootstrap** - Complete
+- Repository initialized with git remote configured
+- Directory structure created (topics/, outputs/, scripts/, tests/, docs/, .claude/)
+- LICENSE, .gitignore, and README.md in place
+- Initial commit completed
+
+**Phase 1: Define Schema & Standards** - Complete
+- `docs/SCHEMA.md` - Full metadata schema documentation created
+- `docs/CONTRIBUTING.md` - Contributing guidelines written
+- `topics/dependency-injection/metadata.yaml` - Example metadata file created
+- `scripts/validate.py` - Validation script implemented with comprehensive checks
+- Python project structure set up with `uv` (pyproject.toml, dependencies managed)
+- All documentation updated to use `uv` instead of `pip`
+
+**Phase 2: Migrate First Topic** - Complete
+- Extracted content from GTN slides (`~/workspace/training-material/topics/dev/tutorials/architecture-6-dependency-injection/slides.html`)
+- Created overview.md, examples.md, testing.md content files matching actual slides
+- Created .claude/CLAUDE.md for topic-specific AI context
+- Updated metadata.yaml with correct questions, objectives, and key points from slides
+- Validated all content structure successfully
+- Content accurately reflects Galaxy's type-based DI with Lagom (not generic PasteScript-style)
+
+### 🔄 Next Phase
+
+**Phase 3: Build Slide Generator** - Ready to start
+- Create Remark.js template for GTN slides
+- Build Python script to generate slides from markdown content
+- Test slide generation with dependency-injection topic
+- Compare generated slides with original
+
+---
+
+### Phase 0: Repository Bootstrap (Day 1) ✅ COMPLETE
 
 **Goal**: Get basic repo structure in place
 
@@ -181,17 +219,27 @@ galaxy-architecture/
    git commit -m "Initial repository structure"
    ```
 
-### Phase 1: Define Schema & Standards (Days 2-3)
+### Phase 1: Define Schema & Standards (Days 2-3) ✅ COMPLETE
 
 **Goal**: Establish metadata schema and content standards before writing content
 
+**Status**: ✅ All tasks completed
+
 **Tasks**:
 
-1. **Write docs/SCHEMA.md** - Define the metadata.yaml structure (see template below)
+1. **Write docs/SCHEMA.md** - ✅ Complete
+   - Full schema documentation with required and optional fields
+   - Examples for all field types
+   - Validation notes included
 
-2. **Write docs/CONTRIBUTING.md** - Guidelines for content (see template below)
+2. **Write docs/CONTRIBUTING.md** - ✅ Complete
+   - Step-by-step guide for adding new topics
+   - Content style guidelines (markdown, writing, code examples)
+   - Testing and PR process documented
 
-3. **Create example metadata.yaml** - Reference implementation
+3. **Create example metadata.yaml** - ✅ Complete
+   - Created `topics/dependency-injection/metadata.yaml` as reference
+   - Includes all required fields and optional examples
    ```yaml
    # Example structure
    topic_id: dependency-injection
@@ -247,81 +295,74 @@ galaxy-architecture/
        - Testing with injected dependencies
    ```
 
-3. **Write validation schema** - JSON Schema or Python dataclass for validation
+4. **Write validation schema** - ✅ Complete
+   - Implemented `scripts/validate.py` with comprehensive validation
+   - Checks required fields, topic_id matching, status enum, related topics
+   - Provides clear error and warning reporting
+   - Works with `uv run python scripts/validate.py`
 
-### Phase 2: Migrate First Topic (Days 4-6)
+**Additional Work Completed**:
+- Set up Python project with `uv` package manager
+- Created `pyproject.toml` with dependencies (PyYAML)
+- Updated all documentation to use `uv` commands
+- Updated `.gitignore` for uv-specific files
+
+### Phase 2: Migrate First Topic (Days 4-6) ✅ COMPLETE
 
 **Goal**: Fully migrate dependency-injection topic as proof of concept
 
+**Status**: ✅ All tasks completed
+
 **Tasks**:
 
-1. **Extract content from existing slides**
-   - Source: `training-material/topics/dev/tutorials/architecture-6-dependency-injection/slides.html`
-   - Read and understand current structure
-   - Identify distinct sections
+1. **Extract content from existing slides** - ✅ Complete
+   - Source: `~/workspace/training-material/topics/dev/tutorials/architecture-6-dependency-injection/slides.html`
+   - Extracted all content from actual GTN slides
+   - Identified key sections: overview, examples, testing
 
-2. **Create metadata.yaml**
-   - Extract questions, objectives, key_points from frontmatter
-   - Add new metadata fields per schema
-   - Document related code paths
+2. **Create metadata.yaml** - ✅ Complete
+   - Extracted questions, objectives, key_points from slide frontmatter
+   - Updated with correct content (type-based DI with Lagom)
+   - Added related code paths (lib/galaxy/di/, structured_app.py, etc.)
+   - Time estimation corrected to 15m
 
-3. **Create overview.md**
-   - Main conceptual content
-   - Why DI matters in Galaxy
-   - How Galaxy implements it
-   - Clear markdown headings for slides
+3. **Create overview.md** - ✅ Complete
+   - Content matches actual slides
+   - Focus on `app` god object problem
+   - Type-based DI with Lagom explanation
+   - Interfaces breaking circular dependencies
+   - Benefits of typing
 
-4. **Create examples.md**
-   - Code examples of DI patterns
-   - Manager injection examples
-   - Testing patterns
+4. **Create examples.md** - ✅ Complete
+   - Old vs new pattern comparisons
+   - FastAPI controller examples
+   - Legacy WSGI controller examples
+   - Celery task examples with `@galaxy_task`
+   - Container usage patterns
 
-5. **Create testing.md**
-   - How to test components with DI
-   - Mocking injected dependencies
-   - Best practices
+5. **Create testing.md** - ✅ Complete
+   - Testing with type-based DI
+   - Mocking individual dependencies
+   - Controller and task testing examples
+   - Best practices for DI testing
 
-6. **Create .claude/CLAUDE.md**
-   ```markdown
-   # Dependency Injection in Galaxy - Claude Context
+6. **Create .claude/CLAUDE.md** - ✅ Complete
+   - Created comprehensive AI context file
+   - Documents type-based DI with Lagom
+   - Includes key files, patterns, and common questions
+   - Updated with correct information from slides
 
-   You are an expert on dependency injection patterns in Galaxy.
-
-   ## Core Concepts
-   - Galaxy uses PasteScript-inspired dependency injection
-   - Managers are created once at app startup
-   - Dependencies passed through app object
-   - Not using a full DI framework
-
-   ## Key Files to Reference
-   - `lib/galaxy/app.py` - Application initialization and manager setup
-   - `lib/galaxy/managers/base.py` - Manager base classes
-   - `lib/galaxy/managers/hdas.py` - Example manager with DI
-   - `lib/galaxy/structured_app.py` - App interface definition
-
-   ## When Updating This Topic
-   1. Verify examples against current Galaxy codebase
-   2. Check if manager initialization has changed
-   3. Update related_code_paths in metadata.yaml
-   4. Regenerate all outputs: `/sync-slides dependency-injection`
-   5. Run validation: `/validate-topic dependency-injection`
-
-   ## Common Patterns to Document
-   - Manager injection via `app.manager_name`
-   - Service injection for business logic
-   - Transaction scope handling
-   - Testing with mocked managers
-
-   ## Related Topics
-   - application-components (what components use DI)
-   - frameworks (PasteScript background)
-   - startup (when DI is initialized)
-   ```
-
-7. **Validate content structure**
+7. **Validate content structure** - ✅ Complete
    - All required metadata present
    - Markdown properly formatted
-   - Internal references valid
+   - Validation passes successfully
+   - Content accurately reflects source slides
+
+**Key Learnings**:
+- Actual content focuses on type-based DI with Lagom, not generic PasteScript-style
+- Slides emphasize `app` god object problem and solution with interfaces
+- DI works uniformly across FastAPI, WSGI controllers, and Celery tasks
+- Container-based construction simplifies object creation significantly
 
 ### Phase 3: Build Slide Generator (Days 7-9)
 
@@ -430,7 +471,7 @@ galaxy-architecture/
 
 3. **Test slide generation**
    ```bash
-   python outputs/training-slides/build.py dependency-injection
+   uv run python outputs/training-slides/build.py dependency-injection
    ```
 
 4. **Compare with original slides**
@@ -571,7 +612,7 @@ galaxy-architecture/
 
 3. **Run validation on existing topic**
    ```bash
-   python scripts/validate.py
+   uv run python scripts/validate.py
    ```
 
 4. **Fix any issues found**
@@ -594,12 +635,12 @@ galaxy-architecture/
 
 3. **Generate slides**
    ```bash
-   python outputs/training-slides/build.py startup
+   uv run python outputs/training-slides/build.py startup
    ```
 
 4. **Validate**
    ```bash
-   python scripts/validate.py
+   uv run python scripts/validate.py
    ```
 
 5. **Document any process improvements**
@@ -716,10 +757,10 @@ galaxy-architecture/
    ## Usage
    `/validate-all`
 
-   ## Implementation
-   ```bash
-   python scripts/validate.py
-   ```
+## Implementation
+```bash
+uv run python scripts/validate.py
+```
    ```
 
 5. **Create .claude/commands/new-topic.md**
@@ -930,14 +971,14 @@ content as structured markdown + metadata, we can:
 git clone https://github.com/jmchilton/galaxy-architecture.git
 cd galaxy-architecture
 
-# Install dependencies
-pip install -r requirements.txt
+# Install dependencies (requires uv: https://github.com/astral-sh/uv)
+uv sync
 
 # Validate content
-python scripts/validate.py
+uv run python scripts/validate.py
 
 # Generate training slides for a topic
-python outputs/training-slides/build.py dependency-injection
+uv run python outputs/training-slides/build.py dependency-injection
 
 # View generated slides
 open outputs/training-slides/generated/architecture-dependency-injection/slides.html

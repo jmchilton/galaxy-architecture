@@ -1,0 +1,65 @@
+# Example metadata.yaml for dependency-injection topic
+# This serves as a reference implementation
+
+topic_id: dependency-injection
+title: Dependency Injection in Galaxy
+status: draft  # draft | stable | deprecated
+
+# Tracking
+created: 2025-01-15
+last_updated: 2025-01-15
+last_updated_by: jmchilton
+
+# Training slide metadata
+training:
+  questions:
+    - What is dependency injection?
+    - Why does Galaxy use dependency injection?
+    - How do I use DI in controllers and tasks?
+  objectives:
+    - Understand the problems with the `app` god object
+    - Learn about type-based dependency injection
+    - Use DI in controllers and tasks
+    - Understand the benefits of typing
+  key_points:
+    - "`app` was a god object that knew/did too much"
+    - "Interfaces break circular dependencies"
+    - "Type-based DI with Lagom simplifies construction"
+    - "DI works uniformly across FastAPI, WSGI controllers, and tasks"
+    - "Dependencies should form a DAG"
+  time_estimation: 15m
+  prerequisites:
+    - architecture-frameworks
+
+# Sphinx documentation metadata
+sphinx:
+  section: Architecture
+  subsection: Core Patterns
+  level: intermediate  # beginner | intermediate | advanced
+  toc_depth: 2
+
+# Galaxy Hub metadata
+hub:
+  audience: [developers, contributors]
+  tags: [architecture, design-patterns, dependency-injection]
+
+# Cross-references
+# Note: Some related topics may not exist yet (e.g., application-components, frameworks)
+# These can be added when those topics are migrated
+related_topics: []
+related_code_paths:
+  - lib/galaxy/di/
+  - lib/galaxy/structured_app.py
+  - lib/galaxy/app.py
+  - lib/galaxy/managers/
+  - lib/galaxy/webapps/galaxy/api/
+  - lib/galaxy/celery/tasks.py
+
+# Claude context
+claude:
+  priority: high  # How important for dev questions
+  focus_areas:
+    - Dependency injection patterns
+    - Manager initialization
+    - Testing with injected dependencies
+

@@ -1,0 +1,11 @@
+[project]
+name = "galaxy-architecture"
+version = "0.1.0"
+description = "Source of truth for Galaxy architecture documentation - generates multiple output formats"
+requires-python = ">=3.11"
+dependencies = [
+    "PyYAML>=6.0",
+]
+
+# Note: Scripts are run directly with uv run for now
+# Entry points can be added later if we package this as a proper Python package

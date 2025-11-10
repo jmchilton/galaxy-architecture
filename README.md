@@ -21,9 +21,22 @@ This repository is exploring whether maintaining architecture documentation as s
 
 - ✅ Repository structure defined
 - ✅ Detailed implementation plan written
-- ⏳ Schema definition (Phase 1)
+- ✅ Schema definition (Phase 1)
 - ⏳ First topic migration (Phase 2)
 - ⏳ Slide generation (Phase 3)
+
+## Quick Start
+
+```bash
+# Install dependencies (requires uv: https://github.com/astral-sh/uv)
+uv sync
+
+# Validate topics
+uv run python scripts/validate.py
+
+# Generate training slides for a topic
+uv run python outputs/training-slides/build.py <topic-id>
+```
 
 ## Structure
 

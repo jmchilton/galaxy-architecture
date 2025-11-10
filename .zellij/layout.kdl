@@ -1,0 +1,13 @@
+layout {
+  tab name="default" {
+    pane name="claude" {
+      cwd "/Users/jxc755/projects/worktrees/galaxy-architecture-branch-main"
+      command "/bin/zsh" {
+        args "-c" "claude --continue"
+      }
+    };
+    pane name="shell" {
+      cwd "/Users/jxc755/projects/worktrees/galaxy-architecture-branch-main"
+    };
+  };
+}
