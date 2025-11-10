@@ -50,8 +50,11 @@
 - Use `##` for major sections (becomes slides)
 - Use `###` for subsections
 - Use `---` to force slide breaks
-- Code blocks with language hints
-- Speaker notes after `???`
+- Code blocks with language hints (e.g., ` ```python`)
+- Use `{.code}` marker before code blocks for special formatting (converts to `.code[```...```]`)
+- Use `class: reduce90` or `class: enlarge150` directives for layout classes
+- Images: Use `![Alt text](../../images/file.svg)` format
+- Diff format: Use ` ```diff` for showing code changes
 
 ### Example
 ```markdown
@@ -99,9 +102,23 @@ Speaker note: Explain the difference between DI and service locator.
 Before committing:
 
 1. **Validate**: `uv run python scripts/validate.py`
-2. **Build slides**: `uv run python outputs/training-slides/build.py <topic-id>`
-3. **Preview slides**: Open generated HTML in browser
-4. **Check links**: `uv run python scripts/check-links.py`
+   - Checks metadata completeness
+   - Validates content quality
+   - Verifies images and links
+   - Runs automatically in CI on push/PR
+
+2. **Run tests**: `uv run pytest tests/ -v`
+   - Unit tests for validation logic
+   - Ensures validation rules work correctly
+
+3. **Build slides**: `uv run python outputs/training-slides/build.py <topic-id>`
+   - Generates GTN-compatible slides
+   - Output: `outputs/training-slides/generated/architecture-<topic-id>/slides.html`
+
+4. **Preview slides**: Open generated HTML in browser
+   - Test navigation and formatting
+   - Verify images display correctly
+   - Check code blocks render properly
 
 ## Pull Request Process
 
