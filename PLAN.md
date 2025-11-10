@@ -27,7 +27,7 @@ Create an experimental repository that:
 - **License**: MIT (matching Galaxy's direction)
 - **Location**: `~/workspace/galaxy-architecture`
 - **Initial Topics**: dependency-injection, startup (complex and important topics)
-- **Output Targets**: GTN slides (immediate), Galaxy Sphinx docs (next), Hub articles (future)
+- **Output Targets**: GTN slides (complete), Galaxy Sphinx docs (planned - see SPHINX_PLAN.md), Hub articles (future)
 - **No Obsidian**: Keep tooling simple - just markdown, YAML, Python, Git
 
 ## Goals & Anti-Goals
@@ -81,9 +81,8 @@ galaxy-architecture/
 │   │   ├── template.html          # Remark.js template
 │   │   └── generated/             # Output directory
 │   │
-│   ├── sphinx-docs/               # Galaxy docs generation
-│   │   ├── build.py               # Builder script
-│   │   ├── templates/             # RST templates
+│   ├── sphinx-docs/               # Galaxy docs generation (planned)
+│   │   ├── build.py               # Builder script (generates Markdown)
 │   │   └── generated/             # Output directory
 │   │
 │   └── hub-articles/              # Galaxy Hub generation
@@ -149,11 +148,15 @@ galaxy-architecture/
 
 ### 🔄 Next Phase
 
-**Phase 8-9: Real-World Usage & Sphinx Output** - Future work
+**Phase 8: Real-World Usage** - Future work
 - Use system for actual architecture updates
 - Gather feedback and iterate
-- Build Sphinx documentation generator
+- Track metrics and improvements
+
+**Phase 9: Sphinx Output** - See SPHINX_PLAN.md
+- Build Sphinx documentation generator (Markdown, not RST)
 - Integrate with Galaxy docs structure
+- Study Galaxy's doc setup at `~/workspace/galaxy/doc/`
 
 ---
 
@@ -904,40 +907,24 @@ uv run python scripts/validate.py
    - Add missing features
    - Improve DX (developer experience)
 
-### Phase 9: Sphinx Output (Weeks 3-4)
+### Phase 9: Sphinx Output (Future)
 
 **Goal**: Generate Galaxy Sphinx documentation from topics
 
-**Tasks**:
+**Status**: Planning phase - see [SPHINX_PLAN.md](SPHINX_PLAN.md) for detailed plan
 
-1. **Study Galaxy's Sphinx setup**
-   - Clone Galaxy repo
-   - Look at doc/source/ structure
-   - Understand existing patterns
-   - Check build process
+**Key Points**:
+- Galaxy's Sphinx setup already supports Markdown via MyST parser
+- **No RST conversion needed** - can generate Markdown directly
+- Study Galaxy's doc structure at `~/workspace/galaxy/doc/`
+- Integration will be in `doc/source/dev/architecture/`
 
-2. **Create outputs/sphinx-docs/build.py**
-   - Convert markdown to RST
-   - Generate proper Sphinx directives
-   - Create index files
-   - Handle cross-references
-
-3. **Create templates**
-   - RST template for topics
-   - Index template
-   - Table of contents
-
-4. **Test in Galaxy docs build**
-   - Copy generated files to Galaxy
-   - Run Sphinx build
-   - Check output
-   - Fix issues
-
-5. **Optional: PR to Galaxy**
-   - If docs look good
-   - Create PR to add architecture section
-   - Explain source
-   - Get feedback
+**See SPHINX_PLAN.md for**:
+- Detailed implementation plan
+- Galaxy's Sphinx configuration details
+- Markdown processing requirements
+- Integration strategy
+- Testing approach
 
 ### Phase 10: Automation (Weeks 5-6)
 
@@ -1157,7 +1144,7 @@ training:
 ```
 
 ### `sphinx` (object)
-Metadata for Sphinx documentation.
+Metadata for Sphinx documentation (for future use when Sphinx output is implemented).
 ```yaml
 sphinx:
   section: Architecture
@@ -1165,6 +1152,8 @@ sphinx:
   level: intermediate  # beginner | intermediate | advanced
   toc_depth: 2
 ```
+
+**Note**: Sphinx output is planned but not yet implemented. See [SPHINX_PLAN.md](SPHINX_PLAN.md) for details. Galaxy's Sphinx setup supports Markdown via MyST parser, so no RST conversion is needed.
 
 ### `hub` (object)
 Metadata for Galaxy Hub articles.
