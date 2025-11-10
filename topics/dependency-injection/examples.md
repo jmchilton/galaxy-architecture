@@ -126,41 +126,24 @@ class FastAPITags:
 
 Dependency injection allows for type checking but doesn't use type inference (requires factory functions, etc.)
 
+https://fastapi.tiangolo.com/tutorial/dependencies/
+
 ---
 
-## DI in FastAPI Controllers - Unified Approach
+### DI and Controllers - FastAPI Limitations
 
-### New Unified Pattern
+Also we have two different controller styles and only the new FastAPI allowed dependency injection.
 
 ```python
+def get_tags_manager() -> TagsManager:
+    return TagsManager()
+
+
 @cbv(router)
 class FastAPITags:
-    manager: TagsManager = depends(TagsManager)
+    manager: TagsManager = Depends(get_tags_manager)
+    ...
 
-    @router.put(
-        '/api/tags',
-        ...
-    )
-    def update(
-        self,
-        trans: ProvidesUserContext,
-        payload: TagUpdatePayload,
-    ):
-        self.manager.update(trans, payload)
-```
-
-Building dependency injection into our application and not relying on FastAPI allows for dependency injection that is:
-- **Less verbose**
-- Available uniformly across the application
-- **Works for the legacy controllers identically**
-
----
-
-## DI in Legacy WSGI Controllers
-
-### Old Pattern
-
-```python
 class TagsController(BaseAPIController):
 
     def __init__(self, app):
@@ -168,14 +151,39 @@ class TagsController(BaseAPIController):
         self.manager = TagsManager()
 ```
 
-### New Pattern
+---
 
-```python
-class TagsController(BaseGalaxyAPIController):
-    manager: TagsManager = depends(TagsManager)
+class: reduce90
+
+## DI and Controllers - Unified Approach
+
+```diff
+-def get_tags_manager() -> TagsManager:
+-    return TagsManager()
+-
+-
+ @cbv(router)
+ class FastAPITags:
+-    manager: TagsManager = Depends(get_tags_manager)
++    manager: TagsManager = depends(TagsManager)
+
+     @router.put(
+         '/api/tags',
+@@ -58,11 +54,8 @@ def update(
+         self.manager.update(trans, payload)
+
+
+-class TagsController(BaseAPIController):
+-
+-    def __init__(self, app):
+-        super().__init__(app)
+-        self.manager = TagsManager()
++class TagsController(BaseGalaxyAPIController):
++    manager: TagsManager = depends(TagsManager)
 ```
 
-Same pattern works for both FastAPI and legacy WSGI controllers!
+Building dependency injection into our application and not relying on FastAPI allows for dependency injection that is *less verbose*, available uniformly across the application,
+*works for the legacy controllers identically*.
 
 ---
 

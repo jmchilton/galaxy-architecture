@@ -12,7 +12,8 @@ key_points:
 {% for key_point in key_points %}  - "{{ key_point }}"
 {% endfor %}subtopic: architecture
 contributors:
-  - jmchilton
+{% for contributor in contributors %}  - {{ contributor }}
+{% endfor %}
 
 ---
 layout: true

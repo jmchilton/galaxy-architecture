@@ -29,32 +29,97 @@ def load_topic(topic_name):
     return metadata, content
 
 
+def process_code_wrappers(text):
+    """Convert {.code} marker before code blocks to .code[```...```] format.
+    
+    Handles patterns like:
+    {.code}
+    ```python
+    code...
+    ```
+    
+    Converts to:
+    .code[```python
+    code...
+    ```]
+    """
+    import re
+    
+    # Pattern: {.code} followed by optional blank lines, then code block
+    pattern = r'\{\.code\}\s*\n(\s*)```(\w+)\n(.*?)```'
+    
+    def replace_code_block(match):
+        indent = match.group(1)
+        lang = match.group(2)
+        code = match.group(3)
+        # Wrap the code block
+        return f".code[```{lang}\n{code}```]"
+    
+    # Use DOTALL flag so . matches newlines
+    result = re.sub(pattern, replace_code_block, text, flags=re.DOTALL)
+    return result
+
+
 def markdown_to_slides(markdown_text):
     """Convert markdown to Remark.js slides.
     
     Splits on ## headings or --- separators.
     Each section becomes a slide.
+    Supports layout classes via `class:` directive.
+    
+    Returns list of dicts with 'content' and 'class' keys.
     """
     slides = []
     current_slide = []
+    pending_class = None
 
-    for line in markdown_text.split('\n'):
+    lines = markdown_text.split('\n')
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        
         # Check if this is a slide separator
         if line.strip() == '---':
-            if current_slide:
-                slides.append('\n'.join(current_slide))
+            # Only create slide if we have non-blank content
+            if current_slide and any(l.strip() for l in current_slide):
+                slides.append({
+                    'content': '\n'.join(current_slide),
+                    'class': pending_class
+                })
             current_slide = []
+            # Don't reset pending_class here - it might apply to next slide
+        # Check if this is a class directive - store for next slide (don't add to content yet)
+        elif line.strip().startswith('class:'):
+            pending_class = line.strip()
         # Check if this is a new slide heading (##)
         elif line.startswith('## '):
-            if current_slide:
-                slides.append('\n'.join(current_slide))
-            current_slide = [line]
+            # End previous slide if it has content
+            if current_slide and any(l.strip() for l in current_slide):
+                slides.append({
+                    'content': '\n'.join(current_slide),
+                    'class': pending_class
+                })
+            # Start new slide, prepend class if we have one
+            if pending_class:
+                current_slide = [pending_class, '', line]
+                pending_class = None
+            else:
+                current_slide = [line]
+                pending_class = None
         else:
-            current_slide.append(line)
+            # Only add non-blank lines if we don't have a pending class waiting
+            # (blank lines before class directive should be ignored)
+            if not (pending_class and not line.strip()):
+                current_slide.append(line)
+        
+        i += 1
 
     # Add the last slide
     if current_slide:
-        slides.append('\n'.join(current_slide))
+        slides.append({
+            'content': '\n'.join(current_slide),
+            'class': pending_class
+        })
 
     return slides
 
@@ -74,6 +139,25 @@ def generate_slides(topic_name):
         if section_name in content:
             slides = markdown_to_slides(content[section_name])
             all_slides.extend(slides)
+    
+    # Convert slide dicts to strings for template
+    formatted_slides = []
+    for slide in all_slides:
+        slide_content = slide['content']
+        
+        # Process .code[] wrapper syntax: {.code} before code block becomes .code[```...```]
+        slide_content = process_code_wrappers(slide_content)
+        
+        # Class is already in content if it was set, or we use the class from dict
+        lines = slide_content.split('\n')
+        if lines and lines[0].strip().startswith('class:'):
+            # Class already in content, use as-is
+            formatted_slides.append(slide_content)
+        elif slide['class']:
+            # Add class directive before slide content
+            formatted_slides.append(f"{slide['class']}\n\n{slide_content}")
+        else:
+            formatted_slides.append(slide_content)
 
     # Render template
     output = template.render(
@@ -82,8 +166,9 @@ def generate_slides(topic_name):
         objectives=metadata['training']['objectives'],
         key_points=metadata['training']['key_points'],
         time_estimation=metadata['training']['time_estimation'],
-        slides=all_slides,
+        slides=formatted_slides,
         topic_id=metadata['topic_id'],
+        contributors=metadata['training'].get('contributors', ['jmchilton']),
     )
 
     # Write output

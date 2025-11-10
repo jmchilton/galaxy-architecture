@@ -100,13 +100,19 @@ Dependencies now closer to a DAG - `DatasetCollectionManager` no longer annotate
 
 ---
 
+class: reduce90
+
 ## Design Problems with Handling Dependencies Directly
+
+Using app to construct a manager for dealing with dataset collections.
 
 - `DatasetCollectionManager` needs to know how to construct all the other managers it is using, not just their interface
 - `app` has an instance of this class and `app` is used to construct an instance of this class - this circular dependency chain results in brittleness and complexity in how to construct `app`
 - `app` is very big and we're depending on a lot of it but not a large percent of it. This makes typing less than ideal
 
 ---
+
+class: reduce90
 
 ## Testing Problems with Handling Dependencies Directly
 
@@ -117,8 +123,11 @@ Dependencies now closer to a DAG - `DatasetCollectionManager` no longer annotate
 
 ---
 
+class: reduce90
+
 ## Design Benefits of Injecting Dependencies
 
+{.code}
 ```python
 class DatasetCollectionManager:
     def __init__(
@@ -146,6 +155,27 @@ class DatasetCollectionManager:
 - Unit testing can inject precise dependencies supplying only the behavior needed
 
 ---
+
+### Constructing the Object Is Still Brittle
+
+```python
+DatasetCollectionManager(
+    self.model,
+    self.security,
+    HDAManager(self),
+    HistoryManager(self),
+    GalaxyTagHandler(self.model.context),
+    LDDAManager(self)
+)
+```
+
+- The complexity in ordering of construction of `app` is still challenging
+- The constructing code of this object still needs to know how to construct each dependency of the object
+- The constructing code of this object needs to explicitly import all the types
+
+---
+
+class: enlarge150
 
 ## What is Type-based Dependency Injection?
 
@@ -177,6 +207,8 @@ dcm = container[DatasetCollectionManager]
 ```
 
 ---
+
+class: enlarge150
 
 ## Picking a Library
 

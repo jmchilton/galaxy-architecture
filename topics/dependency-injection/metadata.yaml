@@ -30,6 +30,9 @@ training:
   time_estimation: 15m
   prerequisites:
     - architecture-frameworks
+  contributors:
+    - jmchilton
+    - bgruening
 
 # Sphinx documentation metadata
 sphinx:
