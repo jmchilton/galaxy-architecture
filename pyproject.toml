@@ -8,5 +8,10 @@ dependencies = [
     "Jinja2>=3.1.0",
 ]
 
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.0.0",
+]
+
 # Note: Scripts are run directly with uv run for now
 # Entry points can be added later if we package this as a proper Python package
