@@ -1,0 +1,43 @@
+---
+layout: tutorial_slides
+logo: "GTN"
+
+title: "{{ title }}"
+questions:
+{% for question in questions %}  - "{{ question }}"
+{% endfor %}objectives:
+{% for objective in objectives %}  - "{{ objective }}"
+{% endfor %}time_estimation: "{{ time_estimation }}"
+key_points:
+{% for key_point in key_points %}  - "{{ key_point }}"
+{% endfor %}subtopic: architecture
+contributors:
+  - jmchilton
+
+---
+layout: true
+name: left-aligned
+class: left, middle
+
+---
+
+layout: true
+class: center, middle
+
+---
+
+layout: introduction_slides
+topic_name: Galaxy Architecture
+
+# {{ title }}
+
+*The architecture of connecting Galaxy components.*
+
+---
+
+{% for slide in slides %}
+{{ slide }}
+
+---
+{% endfor %}
+

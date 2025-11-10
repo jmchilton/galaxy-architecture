@@ -5,6 +5,7 @@ description = "Source of truth for Galaxy architecture documentation - generates
 requires-python = ">=3.11"
 dependencies = [
     "PyYAML>=6.0",
+    "Jinja2>=3.1.0",
 ]
 
 # Note: Scripts are run directly with uv run for now

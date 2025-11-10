@@ -1,8 +1,14 @@
-# Dependency Injection in Galaxy
+## `app` and Dependency Injection
 
-## The Problem: `app` as a God Object
+*The architecture of connecting Galaxy components.*
 
-### What is a God Object?
+---
+
+![Big Interconnected App Python 2](../../images/app_py2.plantuml.svg)
+
+---
+
+### A God object
 
 > "a God object is an object that knows too much or does too much. The God object is an example of an anti-pattern and a code smell."
 
@@ -12,7 +18,7 @@ Not only does `app` know and do too much, it is also used way too many places. E
 
 ---
 
-## A Typical Usage Pattern
+### A Typical Usage
 
 ```python
 class DatasetCollectionManager:
@@ -28,6 +34,10 @@ class DatasetCollectionManager:
         self.tag_handler = tags.GalaxyTagHandler(app.model.context)
         self.ldda_manager = lddas.LDDAManager(app)
 ```
+
+---
+
+![Big Interconnected App Python 3 - no right](../../images/app_types_no_interface.plantuml.svg)
 
 ---
 
@@ -76,6 +86,10 @@ class DatasetCollectionManager:
 ```
 
 Dependencies now closer to a DAG - `DatasetCollectionManager` no longer annotated with the type `UniverseApplication`! Imports are cleaner.
+
+---
+
+![Big Interconnected App with Python 3 Types](../../images/app_types.plantuml.svg)
 
 ---
 
@@ -174,9 +188,9 @@ We went with **Lagom**, but we've built abstractions that would make it very eas
 
 ## Lagom
 
-https://lagom-di.readthedocs.io/en/latest/
+![Lagom Website](../../images/lagom_ss.png)
 
-Lagom is a dependency injection library designed for Python 3.7+ with type hints.
+https://lagom-di.readthedocs.io/en/latest/
 
 ---
 

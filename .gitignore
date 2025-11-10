@@ -18,6 +18,9 @@ uv.lock
 # Build outputs
 outputs/*/generated/
 
+# Generated images (keep source .txt files, ignore .svg)
+images/*.svg
+
 # IDE
 .vscode/
 .idea/

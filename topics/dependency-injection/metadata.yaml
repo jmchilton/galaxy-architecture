@@ -55,6 +55,23 @@ related_code_paths:
   - lib/galaxy/webapps/galaxy/api/
   - lib/galaxy/celery/tasks.py
 
+# Images used in slides (shared across topics)
+images:
+  - path: ../../images/app_py2.plantuml.svg
+    description: "Python 2 era app structure"
+    source: images/app_py2.plantuml.txt
+  - path: ../../images/app_types_no_interface.plantuml.svg
+    description: "Typed app without interface showing circular dependency"
+    source: images/app_types_no_interface.plantuml.txt
+  - path: ../../images/app_types.plantuml.svg
+    description: "Typed app with StructuredApp interface breaking circular dependency"
+    source: images/app_types.plantuml.txt
+  - path: ../../images/app_decomposed.plantuml.svg
+    description: "Decomposed app structure with dependency injection"
+    source: images/app_decomposed.plantuml.txt
+  - path: ../../images/lagom_ss.png
+    description: "Lagom dependency injection library website screenshot"
+
 # Claude context
 claude:
   priority: high  # How important for dev questions

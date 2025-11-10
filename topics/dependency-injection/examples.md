@@ -235,6 +235,10 @@ Dependencies are automatically injected based on type annotations!
 
 ---
 
+![Decomposed App](../../images/app_decomposed.plantuml.svg)
+
+---
+
 ## Key Takeaways
 
 1. **Type annotations** enable automatic dependency resolution
