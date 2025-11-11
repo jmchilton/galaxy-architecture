@@ -9,10 +9,10 @@
   heading: Please Interrupt!
   content: "We're here to answer your questions about Galaxy architecture!"
 - type: slide
-  id: chat
-  heading: 'Chat:'
+  id: chat-galaxyproject-lobbyhttps
+  heading: ''
   content: |-
-    [galaxyproject Lobby](https://matrix.to/#/#galaxyproject_Lobby:gitter.im)
+    **Chat:** [galaxyproject Lobby](https://matrix.to/#/#galaxyproject_Lobby:gitter.im)
 
     **GitHub:** [github.com/galaxyproject ](https://github.com/galaxyproject)
 
@@ -58,13 +58,15 @@
     Working group chats linked at https://galaxyproject.org/community/wg/.
 - type: slide
   id: user-facing-applications
-  heading: User-Facing Applications
-  content: ''
+  heading: ''
+  content: '**User-Facing Applications**'
   class: enlarge200
 - type: slide
-  id: galaxyprojectgalaxy
-  heading: galaxyproject/galaxy
+  id: galaxyprojectgalaxy-httpsgith
+  heading: ''
   content: |-
+    [galaxyproject/**galaxy** ](https://github.com/galaxyproject/galaxy)
+
     The main Galaxy application.
 
     Web interface, database model, job running, etc...
@@ -72,31 +74,39 @@
     Also includes other web applications including the **ToolShed**.
   class: enlarge150
 - type: slide
-  id: galaxyprojectcloudlaunch
-  heading: galaxyproject/cloudlaunch
-  content: CloudLaunch web application to make it easy to launch images on a cloud,
-    drives *https://launch.usegalaxy.org*
+  id: galaxyprojectcloudlaunch-https
+  heading: ''
+  content: |-
+    [galaxyproject/**cloudlaunch** ](https://github.com/galaxyproject/cloudlaunch)
+
+    CloudLaunch web application to make it easy to launch images on a cloud, drives *https://launch.usegalaxy.org*
   class: enlarge150
 - type: slide
-  id: galaxyprojecttraining-material
-  heading: galaxyproject/training-material
+  id: galaxyprojecttraining-material-h
+  heading: ''
   content: |-
+    [galaxyproject/**training-material** ](https://github.com/galaxyproject/training-material)
+
     ![logo]({{ site.baseurl }}/assets/images/GTNLogo1000.png)
 
     Galaxy training material for scientists, developers, and admins. Powers *https://training.galaxyproject.org/*.
   class: enlarge150
 - type: slide
-  id: galaxyprojecthub
-  heading: galaxyproject/hub
+  id: galaxyprojecthub-httpsgithub
+  heading: ''
   content: |-
+    [galaxyproject/**hub** ](https://github.com/galaxyproject/galaxy-hub)
+
     The Galaxy Hub is the community and documentation hub for the Galaxy Project. It is maintained by the community through this GitHub repository. It is a static website built using the metalsmith static site generator.
 
     Powers *https://galaxyproject.org/*.
   class: enlarge150
 - type: slide
-  id: galaxyprojectbioblend
-  heading: galaxyproject/bioblend
+  id: galaxyprojectbioblend-httpsgi
+  heading: ''
   content: |-
+    [galaxyproject/**bioblend** ](https://github.com/galaxyproject/bioblend)
+
     Official Python client for the Galaxy, ToolShed, and CloudMan APIs.
 
     Best documented path to scripting the Galaxy API.
@@ -106,16 +116,20 @@
   heading: ''
   content: Galaxy API bindings for other languages, less actively maintained.
 - type: slide
-  id: galaxyprojectcloudman
-  heading: galaxyproject/cloudman
+  id: galaxyprojectcloudmanhttpsgit
+  heading: ''
   content: |-
+    [galaxyproject/**cloudman**](https://github.com/galaxyproject/cloudman)
+
     Galaxy CloudMan - a web application which manages a Galaxy Kubernetes cluster in
     the cloud.
   class: enlarge150
 - type: slide
-  id: bgrueningdocker-galaxy-stable
-  heading: bgruening/docker-galaxy-stable
+  id: bgrueningdocker-galaxy-stable-ht
+  heading: ''
   content: |-
+    [**bgruening/docker-galaxy-stable** ](https://github.com/bgruening/docker-galaxy-stable)
+
     High quality Docker containers for stable Galaxy environments.
 
     Releases corresponding to each new version of Galaxy.
@@ -129,13 +143,15 @@
   class: white
 - type: slide
   id: for-plugin-developers
-  heading: For Plugin Developers
-  content: ''
+  heading: ''
+  content: '**For Plugin Developers**'
   class: enlarge200
 - type: slide
-  id: galaxyprojecttools-iuc
-  heading: galaxyproject/tools-iuc
+  id: galaxyprojecttools-iuc-httpsg
+  heading: ''
   content: |-
+    [galaxyproject/**tools-iuc** ](https://github.com/galaxyproject/tools-iuc)
+
     Galaxy tools maintained by the *IUC* ("Intergalactic Utilities Commission").
 
     A variety of tools, generally of high quality including many of the core tools for Galaxy main.
@@ -159,16 +175,20 @@
     \ * [AAFC-MBB Canada repo](https://github.com/AAFC-MBB/Galaxy/tree/master/wrappers)\n\
     \ * [Mark Einon's repo](https://gitlab.com/einonm/galaxy-tools)"
 - type: slide
-  id: galaxyprojectiwc
-  heading: galaxyproject/iwc
+  id: galaxyprojectiwc-httpsgithub
+  heading: ''
   content: |-
+    [galaxyproject/**iwc** ](https://github.com/galaxyproject/iwc)
+
     Intergalactic Workflow Commission. Hosting workflows and defining best practices for publishing workflows.
 
     https://matrix.to/#/#galaxyproject_iwc:gitter.im
 - type: slide
-  id: galaxyprojectplanemo
-  heading: galaxyproject/planemo
+  id: galaxyprojectplanemo-httpsgit
+  heading: ''
   content: |-
+    [galaxyproject/**planemo** ](https://github.com/galaxyproject/planemo)
+
     Command-line utilities to assist in the development of Galaxy tools and workflows.
     Linting, testing, deploying to ToolSheds...
 
@@ -181,51 +201,59 @@
   class: enlarge150
 - type: slide
   id: galaxyprojectgalaxy-language-server
-  heading: galaxyproject/galaxy-language-server
+  heading: ''
   content: |-
+    [galaxyproject/**galaxy-language-server** ](https://github.com/galaxyproject/galaxy-language-server)
+
     ![Galaxy Language Server](https://github.com/galaxyproject/galaxy-language-server/raw/assets/snippets.gif)
 
     Language server implementation for Galaxy tools. Visual Studio Code extension for tool development.
 
     Test execution, code completion, best practices, documentation tooltips, etc..
 - type: slide
-  id: galaxyprojectstarforge
-  heading: galaxyproject/starforge
+  id: galaxyprojectstarforge-httpsg
+  heading: ''
   content: |-
+    [galaxyproject/**starforge** ](https://github.com/galaxyproject/starforge)
+
     ![StarForge logo](https://raw.githubusercontent.com/galaxyproject/starforge/master/docs/starforge_logo.png)
 
     Build Galaxy framework dependencies as Python wheels when needed.
   class: enlarge150
 - type: slide
-  id: galaxyprojectcargo-port
-  heading: galaxyproject/cargo-port
+  id: galaxyprojectcargo-port-https
+  heading: ''
   content: |-
+    [galaxyproject/**cargo-port** ](https://github.com/galaxyproject/cargo-port)
+
     ![Cargo Port Logo](https://raw.githubusercontent.com/galaxyproject/cargo-port/master/media/cpc-plain-small.png)
 
     Provides stable URLs and caching for application links, etc.. An important layer for reproducibility but largely transparent.
   class: enlarge150
 - type: slide
   id: for-deployers-and-admins
-  heading: For Deployers and Admins
-  content: ''
+  heading: ''
+  content: '**For Deployers and Admins**'
   class: enlarge200
 - type: slide
-  id: ansible
-  heading: Ansible
+  id: galaxyprojectansible-playbook
+  heading: ''
   content: |-
     galaxyproject/**{ansible-\*, \*-playbook}**<br>
     usegalaxy-eu/**{ansible-\*, \*-playbook}**
 
-     components to automate almost every aspect of Galaxy installation and maintenance.
+    [Ansible](https://www.ansible.com/) components to automate almost every aspect of Galaxy installation and maintenance.
 
     Ansible is an advanced configuration management system
 
     These playbooks are used to maintain Galaxy main, cloud and Docker images, virtual machines, ...
   class: enlarge150
 - type: slide
-  id: galaxyprojectgravity
-  heading: galaxyproject/gravity
+  id: galaxyprojectgravity-httpsgit
+  heading: ''
   content: |-
+    [galaxyproject/**gravity** ](https://github.com/galaxyproject/gravity)
+
     A process manager (supervisor) and management tools for Galaxy servers.
 
     `galaxyctl` which is used to manage the starting, stopping, and logging of Galaxy's various processes.
@@ -233,15 +261,19 @@
     `galaxy` which can be used to run a Galaxy server in the foreground.
   class: enlarge150
 - type: slide
-  id: galaxyprojectgalaxy-helm
-  heading: galaxyproject/galaxy-helm
-  content: Kubernetes helm chart for deploying Galaxy. Leveraged by cloudlaunch and
-    CloudMan but usable standalone.
+  id: galaxyprojectgalaxy-helm-https
+  heading: ''
+  content: |-
+    [galaxyproject/**galaxy-helm** ](https://github.com/galaxyproject/galaxy-helm)
+
+    Kubernetes helm chart for deploying Galaxy. Leveraged by cloudlaunch and CloudMan but usable standalone.
   class: enlarge150
 - type: slide
-  id: galaxyprojectpulsar
-  heading: galaxyproject/pulsar
+  id: galaxyprojectpulsar-httpsgith
+  heading: ''
   content: |-
+    [galaxyproject/**pulsar** ](https://github.com/galaxyproject/pulsar)
+
     ![Pulsar Logo](https://galaxyproject.org/images/galaxy-logos/pulsar_transparent.png)
 
     Distributed job execution engine for Galaxy.
@@ -253,17 +285,22 @@
     Can act as its own queuing system or access an existing cluster DRM.
   class: enlarge150
 - type: slide
-  id: galaxyprojectephemeris
-  heading: galaxyproject/ephemeris
+  id: galaxyprojectephemeris-httpsg
+  heading: ''
   content: |-
+    [galaxyproject/**ephemeris** ](https://github.com/galaxyproject/ephemeris)
+
     Library and CLI for managing Galaxy plugins - tools, index data, and workflows.
 
     Layer on top of BioBlend building useful utilities for working with the Galaxy API from an administrator perspective.
   class: enlarge150
 - type: slide
-  id: galaxyprojectgxadmin
-  heading: galaxyproject/gxadmin
-  content: Handy command-line utility for Galaxy administrators.
+  id: galaxyprojectgxadmin-httpsgit
+  heading: ''
+  content: |-
+    [galaxyproject/**gxadmin** ](https://github.com/galaxyproject/gxadmin)
+
+    Handy command-line utility for Galaxy administrators.
   class: enlarge150
 - type: slide
   id: ephemeris-vs-gxadmin
@@ -281,9 +318,11 @@
 
     TotalPerspectiveVortex (TPV) provides an installable set of dynamic rules for the Galaxy application that can route entities (Tools, Users, Roles) to appropriate job destinations based on a configurable yaml file.
 - type: slide
-  id: usegalaxy-eutiaas2
-  heading: usegalaxy-eu/tiaas2
+  id: usegalaxy-eutiaas2-httpsgithu
+  heading: ''
   content: |-
+    [**usegalaxy-eu/tiaas2 **](https://github.com/usegalaxy-eu/tiaas2)
+
     ![TIAAS Logo](https://raw.githubusercontent.com/usegalaxy-eu/tiaas2/master/images/tiaas-logo.png)
 
     Django-based infrastructure for creating pools of users, etc.. for training events and connecting them to Galaxy.
@@ -308,9 +347,11 @@
 
     TODO: cover gxformat2
 - type: slide
-  id: galaxyprojectgalaxy-1
-  heading: galaxyproject/galaxy
+  id: galaxyprojectgalaxy-httpsgith-1
+  heading: ''
   content: |-
+    [galaxyproject/**galaxy** ](https://github.com/galaxyproject/galaxy)
+
     The rest of the slides will focus on the core repository.
 
     .footnote[Continue to: [Project Management]({% link topics/dev/tutorials/architecture-2-project-management/slides.html %})]

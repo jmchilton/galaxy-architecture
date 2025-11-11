@@ -231,25 +231,9 @@ def create_content_blocks(slides: list[str], frontmatter: dict) -> list[dict]:
         remark_directives, content = extract_remark_directives(slide)
 
         # Extract heading from remaining content
-        # First try markdown headings (# or ##)
+        # Try markdown headings (# or ##)
         heading_match = re.search(r'^#+\s+(.+?)$', content, re.MULTILINE)
         heading = heading_match.group(1).strip() if heading_match else ""
-
-        # Fallback: try bold text at start as heading (**text**)
-        if not heading:
-            bold_match = re.search(r'^\*\*(.+?)\*\*', content, re.MULTILINE)
-            if bold_match:
-                heading = bold_match.group(1).strip()
-                heading_match = bold_match
-
-        # Fallback: try to extract heading from markdown link [text](url)
-        if not heading:
-            link_match = re.search(r'^\[([^\]]+)\]\([^\)]*\)', content, re.MULTILINE)
-            if link_match:
-                link_text = link_match.group(1).strip()
-                # Remove markdown bold formatting (**text** -> text)
-                heading = re.sub(r'\*\*([^*]+)\*\*', r'\1', link_text).strip()
-                heading_match = link_match
 
         # Remove heading from content if found (used as slide title)
         if heading_match:
