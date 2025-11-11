@@ -179,7 +179,7 @@ galaxy-architecture/
 
 ## Progress Summary
 
-**Last Updated**: 2025-01-15
+**Last Updated**: 2025-11-11
 
 ### ✅ Completed Phases
 
@@ -199,23 +199,135 @@ galaxy-architecture/
 
 **Phase 2: Migrate First Topic** - Complete
 - Extracted content from GTN slides (`~/workspace/training-material/topics/dev/tutorials/architecture-6-dependency-injection/slides.html`)
-- Created overview.md, examples.md, testing.md content files matching actual slides
+- Created content.yaml with all slides as separate blocks matching actual slides
 - Created .claude/CLAUDE.md for topic-specific AI context
 - Updated metadata.yaml with correct questions, objectives, and key points from slides
 - Validated all content structure successfully
-- Content accurately reflects Galaxy's type-based DI with Lagom (not generic PasteScript-style)
+- Content accurately reflects Galaxy's type-based DI with Lagom
 
-### 🔄 Next Phase
+**Phase 3: Build Slide Generator** - Complete
+- Created outputs/training-slides/build.py with Remark.js template generation
+- Successfully generates GTN-compatible slides from structured content
+- All layout classes and directives properly supported (.code[], .reduce90[], etc.)
+- Image integration working for PlantUML diagrams and screenshots
 
-**Phase 8: Real-World Usage** - Future work
-- Use system for actual architecture updates
-- Gather feedback and iterate
-- Track metrics and improvements
+**Phase 4: Add Validation** - Complete
+- Created scripts/models.py with comprehensive Pydantic v2 validation
+- Implemented scripts/validate.py for topic validation
+- Created scripts/generate_schema_docs.py for auto-generating SCHEMA.md
+- Full content validation with rich error messages
 
-**Phase 9: Sphinx Output** - See SPHINX_PLAN.md
-- Build Sphinx documentation generator (Markdown, not RST)
-- Integrate with Galaxy docs structure
-- Study Galaxy's doc setup at `~/workspace/galaxy/doc/`
+**Phase 5: Migrate All Remaining Topics** - Complete ✅
+- Migrated all 13 architecture topics from training-material:
+  - ecosystem, project-management, principles, files, frameworks
+  - dependency-injection (Phase 2), tasks, application-components, plugins
+  - client, dependencies, startup (Phase 5), production
+- All topics validated successfully with Pydantic models
+- All metadata.yaml files with proper training, sphinx, and hub metadata
+- All content.yaml files with content blocks (slides + prose)
+- Topic sequence established via `previous_to`/`continues_to` chain
+- All asset images copied to doc/source/_images/
+- PlantUML source files (.plantuml.txt) preserved alongside SVGs
+
+**Phase 6: Claude Integration** - Complete
+- Created .claude/CLAUDE.md with repository-level context
+- Implemented topic-specific .claude/CLAUDE.md for each topic
+- Documented common workflows and development patterns
+
+**Phase 7: Documentation** - Complete
+- Completed docs/SCHEMA.md with full field documentation
+- Completed docs/CONTRIBUTING.md with guidelines and examples
+- Created docs/OUTPUTS.md with output format documentation
+- Created docs/MIGRATION.md with long-term migration plan
+- Polished README.md with quick start and overview
+
+**Phase 9: Sphinx Output** - Complete ✅
+- Built Sphinx documentation generator (Markdown format)
+- Integrated with Galaxy doc structure at doc/source/architecture/
+- Implemented all necessary markdown processing:
+  - Speaker notes stripping (per-block level)
+  - Remark.js directive handling (.code[], .reduce90[], etc.)
+  - .pull-left/.pull-right directive conversion to side-by-side layout
+  - Image path conversion (../../images/ → ../_images/)
+  - Bare URL hyperlinking to markdown links
+  - Topic ordering via `previous_to`/`continues_to` chain
+- Updated doc/source/architecture/index.md with toctree ordering
+- All 13 topics generating Sphinx markdown successfully
+
+### 🔄 Next Phases
+
+**Phase 8: Real-World Usage** - In Progress
+- System is ready for actual architecture updates
+- Gathering feedback and iterating
+- Tracking improvements in workflow
+
+**Phase 10: Automation** - Future work
+- GitHub Actions for validation and preview
+- Automated slide generation on commits
+- Preview deployment for pull requests
+
+## Summary of Remaining Work
+
+### Immediate Next Steps (Optional Polish)
+
+1. **Verify Sphinx Build Quality**
+   - Test that all 13 topics render correctly in Sphinx
+   - Verify images and links work properly
+   - Check markdown formatting edge cases
+   - Build Sphinx docs locally: `cd doc && make html`
+
+2. **Test Topic Ordering**
+   - Verify `continues_to`/`previous_to` chain works correctly
+   - Check that doc/source/architecture/index.md toctree is ordered properly
+   - Ensure all topics are linked in the navigation
+
+3. **Clean Up Generated Files**
+   - Commit doc/source/architecture/*.md files (Sphinx output)
+   - Consider whether outputs/sphinx-docs/generated/ should be committed or gitignored
+   - Ensure outputs/training-slides/generated/ slides are available for testing
+
+### Medium-term Work (Phase 8: Real-World Usage)
+
+1. **Use System for Actual Updates**
+   - Next time architecture documentation needs updating, use this system
+   - Update source content in topics/, regenerate outputs
+   - Compare workflow vs editing slides directly
+   - Track pain points and improvements
+
+2. **Gather Feedback**
+   - Which parts of the workflow feel good?
+   - What's awkward or missing?
+   - Are there tools or processes we should improve?
+   - Update documentation based on real usage
+
+3. **Refine Based on Experience**
+   - Fix any issues discovered during real use
+   - Improve developer experience
+   - Document best practices learned
+
+### Long-term Work (Phase 10+)
+
+1. **GitHub Actions Automation**
+   - Validate all topics on push/PR
+   - Auto-generate slides on commits
+   - Build Sphinx preview on PRs
+   - Comment with preview links
+
+2. **Migration to Galaxy Repository**
+   - Once proven and polished, integrate into Galaxy proper
+   - Move topics/ to Galaxy's doc/source/architecture/
+   - Integrate builds into Galaxy's CI/CD
+   - Archive this experimental repository
+
+3. **Extend Output Formats**
+   - Galaxy Hub article generation (planned Phase 11)
+   - Jupyter notebooks from topics (future)
+   - Interactive tutorials (future)
+
+4. **Scale to More Topics**
+   - Gradually migrate additional Galaxy documentation
+   - Establish patterns for larger topics
+   - Build community contribution workflow
 
 ---
 
