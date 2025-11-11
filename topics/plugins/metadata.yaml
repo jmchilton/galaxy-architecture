@@ -1,0 +1,25 @@
+topic_id: plugins
+title: Plugins
+training:
+  questions:
+  - How do I extend Galaxy?
+  - What components can be plugged in?
+  - How does the plugin system work?
+  objectives:
+  - Understand Galaxy's plugin architecture
+  - Learn about major plugin types
+  - Use `plugin_config.py` pattern
+  - Create custom plugins
+  key_points:
+  - Nearly everything in Galaxy is a plugin
+  - '`plugin_config.py` provides standardized loading'
+  - Datatypes, tools, job runners, object stores are all pluggable
+  - Visualization and workflow modules extend functionality
+  time_estimation: 15m
+  previous_to: application-components
+  continues_to: client
+sphinx:
+  section: Architecture
+  subsection: Plugins
+related_topics: []
+related_code_paths: []

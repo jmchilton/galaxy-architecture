@@ -1,0 +1,26 @@
+topic_id: frameworks
+title: Frameworks
+training:
+  questions:
+  - How does Galaxy handle web requests?
+  - What web frameworks does Galaxy use?
+  - What is the difference between ASGI and WSGI?
+  objectives:
+  - Understand the request/response cycle
+  - Learn about ASGI, Starlette, and FastAPI
+  - Understand WSGI and legacy routing
+  - Learn about middleware layers
+  key_points:
+  - FastAPI (ASGI) for new API endpoints
+  - WSGI for legacy endpoints
+  - Middleware handles cross-cutting concerns
+  - Routing maps URLs to controllers
+  - 'Three types of controllers: FastAPI, WSGI API, legacy web'
+  time_estimation: 25m
+  previous_to: files
+  continues_to: dependency-injection
+sphinx:
+  section: Architecture
+  subsection: Frameworks
+related_topics: []
+related_code_paths: []

@@ -1,0 +1,169 @@
+- type: slide
+  id: galaxy-project-management-and-contribution
+  heading: Galaxy Project Management and Contribution
+  content: '*The social architecture of the project.*'
+  layout: introduction_slides
+  topic_name: Galaxy Architecture
+- type: slide
+  id: project-management
+  heading: Project Management
+  content: '*The social architecture of the project.*'
+- type: slide
+  id: contributing-quick-start
+  heading: Contributing Quick Start
+  content: 'Contribution guidelines: https://bit.ly/gx-CONTRIBUTING-md'
+  class: enlarge200
+- type: slide
+  id: pull-requests
+  heading: Pull Requests
+  content: |-
+    Nearly all changes should come in through GitHub Pull Requests.
+
+    The exceptions include security patches, packaging and release process artifacts, and backporting fixes to older releases.
+  class: enlarge200
+- type: slide
+  id: security-security-policymd
+  heading: Security (SECURITY_POLICY.md)
+  content: |-
+    In brief, to responsibly report security issues e-mail
+
+    [`galaxy-committers@lists.galaxyproject.org`](mailto:galaxy-committers@lists.galaxyproject.org)
+
+    Check out the full policy in [SECURITY_POLICY.md](https://github.com/galaxyproject/galaxy/blob/dev/SECURITY_POLICY.md).
+  class: enlarge150
+- type: slide
+  id: branches
+  heading: Branches
+  content: '![Branches](../../images/core_branches.plantuml.svg)'
+- type: slide
+  id: committers-open-goverance
+  heading: Committers & Open Goverance
+  content: |-
+    All repository goverance is done in the open on GitHub via Pull Requests and voting. Galaxy goes beyond open source to open goverance.
+
+    > "The committers group is the group of trusted developers and advocates who manage the core Galaxy code base."
+
+    > "Galaxy Project committers are the only individuals who may commit to the core Galaxy code base."
+
+    > "Committers may participate in all formal votes, including votes to modify team membership, merge pull requests, and modify [policies]."
+  class: enlarge150
+- type: slide
+  id: working-groups
+  heading: Working Groups
+  content: |-
+    https://galaxyproject.org/community/wg/
+
+    > "Galaxy has grown a lot over the years, going from a project at one university in 2005 to the global community it is today. Several parts of the Galaxy ecosystem have become avowedly and obviously community driven during that time, including tools, code, training, and several other international efforts. Galaxy Working Groups push this global model to other areas of Galaxy as well."
+  class: enlarge150
+- type: slide
+  id: code-of-conduct-code-of-conductmd
+  heading: Code of Conduct (CODE_OF_CONDUCT.md)
+  content: |-
+    Describes expectations, encourages diversity, and describes how to report issues such as unacceptable behavior.
+
+    Check out the full policy in [CODE_OF_CONDUCT.md](https://github.com/galaxyproject/galaxy/blob/dev/CODE_OF_CONDUCT.md).
+  class: enlarge200
+- type: slide
+  id: release-process
+  heading: Release Process
+  content: |-
+    New large releases are issued roughly every 4 months. The process is guided by an auto-created
+    self documenting release issue.
+
+    Check out the [21.05 release issue](https://github.com/galaxyproject/galaxy/issues/11770) as an example.
+
+    Working groups create roadmaps aligned with each release and coordinated with project leadership.
+  class: enlarge150
+- type: slide
+  id: organizing-issues-and-pull-requests
+  heading: Organizing Issues and Pull Requests
+  content: |-
+    Extensive use of Github tags are used to try to organize the numerous issues and
+    pull requests of the Galaxy repository.
+
+    The tags are described in detail in [issues.rst](https://github.com/galaxyproject/galaxy/blob/dev/doc/source/project/issues.rst).
+  class: enlarge150
+- type: slide
+  id: continuous-integration-ci
+  heading: Continuous Integration (CI)
+  content: |-
+    ![Galaxy CI](../../images/core_ci.png)
+
+    If you get Red Xs - take a second to ponder whether they make sense and don't be afraid to ask, it is a complex system with a lot of noise!
+- type: slide
+  id: linting-and-code-formatting
+  heading: Linting and Code Formatting
+  content: |-
+    Part of the Galaxy CI process includes linting and checking the format of both the backend Python and frontend ES 6 code.
+    This linting process captures many common problems as well as enforcing a common code style.
+
+    The output reports from the CI process are relatively straightforward, but it is a good process
+    to lint changes and formatting your code before opening pull requests for them.
+
+    Execute the `format` make command to format the backend code and then use `tox`
+    to lint the formatted code.
+
+    ```
+    $ make format
+    $ tox -e lint
+    ```
+
+    Execute the `client-format` make command to format the code and then the `client-lint` command
+    to lint the formatted code.
+
+    ```
+    $ make client-format
+    $ make client-lint
+    ```
+- type: slide
+  id: mypy-and-python-types
+  heading: mypy and Python Types
+  content: |-
+    Starting with release 21.01, portions of the Galaxy backend have
+    Python 3 type annotations and static checking is performed as part of
+    CI. Imported library types are not enforcing and
+    [mypy](https://mypy.readthedocs.io/en/stable/) does a fair job
+    inferring types in most situations, so this process should be
+    relatively transparent to contributors.
+
+    If there are problems with typing, the CI produces explicit output
+    about how to correct problems. These problems generally just require a
+    single type annotation. Feel free to request help on a pull request
+    for what that should look like.
+
+    To run a subset of the python type checking locally, `tox` again can
+    be used:
+
+    ```
+    $ tox -e mypy
+    ```
+
+    A quick overview about why to add type annotations to Python code and how to use
+    them can be found on this [blog post](https://dev.to/dstarner/using-pythons-type-annotations-4cfe).
+    Additional useful resources include [this cheat sheet from mypy](https://mypy.readthedocs.io/en/stable/cheat_sheet_py3.html)
+    and the Python docs for the [typing module](https://docs.python.org/3/library/typing.html).
+- type: slide
+  id: development-environments
+  heading: Development Environments
+  content: |-
+    Galaxy developers use a wide range of IDEs and we don't offer any formal recommendation of one over another.
+
+    However, Marius has assembled some documentation on debugging the [Galaxy server](https://docs.galaxyproject.org/en/master/dev/debugging_galaxy.html) and [tests](https://docs.galaxyproject.org/en/master/dev/debugging_tests.html) using VS Code.
+  class: enlarge200
+- type: slide
+  id: development-environment-gitpod
+  heading: Development Environment - Gitpod
+  content: |-
+    Galaxy does have a Gitpod configuration that is enabled to allow editing and testing PRs https://www.gitpod.io/.
+
+    Video from Marius presenting Gitpod at the Galaxy Developer Roundtable (https://www.youtube.com/watch?v=3e71DFg3gsw#t=39m0s)
+- type: slide
+  id: docsgalaxyprojectorg
+  heading: docs.galaxyproject.org
+  content: |-
+    ![docs.galaxyproject.org](../../images/core_docs.png)
+
+    All these documents as well as versions code and deployment documentation and release notes
+    can be found at [docs.galaxyproject.org](https://docs.galaxyproject.org).
+
+    ({% link topics/dev/tutorials/architecture-3-principles/slides.html %})]

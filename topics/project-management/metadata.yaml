@@ -1,0 +1,24 @@
+topic_id: project-management
+title: Project Management
+training:
+  questions:
+  - How do I contribute to Galaxy?
+  - What is Galaxy's governance model?
+  - How does the release process work?
+  objectives:
+  - Understand the contribution workflow
+  - Learn about Galaxy's open governance model
+  - Understand the CI/CD pipeline
+  key_points:
+  - Open governance through pull requests and voting
+  - Working groups coordinate major efforts
+  - Regular release cycle (~4 months)
+  - Extensive CI/CD with linting and testing
+  time_estimation: 20m
+  previous_to: ecosystem
+  continues_to: principles
+sphinx:
+  section: Architecture
+  subsection: Project Management
+related_topics: []
+related_code_paths: []

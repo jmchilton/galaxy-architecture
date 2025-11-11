@@ -28,6 +28,8 @@ training:
     - "DI works uniformly across FastAPI, WSGI controllers, and tasks"
     - "Dependencies should form a DAG"
   time_estimation: 15m
+  previous_to: frameworks
+  continues_to: tasks
   prerequisites:
     - architecture-frameworks
 

@@ -1,0 +1,27 @@
+topic_id: client
+title: Client
+training:
+  questions:
+  - How is the Galaxy UI built?
+  - What frontend technologies does Galaxy use?
+  - How do I develop and test the client?
+  objectives:
+  - Understand the client build process
+  - Learn about Vue.js and Vuex
+  - Navigate the client source code
+  - Run client tests and development servers
+  key_points:
+  - Source in `client/src`, built bundles in `static/dist`
+  - Webpack handles bundling and transpilation
+  - Vue.js for reactive components
+  - ES6 JavaScript
+  - Jest for unit testing
+  - Webhooks for UI plugins
+  time_estimation: 15m
+  previous_to: plugins
+  continues_to: dependencies
+sphinx:
+  section: Architecture
+  subsection: Client
+related_topics: []
+related_code_paths: []

@@ -1,0 +1,24 @@
+topic_id: production
+title: Production
+training:
+  questions:
+  - How is Galaxy deployed in production?
+  - What is the difference between development and production setups?
+  - How does usegalaxy.org work?
+  objectives:
+  - Understand production deployment architecture
+  - Learn about PostgreSQL, nginx, and uWSGI
+  - Understand multi-process and multi-host setups
+  - Learn about usegalaxy.org infrastructure
+  key_points:
+  - Production uses PostgreSQL instead of SQLite
+  - nginx/Apache serve static content, uWSGI runs Galaxy
+  - Multiple processes and hosts for scalability
+  - usegalaxy.org runs across multiple servers and clusters
+  time_estimation: 10m
+  previous_to: startup
+sphinx:
+  section: Architecture
+  subsection: Production
+related_topics: []
+related_code_paths: []

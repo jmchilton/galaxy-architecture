@@ -1,0 +1,25 @@
+topic_id: files
+title: Files
+training:
+  questions:
+  - How is the Galaxy codebase organized?
+  - Where do I find different components?
+  - What is the difference between `lib` and `packages`?
+  objectives:
+  - Navigate the Galaxy repository structure
+  - Understand the `lib` vs `packages` organization
+  - Locate key files and directories
+  key_points:
+  - Project documentation in root (README, CONTRIBUTING, CODE_OF_CONDUCT)
+  - Code in `lib` (monolithic) and `packages` (modular)
+  - Tests in `test` and `lib/galaxy_test`
+  - CI configuration in `.github`
+  - Packages are published to PyPI
+  time_estimation: 10m
+  previous_to: principles
+  continues_to: frameworks
+sphinx:
+  section: Architecture
+  subsection: Files
+related_topics: []
+related_code_paths: []

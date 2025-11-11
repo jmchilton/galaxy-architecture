@@ -1,0 +1,26 @@
+topic_id: tasks
+title: Tasks
+training:
+  questions:
+  - How does Galaxy handle long-running tasks?
+  - When should I use Celery?
+  - How do I create a new Galaxy task?
+  objectives:
+  - Understand when to use tasks vs web requests
+  - Learn how to declare Celery tasks
+  - Use Pydantic for task serialization
+  - Understand best practices
+  key_points:
+  - Web servers are inappropriate for long-running work
+  - Celery handles async task execution
+  - Gravity manages Celery processes
+  - Tasks use typed functions with Pydantic
+  - DI works in tasks just like controllers
+  time_estimation: 15m
+  previous_to: dependency-injection
+  continues_to: application-components
+sphinx:
+  section: Architecture
+  subsection: Tasks
+related_topics: []
+related_code_paths: []

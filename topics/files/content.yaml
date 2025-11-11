@@ -1,0 +1,59 @@
+- type: slide
+  id: galaxy-files-and-directory-structure
+  heading: Galaxy Files and Directory Structure
+  content: '*The physical architecture of the Galaxy code.*'
+  layout: introduction_slides
+  topic_name: Galaxy Architecture
+- type: slide
+  id: files-and-directories
+  heading: Files and Directories
+  content: '*The physical architecture of the Galaxy code.*'
+- type: slide
+  id: project-docs
+  heading: Project Docs
+  content: '![Project Files](../../images/core_files_project_docs.plantuml.svg)'
+- type: slide
+  id: code
+  heading: Code
+  content: '![Code](../../images/core_files_code.plantuml.svg)'
+- type: slide
+  id: scripts
+  heading: Scripts
+  content: '![Scripts](../../images/core_files_scripts.plantuml.svg)'
+- type: slide
+  id: test-sources
+  heading: Test Sources
+  content: '![Test Source Files](../../images/core_files_test.plantuml.svg)'
+- type: slide
+  id: continuous-integration
+  heading: Continuous Integration
+  content: '![Continuous Integration Files](../../images/core_files_ci.plantuml.svg)'
+- type: slide
+  id: one-repository-two-views-of-a-project
+  heading: One Repository, Two Views of a Project
+  content: |-
+    ![Two Views of Galaxy Python Project](../../images/core_files_code_python_2_views.plantuml.svg)
+
+    `lib` contains a single monolithic view of the `galaxy` namespace.
+
+    Each sub-directory of `packages` contains a logical subset of this `galaxy` namespace. Directory symbolic links are used to ensure the same files are used.
+
+    ???
+
+    TODO: a slide before this one describing Python modules and how they map to files
+    using galaxy.util, galaxy.model.mapping, and galaxy.web.framework.
+- type: slide
+  id: package-structure
+  heading: Package Structure
+  content: '![package structure](../../images/core_packages.plantuml.svg)'
+- type: slide
+  id: pypi
+  heading: PyPI
+  content: '![galaxy-tool-util on PyPI](../../images/core_tool_util_pypi.png)'
+- type: slide
+  id: package-filesimagescore-files
+  heading: ''
+  content: |-
+    ![Package Files](../../images/core_files_code_package.plantuml.svg)
+
+    ({% link topics/dev/tutorials/architecture-5-frameworks/slides.html %})]

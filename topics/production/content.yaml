@@ -1,0 +1,119 @@
+- type: slide
+  id: galaxy-production-deployment
+  heading: Galaxy Production Deployment
+  content: '*How Galaxy runs in production.*'
+  layout: introduction_slides
+  topic_name: Galaxy Architecture
+- type: slide
+  id: production-galaxy-usegalaxyorg
+  heading: Production Galaxy - usegalaxy.org
+  content: ''
+- type: slide
+  id: default
+  heading: Default
+  content: |-
+    .pull-left[
+
+
+    SQLite
+
+    Paste#http
+
+    Single process
+
+    Single host
+
+    Local jobs
+
+    ]
+
+    .pull-right[
+    #### Production
+
+    PostgreSQL
+
+    uWSGI / nginx
+
+    Multiple processes
+
+    Multiple hosts
+
+    Jobs across many clusters
+    ]
+
+    * https://usegalaxy.org/production *
+  class: centered
+- type: slide
+  id: postgresql
+  heading: PostgreSQL
+  content: "- Database server can scale way beyond default sqlite\n- Supports concurrent\
+    \ connections from multiple Galaxy processes\n- Better performance for production\
+    \ workloads\n- https://www.postgresql.org/\n- Configuration: `github.com/galaxyproject/usegalaxy-playbook`\
+    \ \u2192 `roles/galaxyprojectdotorg.postgresql`"
+- type: slide
+  id: nginx-or-apache
+  heading: nginx (or Apache)
+  content: "- Optimized servers for serving static content\n- Reverse proxy to Galaxy\
+    \ application servers\n- Load balancing across multiple Galaxy processes\n- https://www.nginx.com/resources/wiki/\n\
+    - Configuration: `github.com/galaxyproject/usegalaxy-playbook` \u2192 `templates/nginx/usegalaxy.j2`"
+- type: slide
+  id: uwsgi
+  heading: uWSGI
+  content: |-
+    - Production-grade WSGI server
+    - Handles multiple Galaxy worker processes
+    - Better performance than development server
+    - Integrates well with nginx
+    - https://uwsgi-docs.readthedocs.io/
+- type: slide
+  id: multi-processes
+  heading: Multi-processes
+  content: |-
+    Threads in Python are limited by the [GIL](https://wiki.python.org/moin/GlobalInterpreterLock).
+
+    Running multiple processes of Galaxy and separate processes for web handling
+    and job processing works around this.
+
+    This used to be an important detail - but uWSGI makes things a lot easier.
+- type: slide
+  id: cluster-support
+  heading: Cluster Support
+  content: |-
+    ![Cluster Support](../../images/cluster_support.svg)
+
+
+
+    Galaxy can submit jobs to various cluster managers (Slurm, PBS, SGE, etc.)
+- type: slide
+  id: usegalaxyorg-web-architecture
+  heading: usegalaxy.org Web Architecture
+  content: '![usegalaxy.org web servers](../../images/usegalaxy_webservers.svg)'
+- type: slide
+  id: complete-usegalaxyorg-infrastructure
+  heading: Complete usegalaxy.org Infrastructure
+  content: |-
+    ![usegalaxy.org servers](../../images/usegalaxyorg.svg)
+
+
+
+    Multiple web servers, job handlers, and compute clusters working together
+- type: slide
+  id: key-production-considerations
+  heading: Key Production Considerations
+  content: |-
+    - **Database**: Use PostgreSQL for production
+    - **Web Server**: Use nginx or Apache as reverse proxy
+    - **Application Server**: Use uWSGI or gunicorn
+    - **Processes**: Run multiple Galaxy processes
+    - **Job Handling**: Separate job handlers from web workers
+    - **Storage**: Use scalable object storage solutions
+    - **Monitoring**: Implement logging and monitoring
+    - **Backups**: Regular database and file backups
+- type: slide
+  id: production-deployment-resources
+  heading: Production Deployment Resources
+  content: |-
+    - **Admin Training**: https://training.galaxyproject.org/topics/admin/
+    - **Galaxy Admin Docs**: https://docs.galaxyproject.org/en/master/admin/
+    - **Ansible Playbooks**: https://github.com/galaxyproject/usegalaxy-playbook
+    - **Community Support**: https://help.galaxyproject.org/

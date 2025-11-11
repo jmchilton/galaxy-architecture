@@ -1,0 +1,26 @@
+topic_id: application-components
+title: Application Components
+training:
+  questions:
+  - How is business logic organized in Galaxy?
+  - What are models, managers, and services?
+  - How does the database layer work?
+  objectives:
+  - Understand the three-layer architecture
+  - Learn about SQLAlchemy and the ORM
+  - Understand database migrations with Alembic
+  - Navigate the Galaxy data model
+  key_points:
+  - Services handle high-level API processing
+  - Managers contain business logic
+  - Models mediate database interactions
+  - SQLAlchemy provides ORM
+  - Alembic handles schema migrations
+  time_estimation: 15m
+  previous_to: tasks
+  continues_to: plugins
+sphinx:
+  section: Architecture
+  subsection: Application Components
+related_topics: []
+related_code_paths: []

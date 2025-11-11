@@ -87,6 +87,8 @@ def extract_images_from_slides(slides: list[str]) -> tuple[set[str], set[str]]:
 def copy_images(image_files: set[str], dest_dir: Path) -> list[str]:
     """Copy image files from training-material to topic directory.
 
+    For PlantUML SVGs (*.plantuml.svg), also copy the source *.plantuml file.
+
     Returns list of files that were copied.
     """
     source_images_dir = Path.home() / "workspace" / "training-material" / "topics" / "dev" / "images"
@@ -101,6 +103,14 @@ def copy_images(image_files: set[str], dest_dir: Path) -> list[str]:
         if source.exists():
             shutil.copy2(source, dest_dir / image_file)
             copied.append(image_file)
+
+            # For PlantUML SVGs, also copy the source .plantuml.txt file
+            if image_file.endswith('.plantuml.svg'):
+                plantuml_source_name = image_file.replace('.plantuml.svg', '.plantuml.txt')
+                plantuml_source = source_images_dir / plantuml_source_name
+                if plantuml_source.exists():
+                    shutil.copy2(plantuml_source, dest_dir / plantuml_source_name)
+                    copied.append(plantuml_source_name)
         else:
             print(f"⚠️  Image not found: {image_file}")
 
@@ -311,30 +321,64 @@ def create_content_blocks(slides: list[str], frontmatter: dict) -> list[dict]:
     return blocks
 
 
-def extract_continues_to(content: str) -> tuple[str, Optional[str]]:
-    """Extract footnote link to next topic and return cleaned content and topic ID.
+def extract_continues_to(content: str) -> tuple[str, Optional[str], Optional[str]]:
+    """Extract footnote links to previous and next topics.
 
-    Looks for pattern: .footnote[Continue to: [...]({% link ...architecture-N-topic-name... %})]
-    Returns: (cleaned_content, continues_to_topic_id)
+    Looks for footnote pattern: .footnote[Previous: [...architecture-N-...] | Next: [...architecture-N-...]]
+    Returns: (cleaned_content, continues_to_topic_id, previous_to_topic_id)
     """
-    # Match footnote with link
-    footnote_match = re.search(
-        r'\.footnote\[.*?architecture-\d+-([^\s/}]+).*?\]',
+    # Extract previous topic from "Previous:" link
+    previous_to = None
+    previous_match = re.search(
+        r'\.footnote\[.*?Previous:.*?architecture-\d+-([^\s/}]+)',
         content,
         re.DOTALL
     )
+    if previous_match:
+        previous_to = previous_match.group(1)
 
-    if footnote_match:
-        # Extract topic name from path (e.g., "project-management" from "architecture-2-project-management")
-        continues_to = footnote_match.group(1)
-        # Remove the footnote from content
-        content = content[:footnote_match.start()] + content[footnote_match.end():]
-        return content.rstrip(), continues_to
+    # Extract next topic from "Next:" link
+    continues_to = None
+    next_match = re.search(
+        r'\.footnote\[.*?Next:.*?architecture-\d+-([^\s/}]+)',
+        content,
+        re.DOTALL
+    )
+    if next_match:
+        continues_to = next_match.group(1)
 
-    return content, None
+    # Remove all footnotes if they exist - need to handle nested brackets
+    # There may be multiple footnotes in the content, remove them all
+    while True:
+        footnote_start = content.find('.footnote[')
+        if footnote_start == -1:
+            break  # No more footnotes found
+
+        # Find the matching closing bracket
+        bracket_count = 0
+        pos = footnote_start + len('.footnote')
+        found_closing = False
+        while pos < len(content):
+            if content[pos] == '[':
+                bracket_count += 1
+            elif content[pos] == ']':
+                bracket_count -= 1
+                if bracket_count == 0:
+                    # Found the matching closing bracket
+                    footnote_end = pos + 1
+                    content = content[:footnote_start] + content[footnote_end:]
+                    found_closing = True
+                    break
+            pos += 1
+
+        if not found_closing:
+            # Malformed footnote, stop trying to remove
+            break
+
+    return content.rstrip(), continues_to, previous_to
 
 
-def create_metadata(topic_name: str, topic_id: str, num: int, frontmatter: dict, continues_to: Optional[str] = None) -> dict:
+def create_metadata(topic_name: str, topic_id: str, num: int, frontmatter: dict, continues_to: Optional[str] = None, previous_to: Optional[str] = None) -> dict:
     """Create metadata.yaml structure.
 
     Uses extracted frontmatter from slides if available.
@@ -359,6 +403,10 @@ def create_metadata(topic_name: str, topic_id: str, num: int, frontmatter: dict,
         'key_points': key_points or [f"Key concept about {topic_name}"],
         'time_estimation': time_estimation,
     }
+
+    # Add previous_to if present
+    if previous_to:
+        training_meta['previous_to'] = previous_to
 
     # Add continues_to if present
     if continues_to:
@@ -428,7 +476,17 @@ def migrate_topic(topic_name: str) -> bool:
 
     # Generate topic ID from topic name
     topic_id = kebab_case(topic_name)
+
+    # Extract proper title from source directory name if topic_name was provided in kebab-case
+    # e.g., "architecture-2-project-management" -> "Project Management"
+    if topic_name == topic_id:  # User passed kebab-case version
+        title_parts = source_dir.name.split('-', 2)[2].split('-')  # Get part after "architecture-N-"
+        title = ' '.join(word.capitalize() for word in title_parts)
+    else:
+        title = topic_name
+
     print(f"✓ Topic ID: {topic_id}")
+    print(f"✓ Title: {title}")
 
     # Create topic directory
     topic_path = Path("topics") / topic_id
@@ -466,12 +524,13 @@ def migrate_topic(topic_name: str) -> bool:
     if slides:
         frontmatter, _ = extract_frontmatter(slides[0])
 
-    # Extract continues_to from last slide's footnote
+    # Extract continues_to and previous_to from last slide's footnote
     continues_to = None
+    previous_to = None
     if slides:
         last_slide = slides[-1]
-        cleaned_last_slide, continues_to = extract_continues_to(last_slide)
-        if continues_to:
+        cleaned_last_slide, continues_to, previous_to = extract_continues_to(last_slide)
+        if continues_to or previous_to:
             slides[-1] = cleaned_last_slide
 
     # Extract and copy images
@@ -516,7 +575,7 @@ def migrate_topic(topic_name: str) -> bool:
     print(f"✓ Created: {content_yaml_path}")
 
     # Write metadata.yaml
-    metadata = create_metadata(topic_name, topic_id, arch_num, frontmatter, continues_to)
+    metadata = create_metadata(title, topic_id, arch_num, frontmatter, continues_to, previous_to)
     metadata_yaml_path = topic_path / "metadata.yaml"
     with open(metadata_yaml_path, 'w') as f:
         yaml.dump(metadata, f, default_flow_style=False, sort_keys=False)
@@ -525,7 +584,7 @@ def migrate_topic(topic_name: str) -> bool:
     # Create .claude directory and CLAUDE.md
     claude_dir = topic_path / ".claude"
     claude_dir.mkdir()
-    claude_md = create_claude_context(topic_name, topic_id, arch_num)
+    claude_md = create_claude_context(title, topic_id, arch_num)
     (claude_dir / "CLAUDE.md").write_text(claude_md)
     print(f"✓ Created: {claude_dir / 'CLAUDE.md'}")
 

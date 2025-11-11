@@ -1,0 +1,25 @@
+topic_id: startup
+title: Startup
+training:
+  questions:
+  - What happens when Galaxy starts?
+  - What is the startup sequence?
+  - What gets loaded during startup?
+  objectives:
+  - Understand the Galaxy startup sequence
+  - Learn about configuration initialization
+  - Understand dependency installation
+  - Learn about database migrations and plugin loading
+  key_points:
+  - 'Startup: clone, config copy, venv, dependencies, migrations'
+  - Datatypes, tools, and plugins loaded at startup
+  - Database migrations run on first startup
+  - Default setup 'just works' for development
+  time_estimation: 15m
+  previous_to: dependencies
+  continues_to: production
+sphinx:
+  section: Architecture
+  subsection: Startup
+related_topics: []
+related_code_paths: []

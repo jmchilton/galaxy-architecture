@@ -36,20 +36,20 @@ We're here to answer your questions about Galaxy architecture!
 
 More links we'll mention as we go through the slides:
 
-- https://matrix.to/#/#galaxyproject_Lobby:gitter.im
-- https://matrix.to/#/#galaxyproject_dev:gitter.im
-- https://matrix.to/#/#galaxyproject_admins:gitter.im
-- https://matrix.to/#/#galaxyproject_FederatedGalaxy:gitter.im
-- https://matrix.to/#/#galaxyproject_bioblend:gitter.im
-- https://matrix.to/#/#galaxyproject_ephemeris:gitter.im
-- https://matrix.to/#/#usegalaxy-eu_Lobby:gitter.im
-- https://matrix.to/#/#galaxy-iuc_iuc:gitter.im
-- https://matrix.to/#/#bgruening_docker-galaxy-stable:gitter.im
-- https://matrix.to/#/#Galaxy-Training-Network_Lobby:gitter.im
-- https://matrix.to/#/#biocontainers_Lobby:gitter.im
-- https://matrix.to/#/#bioconda_Lobby:gitter.im
+- [https://matrix.to/#/#galaxyproject_Lobby:gitter.im](https://matrix.to/#/#galaxyproject_Lobby:gitter.im)
+- [https://matrix.to/#/#galaxyproject_dev:gitter.im](https://matrix.to/#/#galaxyproject_dev:gitter.im)
+- [https://matrix.to/#/#galaxyproject_admins:gitter.im](https://matrix.to/#/#galaxyproject_admins:gitter.im)
+- [https://matrix.to/#/#galaxyproject_FederatedGalaxy:gitter.im](https://matrix.to/#/#galaxyproject_FederatedGalaxy:gitter.im)
+- [https://matrix.to/#/#galaxyproject_bioblend:gitter.im](https://matrix.to/#/#galaxyproject_bioblend:gitter.im)
+- [https://matrix.to/#/#galaxyproject_ephemeris:gitter.im](https://matrix.to/#/#galaxyproject_ephemeris:gitter.im)
+- [https://matrix.to/#/#usegalaxy-eu_Lobby:gitter.im](https://matrix.to/#/#usegalaxy-eu_Lobby:gitter.im)
+- [https://matrix.to/#/#galaxy-iuc_iuc:gitter.im](https://matrix.to/#/#galaxy-iuc_iuc:gitter.im)
+- [https://matrix.to/#/#bgruening_docker-galaxy-stable:gitter.im](https://matrix.to/#/#bgruening_docker-galaxy-stable:gitter.im)
+- [https://matrix.to/#/#Galaxy-Training-Network_Lobby:gitter.im](https://matrix.to/#/#Galaxy-Training-Network_Lobby:gitter.im)
+- [https://matrix.to/#/#biocontainers_Lobby:gitter.im](https://matrix.to/#/#biocontainers_Lobby:gitter.im)
+- [https://matrix.to/#/#bioconda_Lobby:gitter.im](https://matrix.to/#/#bioconda_Lobby:gitter.im)
 
-Working group chats linked at https://galaxyproject.org/community/wg/.
+Working group chats linked at [https://galaxyproject.org/community/wg/.](https://galaxyproject.org/community/wg/.)
 
 **User-Facing Applications**
 
@@ -63,19 +63,19 @@ Also includes other web applications including the **ToolShed**.
 
 [galaxyproject/**cloudlaunch** ](https://github.com/galaxyproject/cloudlaunch)
 
-CloudLaunch web application to make it easy to launch images on a cloud, drives *https://launch.usegalaxy.org*
+CloudLaunch web application to make it easy to launch images on a cloud, drives *[https://launch.usegalaxy.org*](https://launch.usegalaxy.org*)
 
 [galaxyproject/**training-material** ](https://github.com/galaxyproject/training-material)
 
 ![logo](../_images/GTNLogo1000.png)
 
-Galaxy training material for scientists, developers, and admins. Powers *https://training.galaxyproject.org/*.
+Galaxy training material for scientists, developers, and admins. Powers *[https://training.galaxyproject.org/*.](https://training.galaxyproject.org/*.)
 
 [galaxyproject/**hub** ](https://github.com/galaxyproject/galaxy-hub)
 
 The Galaxy Hub is the community and documentation hub for the Galaxy Project. It is maintained by the community through this GitHub repository. It is a static website built using the metalsmith static site generator.
 
-Powers *https://galaxyproject.org/*.
+Powers *[https://galaxyproject.org/*.](https://galaxyproject.org/*.)
 
 [galaxyproject/**bioblend** ](https://github.com/galaxyproject/bioblend)
 

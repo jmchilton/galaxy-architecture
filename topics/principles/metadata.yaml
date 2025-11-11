@@ -1,0 +1,24 @@
+topic_id: principles
+title: Principles
+training:
+  questions:
+  - What are the guiding principles of Galaxy architecture?
+  - Why is the frontend opinionated but the backend plugin-driven?
+  - Who are the target audiences for each component?
+  objectives:
+  - Understand the contrasting philosophies of frontend vs backend
+  - Learn why Galaxy is designed for flexibility
+  - Identify the target users for each layer
+  key_points:
+  - 'Frontend: opinionated, consistent, for bench scientists'
+  - 'Backend: plugin-driven, flexible, for administrators'
+  - Galaxy runs out of the box with minimal dependencies
+  - Architecture balances simplicity and extensibility
+  time_estimation: 10m
+  previous_to: project-management
+  continues_to: files
+sphinx:
+  section: Architecture
+  subsection: Principles
+related_topics: []
+related_code_paths: []

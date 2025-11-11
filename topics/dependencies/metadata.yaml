@@ -1,0 +1,24 @@
+topic_id: dependencies
+title: Dependencies
+training:
+  questions:
+  - How does Galaxy manage dependencies?
+  - What is the virtualenv used for?
+  - Where do JavaScript dependencies come from?
+  objectives:
+  - Understand Python dependency management
+  - Understand JavaScript dependency management
+  - Learn about the wheels server
+  key_points:
+  - 'Python: virtualenv with pip and wheels from galaxyproject.org'
+  - 'JavaScript: npm/yarn with package.json'
+  - No compilation required by default
+  - Binary wheels for fast installation
+  time_estimation: 5m
+  previous_to: client
+  continues_to: startup
+sphinx:
+  section: Architecture
+  subsection: Dependencies
+related_topics: []
+related_code_paths: []
