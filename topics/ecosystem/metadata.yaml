@@ -1,0 +1,15 @@
+topic_id: ecosystem
+title: Ecosystem
+training:
+  questions:
+  - What is Ecosystem?
+  objectives:
+  - Understand Ecosystem
+  key_points:
+  - Key concept about Ecosystem
+  time_estimation: 30m
+sphinx:
+  section: Architecture
+  subsection: Ecosystem
+related_topics: []
+related_code_paths: []
