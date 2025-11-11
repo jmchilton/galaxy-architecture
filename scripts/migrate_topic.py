@@ -210,6 +210,8 @@ def create_content_blocks(slides: list[str], frontmatter: dict) -> list[dict]:
     """Convert slides to content.yaml block format.
 
     Extracts Remark.js directives into slide metadata.
+    Removes headings from content (used as slide title).
+    Preserves speaker notes (everything after ???) for slide use.
     Skips the first slide if it's frontmatter, starts from actual content.
     Returns list of content block dictionaries.
     """
@@ -231,16 +233,24 @@ def create_content_blocks(slides: list[str], frontmatter: dict) -> list[dict]:
         heading_match = re.search(r'^#+\s+(.+?)$', content, re.MULTILINE)
         heading = heading_match.group(1).strip() if heading_match else ""
 
+        # Remove heading from content if found (used as slide title)
+        if heading_match:
+            content = content[:heading_match.start()] + content[heading_match.end():]
+
+        # Keep speaker notes (everything after ???) - Sphinx build will strip them
+        content = content.strip()
+
         # Skip slides with no real content and no heading
-        if not heading and not content.strip():
+        if not heading and not content:
             continue
 
         # Generate ID from heading, or use content preview
         if heading:
             block_id = kebab_case(heading)
         else:
-            # Use first meaningful content for ID
-            preview = re.sub(r'\s+', ' ', content[:40]).strip()
+            # Use first meaningful content for ID (before speaker notes)
+            content_preview = content.split('???')[0] if '???' in content else content
+            preview = re.sub(r'\s+', ' ', content_preview[:40]).strip()
             block_id = kebab_case(preview) if preview else f"slide-{i}"
 
         # Ensure unique ID

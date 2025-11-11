@@ -1,26 +1,17 @@
 - type: slide
   id: galaxy-ecosystem-and-projects
   heading: Galaxy Ecosystem and Projects
-  content: '# Galaxy Ecosystem and Projects
-
-
-    *The architecture of the ecosystem.*'
+  content: '*The architecture of the ecosystem.*'
   layout: introduction_slides
   topic_name: Galaxy Architecture
 - type: slide
   id: please-interrupt
   heading: Please Interrupt!
-  content: '### Please Interrupt!
-
-
-    We''re here to answer your questions about Galaxy architecture!'
+  content: We're here to answer your questions about Galaxy architecture!
 - type: slide
   id: the-galaxyproject-projects
   heading: The **/galaxyproject** projects
-  content: '## The **/galaxyproject** projects
-
-
-    *The architecture of the ecosystem.*
+  content: '*The architecture of the ecosystem.*
 
 
     ???
@@ -34,10 +25,7 @@
 - type: slide
   id: lots-of-gitter-actually
   heading: Lots of Gitter actually
-  content: '# Lots of Gitter actually
-
-
-    ![galaxyproject gitter landing](../../images/gitter_galaxyproject.png)
+  content: '![galaxyproject gitter landing](../../images/gitter_galaxyproject.png)
 
 
     https://gitter.im/galaxyproject'
@@ -132,14 +120,14 @@
 - type: slide
   id: tools-aside-more-repositories
   heading: Tools Aside - More Repositories
-  content: "### Tools Aside - More Repositories\n\nOther repositories with high quality\
-    \ tools:\n\n * [Bj\xF6rn Gr\xFCning's repo](https://github.com/bgruening/galaxytools)\n\
-    \ * Peter Cock's repos:\n   * [blast repo](https://github.com/peterjc/galaxy_blast)\n\
-    \   * [pico repo](https://github.com/peterjc/pico_galaxy)\n   * [mira repo](https://github.com/peterjc/galaxy_mira)\n\
-    \ * [ENCODE tools](https://github.com/modENCODE-DCC/Galaxy)\n * [Biopython repo](https://github.com/biopython/galaxy_packages)\n\
-    \ * [Galaxy Proteomics repo](https://github.com/galaxyproteomics/tools-galaxyp)\n\
-    \ * [Greg von Kuster's repo](https://github.com/gregvonkuster/galaxy-csg)\n *\
-    \ [TGAC repo](https://github.com/TGAC/tgac-galaxytools)\n * [AAFC-MBB Canada repo](https://github.com/AAFC-MBB/Galaxy/tree/master/wrappers)\n\
+  content: "Other repositories with high quality tools:\n\n * [Bj\xF6rn Gr\xFCning's\
+    \ repo](https://github.com/bgruening/galaxytools)\n * Peter Cock's repos:\n  \
+    \ * [blast repo](https://github.com/peterjc/galaxy_blast)\n   * [pico repo](https://github.com/peterjc/pico_galaxy)\n\
+    \   * [mira repo](https://github.com/peterjc/galaxy_mira)\n * [ENCODE tools](https://github.com/modENCODE-DCC/Galaxy)\n\
+    \ * [Biopython repo](https://github.com/biopython/galaxy_packages)\n * [Galaxy\
+    \ Proteomics repo](https://github.com/galaxyproteomics/tools-galaxyp)\n * [Greg\
+    \ von Kuster's repo](https://github.com/gregvonkuster/galaxy-csg)\n * [TGAC repo](https://github.com/TGAC/tgac-galaxytools)\n\
+    \ * [AAFC-MBB Canada repo](https://github.com/AAFC-MBB/Galaxy/tree/master/wrappers)\n\
     \ * [Mark Einon's repo](https://gitlab.com/einonm/galaxy-tools)"
 - type: slide
   id: intergalactic-workflow-commission-hosti
@@ -251,19 +239,13 @@
 - type: slide
   id: ephemeris-vs-gxadmin
   heading: ephemeris vs gxadmin
-  content: '### ephemeris vs gxadmin
-
-
-    Ephemeris generally talks to the Galaxy API and is a pure Python project, gxadmin
-    talks directly to the Galaxy database and relevant files.'
+  content: Ephemeris generally talks to the Galaxy API and is a pure Python project,
+    gxadmin talks directly to the Galaxy database and relevant files.
   class: enlarge150
 - type: slide
   id: total-perspective-vortex
   heading: Total Perspective Vortex
-  content: '### Total Perspective Vortex
-
-
-    [galaxyproject/total-perspective-vortex **](https://github.com/galaxyproject/total-perspective-vortex)
+  content: '[galaxyproject/total-perspective-vortex **](https://github.com/galaxyproject/total-perspective-vortex)
 
 
     ![TPV Logo](https://raw.githubusercontent.com/galaxyproject/total-perspective-vortex/main/docs/images/tpv-logo-wide.png)
@@ -280,10 +262,7 @@
 - type: slide
   id: some-out-of-many-friends-of-the-project
   heading: Some (out of many) friends of the project
-  content: '### Some (out of many) friends of the project
-
-
-    ![Bioconda](../../../../shared/images/conda_logo.png)
+  content: '![Bioconda](../../../../shared/images/conda_logo.png)
 
 
     ![Biocontainers](../../images/biocontainers.png)
@@ -296,12 +275,9 @@
 - type: slide
   id: putting-it-all-together
   heading: Putting it all together
-  content: '## Putting it all together
-
-
-    ![Large graphic showing different domains and where different portions of the
-    Galaxy community can be found from Biology, Dev, Packaging, Deployment, Documentation,
-    Training, and Support.](../../images/galaxy_main_scheme.png)
+  content: '![Large graphic showing different domains and where different portions
+    of the Galaxy community can be found from Biology, Dev, Packaging, Deployment,
+    Documentation, Training, and Support.](../../images/galaxy_main_scheme.png)
 
 
     ???

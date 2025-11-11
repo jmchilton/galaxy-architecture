@@ -20,10 +20,16 @@ from models import load_metadata, load_content, ContentBlockType
 def process_markdown_for_sphinx(markdown: str, topic_id: str) -> str:
     """Process markdown for Sphinx compatibility.
 
+    - Strip speaker notes (everything after ???)
     - Fix image paths (../../images/ -> ../_images/)
     - Convert bare URLs to markdown links
     """
     import re
+
+    # Strip speaker notes (Remark.js notes: everything after ???)
+    # Keep only content before first ???
+    if '???' in markdown:
+        markdown = markdown.split('???')[0]
 
     # Fix image paths: ../../images/ becomes ../_images/
     # This assumes doc/source/architecture/ and images at doc/source/_images/
