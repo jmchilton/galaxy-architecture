@@ -88,14 +88,6 @@ def generate_topic_markdown(topic_id: str, topic_dir: Path) -> str:
     lines = [f"# {metadata.title}"]
     lines.append("")
 
-    # Add metadata as frontmatter comment
-    lines.append(f"**Status**: {metadata.status.value}")
-    lines.append(f"**Created**: {metadata.created}")
-    lines.append(f"**Last Updated**: {metadata.last_updated}")
-    if metadata.last_updated_by:
-        lines.append(f"**Last Updated By**: {metadata.last_updated_by}")
-    lines.append("")
-
     # Add overview if metadata has description
     if metadata.training.questions:
         lines.append("## Learning Questions")

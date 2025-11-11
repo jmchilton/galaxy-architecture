@@ -1,6 +1,5 @@
 """Pydantic models for metadata.yaml and content.yaml validation."""
 
-from datetime import date
 from enum import Enum
 from pathlib import Path
 from typing import Annotated, Literal, Optional
@@ -16,13 +15,6 @@ from pydantic import (
 # ============================================================================
 # Metadata Models
 # ============================================================================
-
-class TopicStatus(str, Enum):
-    """Status of topic documentation."""
-    DRAFT = "draft"
-    STABLE = "stable"
-    DEPRECATED = "deprecated"
-
 
 class TrainingMetadata(BaseModel):
     """Training slide metadata.
@@ -43,46 +35,7 @@ class SphinxMetadata(BaseModel):
     """
     section: Annotated[str, Field(description="Top-level section (e.g., 'Architecture')")]
     subsection: Annotated[Optional[str], Field(None, description="Subsection within the section")]
-    level: Annotated[
-        Literal["beginner", "intermediate", "advanced"],
-        Field("intermediate", description="Target audience level")
-    ]
-    toc_depth: Annotated[int, Field(2, ge=1, le=6, description="Table of contents depth")]
 
-
-class HubMetadata(BaseModel):
-    """Galaxy Hub article metadata.
-
-    Metadata for publishing to galaxyproject.org Hub.
-    """
-    audience: Annotated[list[str], Field(description="Target audiences (e.g., 'developers', 'admins')")]
-    tags: Annotated[list[str], Field(description="Tags for categorization and search")]
-
-
-class ClaudeMetadata(BaseModel):
-    """Claude AI context metadata.
-
-    Guides how Claude should prioritize and use this content.
-    """
-    priority: Annotated[
-        Literal["low", "medium", "high"],
-        Field("medium", description="Priority for Claude's context loading")
-    ]
-    focus_areas: Annotated[list[str], Field(description="Key areas Claude should focus on")]
-
-
-class ImageMetadata(BaseModel):
-    """Image reference metadata."""
-    path: Annotated[str, Field(description="Path to image relative to topic directory")]
-    alt: Annotated[str, Field(description="Alt text for accessibility")]
-
-    @field_validator('path')
-    @classmethod
-    def validate_path_format(cls, v: str) -> str:
-        """Validate image path format."""
-        if v.startswith('/'):
-            raise ValueError("Image path should be relative, not absolute")
-        return v
 
 
 class TopicMetadata(BaseModel):
@@ -94,17 +47,10 @@ class TopicMetadata(BaseModel):
     # Required fields
     topic_id: Annotated[str, Field(description="Unique identifier (lowercase, hyphenated)")]
     title: Annotated[str, Field(description="Human-readable title")]
-    status: Annotated[TopicStatus, Field(description="Current status of the documentation")]
-
-    # Tracking
-    created: Annotated[date, Field(description="Date topic was created")]
-    last_updated: Annotated[date, Field(description="Date of last significant update")]
-    last_updated_by: Annotated[str, Field(description="GitHub username of last updater")]
 
     # Output format metadata
     training: Annotated[TrainingMetadata, Field(description="Training slide configuration")]
     sphinx: Annotated[Optional[SphinxMetadata], Field(None, description="Sphinx documentation configuration")]
-    hub: Annotated[Optional[HubMetadata], Field(None, description="Galaxy Hub article configuration")]
 
     # Cross-references
     related_topics: Annotated[
@@ -114,19 +60,6 @@ class TopicMetadata(BaseModel):
     related_code_paths: Annotated[
         list[str],
         Field(default_factory=list, description="Galaxy code paths relevant to this topic")
-    ]
-
-    # AI context
-    claude: Annotated[Optional[ClaudeMetadata], Field(None, description="Claude AI context configuration")]
-
-    # Contributors and images
-    contributors: Annotated[
-        list[str],
-        Field(default_factory=list, description="GitHub usernames of contributors")
-    ]
-    images: Annotated[
-        list[ImageMetadata],
-        Field(default_factory=list, description="Images used in this topic")
     ]
 
     @field_validator('topic_id')
@@ -143,15 +76,6 @@ class TopicMetadata(BaseModel):
             raise ValueError("topic_id cannot start or end with hyphen")
         if '--' in v:
             raise ValueError("topic_id cannot contain consecutive hyphens")
-        return v
-
-    @field_validator('last_updated')
-    @classmethod
-    def validate_last_updated_after_created(cls, v: date, info) -> date:
-        """Ensure last_updated is not before created."""
-        created = info.data.get('created')
-        if created and v < created:
-            raise ValueError("last_updated cannot be before created date")
         return v
 
     @field_validator('related_topics')
@@ -509,11 +433,5 @@ def validate_topic_structure(
         related_dir = topics_dir / related_id
         if not related_dir.exists():
             raise ValueError(f"Related topic not found: {related_id}")
-
-    # Verify images exist
-    for img in metadata.images:
-        img_path = topic_dir / img.path
-        if not img_path.exists():
-            raise FileNotFoundError(f"Image not found: {img.path}")
 
     return metadata, content

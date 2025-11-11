@@ -14,12 +14,8 @@ from models import (
     ContentBlock,
     TrainingMetadata,
     SphinxMetadata,
-    HubMetadata,
-    ClaudeMetadata,
-    ImageMetadata,
     DocRenderConfig,
     SlideRenderConfig,
-    TopicStatus,
     ContentBlockType,
 )
 
@@ -149,9 +145,6 @@ def generate_schema_docs() -> str:
         "",
         document_model(TrainingMetadata, level=3),
         document_model(SphinxMetadata, level=3),
-        document_model(HubMetadata, level=3),
-        document_model(ClaudeMetadata, level=3),
-        document_model(ImageMetadata, level=3),
         "",
         "---",
         "",
