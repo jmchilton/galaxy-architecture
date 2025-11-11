@@ -18,6 +18,14 @@
 
 We're here to answer your questions about Galaxy architecture!
 
+## Chat:
+
+[galaxyproject Lobby](https://matrix.to/#/#galaxyproject_Lobby:gitter.im)
+
+**GitHub:** [github.com/galaxyproject ](https://github.com/galaxyproject)
+
+**Twitter:** #usegalaxy, @galaxyproject
+
 ## The **/galaxyproject** projects
 
 *The architecture of the ecosystem.*
@@ -28,9 +36,28 @@ We're here to answer your questions about Galaxy architecture!
 
 [https://gitter.im/galaxyproject](https://gitter.im/galaxyproject)
 
+More links we'll mention as we go through the slides:
+
+- https://matrix.to/#/#galaxyproject_Lobby:gitter.im
+- https://matrix.to/#/#galaxyproject_dev:gitter.im
+- https://matrix.to/#/#galaxyproject_admins:gitter.im
+- https://matrix.to/#/#galaxyproject_FederatedGalaxy:gitter.im
+- https://matrix.to/#/#galaxyproject_bioblend:gitter.im
+- https://matrix.to/#/#galaxyproject_ephemeris:gitter.im
+- https://matrix.to/#/#usegalaxy-eu_Lobby:gitter.im
+- https://matrix.to/#/#galaxy-iuc_iuc:gitter.im
+- https://matrix.to/#/#bgruening_docker-galaxy-stable:gitter.im
+- https://matrix.to/#/#Galaxy-Training-Network_Lobby:gitter.im
+- https://matrix.to/#/#biocontainers_Lobby:gitter.im
+- https://matrix.to/#/#bioconda_Lobby:gitter.im
+
+Working group chats linked at https://galaxyproject.org/community/wg/.
+
 ## User-Facing Applications
 
 
+
+## galaxyproject/galaxy
 
 The main Galaxy application.
 
@@ -38,13 +65,23 @@ Web interface, database model, job running, etc...
 
 Also includes other web applications including the **ToolShed**.
 
+## galaxyproject/cloudlaunch
+
+CloudLaunch web application to make it easy to launch images on a cloud, drives *https://launch.usegalaxy.org*
+
+## galaxyproject/training-material
+
 ![logo]({{ site.baseurl }}/assets/images/GTNLogo1000.png)
 
 Galaxy training material for scientists, developers, and admins. Powers *https://training.galaxyproject.org/*.
 
+## galaxyproject/hub
+
 The Galaxy Hub is the community and documentation hub for the Galaxy Project. It is maintained by the community through this GitHub repository. It is a static website built using the metalsmith static site generator.
 
 Powers *https://galaxyproject.org/*.
+
+## galaxyproject/bioblend
 
 Official Python client for the Galaxy, ToolShed, and CloudMan APIs.
 
@@ -52,8 +89,12 @@ Best documented path to scripting the Galaxy API.
 
 Galaxy API bindings for other languages, less actively maintained.
 
+## galaxyproject/cloudman
+
 Galaxy CloudMan - a web application which manages a Galaxy Kubernetes cluster in
 the cloud.
+
+## bgruening/docker-galaxy-stable
 
 High quality Docker containers for stable Galaxy environments.
 
@@ -66,6 +107,8 @@ Many flavors available.
 ## For Plugin Developers
 
 
+
+## galaxyproject/tools-iuc
 
 Galaxy tools maintained by the *IUC* ("Intergalactic Utilities Commission").
 
@@ -95,9 +138,13 @@ Other repositories with high quality tools:
  * [AAFC-MBB Canada repo](https://github.com/AAFC-MBB/Galaxy/tree/master/wrappers)
  * [Mark Einon's repo](https://gitlab.com/einonm/galaxy-tools)
 
+## galaxyproject/iwc
+
 Intergalactic Workflow Commission. Hosting workflows and defining best practices for publishing workflows.
 
 [https://matrix.to/#/#galaxyproject_iwc:gitter.im](https://matrix.to/#/#galaxyproject_iwc:gitter.im)
+
+## galaxyproject/planemo
 
 Command-line utilities to assist in the development of Galaxy tools and workflows.
 Linting, testing, deploying to ToolSheds...
@@ -109,11 +156,23 @@ Linting, testing, deploying to ToolSheds...
 Builds Galaxy environments for Galaxy tool development including Docker
 container, virtual machines, Google compute images
 
+## galaxyproject/galaxy-language-server
+
+![Galaxy Language Server](https://github.com/galaxyproject/galaxy-language-server/raw/assets/snippets.gif)
+
 Language server implementation for Galaxy tools. Visual Studio Code extension for tool development.
 
 Test execution, code completion, best practices, documentation tooltips, etc..
 
+## galaxyproject/starforge
+
+![StarForge logo](https://raw.githubusercontent.com/galaxyproject/starforge/master/docs/starforge_logo.png)
+
 Build Galaxy framework dependencies as Python wheels when needed.
+
+## galaxyproject/cargo-port
+
+![Cargo Port Logo](https://raw.githubusercontent.com/galaxyproject/cargo-port/master/media/cpc-plain-small.png)
 
 Provides stable URLs and caching for application links, etc.. An important layer for reproducibility but largely transparent.
 
@@ -121,14 +180,18 @@ Provides stable URLs and caching for application links, etc.. An important layer
 
 
 
+## Ansible
+
 galaxyproject/**{ansible-\*, \*-playbook}**<br>
 usegalaxy-eu/**{ansible-\*, \*-playbook}**
 
-[Ansible](https://www.ansible.com/) components to automate almost every aspect of Galaxy installation and maintenance.
+ components to automate almost every aspect of Galaxy installation and maintenance.
 
 Ansible is an advanced configuration management system
 
 These playbooks are used to maintain Galaxy main, cloud and Docker images, virtual machines, ...
+
+## galaxyproject/gravity
 
 A process manager (supervisor) and management tools for Galaxy servers.
 
@@ -136,7 +199,13 @@ A process manager (supervisor) and management tools for Galaxy servers.
 
 `galaxy` which can be used to run a Galaxy server in the foreground.
 
+## galaxyproject/galaxy-helm
+
 Kubernetes helm chart for deploying Galaxy. Leveraged by cloudlaunch and CloudMan but usable standalone.
+
+## galaxyproject/pulsar
+
+![Pulsar Logo](https://galaxyproject.org/images/galaxy-logos/pulsar_transparent.png)
 
 Distributed job execution engine for Galaxy.
 
@@ -146,9 +215,13 @@ Can run jobs on Windows machines.
 
 Can act as its own queuing system or access an existing cluster DRM.
 
+## galaxyproject/ephemeris
+
 Library and CLI for managing Galaxy plugins - tools, index data, and workflows.
 
 Layer on top of BioBlend building useful utilities for working with the Galaxy API from an administrator perspective.
+
+## galaxyproject/gxadmin
 
 Handy command-line utility for Galaxy administrators.
 
@@ -164,6 +237,10 @@ Ephemeris generally talks to the Galaxy API and is a pure Python project, gxadmi
 
 TotalPerspectiveVortex (TPV) provides an installable set of dynamic rules for the Galaxy application that can route entities (Tools, Users, Roles) to appropriate job destinations based on a configurable yaml file.
 
+## usegalaxy-eu/tiaas2
+
+![TIAAS Logo](https://raw.githubusercontent.com/usegalaxy-eu/tiaas2/master/images/tiaas-logo.png)
+
 Django-based infrastructure for creating pools of users, etc.. for training events and connecting them to Galaxy.
 
 ## Some (out of many) friends of the project
@@ -178,6 +255,8 @@ for more context.
 ## Putting it all together
 
 ![Large graphic showing different domains and where different portions of the Galaxy community can be found from Biology, Dev, Packaging, Deployment, Documentation, Training, and Support.](../_images/galaxy_main_scheme.png)
+
+## galaxyproject/galaxy
 
 The rest of the slides will focus on the core repository.
 

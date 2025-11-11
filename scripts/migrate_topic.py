@@ -174,11 +174,12 @@ def extract_remark_directives(slide: str) -> tuple[dict, str]:
         # Empty lines are OK within directives
         if stripped == '':
             directive_end = i + 1
-        # Lines with key: value pattern (but not markdown headings with #:)
-        elif ':' in line and not line.strip().startswith('#'):
+        # Lines with key: value pattern (simple directives like "class: enlarge150")
+        # Must start with word chars (not URLs, markdown, etc)
+        elif re.match(r'^[\w_-]+:', stripped) and not line.strip().startswith('#'):
             directive_end = i + 1
         # List items with indentation
-        elif line.strip().startswith('- ') or (line.startswith('  ') and ':' in line):
+        elif line.strip().startswith('- ') or (line.startswith('  ') and re.match(r'^[\w_-]+:', stripped)):
             directive_end = i + 1
         else:
             # Hit non-directive content, stop here
@@ -240,6 +241,15 @@ def create_content_blocks(slides: list[str], frontmatter: dict) -> list[dict]:
             if bold_match:
                 heading = bold_match.group(1).strip()
                 heading_match = bold_match
+
+        # Fallback: try to extract heading from markdown link [text](url)
+        if not heading:
+            link_match = re.search(r'^\[([^\]]+)\]\([^\)]*\)', content, re.MULTILINE)
+            if link_match:
+                link_text = link_match.group(1).strip()
+                # Remove markdown bold formatting (**text** -> text)
+                heading = re.sub(r'\*\*([^*]+)\*\*', r'\1', link_text).strip()
+                heading_match = link_match
 
         # Remove heading from content if found (used as slide title)
         if heading_match:
