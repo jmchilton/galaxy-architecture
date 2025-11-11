@@ -1,14 +1,31 @@
-# Sphinx Output Plan
+# Sphinx Output Implementation
 
-This document outlines the plan for generating Galaxy Sphinx documentation from topic content.
+**Status**: Phase 5 (Testing in Standalone Project) - COMPLETE ✅
 
-## Overview
+This document describes the Sphinx documentation generation system and remaining work.
 
-The plan includes two main phases:
-1. **Standalone Test Project**: Set up a Sphinx project in this repository that mirrors Galaxy's setup, allowing local testing and preview
-2. **Galaxy Integration**: Eventually integrate generated docs into Galaxy's documentation structure
+## Current Status (2025-11-11)
 
-This approach allows us to test and iterate locally before making changes to Galaxy's repository.
+### Completed ✅
+
+- **Phase 1**: Standalone Sphinx project set up in `doc/` directory
+- **Phase 2**: Galaxy's documentation structure studied and understood
+- **Phase 3**: `outputs/sphinx-docs/build.py` fully implemented
+- **Phase 4**: Markdown processing complete with all transformations
+- **Phase 5**: Testing with standalone project - all 13 topics generating successfully
+  - All markdown files rendering correctly
+  - Images displaying properly
+  - Topic ordering via `continues_to`/`previous_to` chain working
+  - Sphinx build quality verified as "not choppy"
+
+### Verified ✅
+
+- Sphinx output quality is good (not as choppy as initially worried)
+- `continues_to`/`previous_to` topic sequencing chain works correctly
+- Image paths properly converted (../../images/ → ../_images/)
+- All 13 topics generate without errors
+- URL hyperlinking working (bare URLs → markdown links)
+- Remark.js directives (.pull-left/.pull-right) converted to side-by-side layout with dividers
 
 ## Galaxy's Sphinx Setup
 
@@ -50,411 +67,340 @@ doc/source/
 └── project/               # Project docs
 ```
 
-## Implementation Plan
+## Remaining Work
 
-### Goal
+### Immediate Next Steps (High Priority)
 
-Generate Markdown files for Galaxy's Sphinx documentation from topic content. **No RST conversion needed** - Galaxy already supports Markdown via MyST parser.
+#### 1. Add "View as Slides" Link to Sphinx Docs
 
-### Approach
+**Goal**: Each topic's Sphinx documentation should have a link to view it as training slides
 
-1. **Set up standalone Sphinx project** in this repository (test bed)
-2. **Generate Markdown files** directly (no conversion)
-3. **Use MyST extensions** for advanced features
-4. **Test locally** before integrating with Galaxy
-5. **Eventually integrate** with Galaxy's existing structure (`doc/source/dev/architecture/`)
+**Implementation**:
+- Add link to top/bottom of each topic markdown: "View this content as slides"
+- Link format: `outputs/training-slides/generated/architecture-<topic-id>/slides.html`
+- Consider adding to template or as a MyST directive
+- Update `outputs/sphinx-docs/build.py` to inject this link
 
-### Tasks
+**Options**:
+1. **Simple approach**: Add to top of each generated markdown file
+   ```markdown
+   > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-{topic}/slides.html)
 
-#### Phase 1: Set Up Standalone Sphinx Test Project
+   # Topic Title
+   ```
 
-**Goal**: Create a standalone Sphinx project in this repository that mirrors Galaxy's setup, allowing us to test and preview documentation locally before integrating into Galaxy.
+2. **Fancy approach**: Create MyST directive for consistent styling
+   ```markdown
+   ```{note}
+   📊 [View this content as training slides](../...)
+   ```
+   ```
 
-**Location**: `doc/` directory in this repository
+**Status**: Not yet implemented
 
-**Structure**:
+#### 2. Add Prose Content to Topics
+
+**Goal**: Flesh out topics with additional explanatory content beyond slides
+
+**Current State**:
+- Topics contain mostly slide content (good for presentations)
+- Some topics lack detailed explanations needed for documentation
+
+**Work Needed**:
+1. Identify which topics need additional prose:
+   - ecosystem - broad topic, may need more detail
+   - frameworks - could use more examples
+   - plugin-system - conceptual overview missing
+   - Others as discovered
+
+2. Write extended explanations for each
+3. Organize as separate sections in content.yaml
+4. Test rendering in Sphinx
+
+**Status**: Not started - optional for initial release
+
+#### 3. Verify Sphinx Build Quality
+
+**Goal**: Test full Sphinx documentation build to ensure Galaxy integration readiness
+
+**What to Test**:
+- Run `cd doc && make html` locally
+- Check for warnings or errors
+- Verify HTML rendering matches Galaxy's style
+- Test cross-references and links
+- Check image loading
+- Verify mobile rendering
+
+**Command**:
+```bash
+cd doc && make html
+# Open doc/build/html/index.html in browser
 ```
-doc/
-├── Makefile              # Copied from Galaxy (simplified)
-├── source/
-│   ├── conf.py          # Based on Galaxy's conf.py (standalone version)
-│   ├── index.md         # Main index for architecture docs
-│   ├── _static/         # Static files (CSS, etc.)
-│   │   └── style.css    # Copied from Galaxy
-│   ├── _templates/      # Custom templates
-│   │   └── layout.html  # Copied from Galaxy
-│   └── architecture/    # Generated architecture docs
-│       ├── index.md
-│       ├── dependency-injection.md
-│       └── ...
-└── build/               # Generated HTML (gitignored)
-```
+
+**Status**: Not yet done
+
+### Medium-term Work (Phase 6: Galaxy Integration)
+
+#### 1. Plan Galaxy Integration
+
+**Goal**: Prepare for eventual migration into Galaxy's official documentation
 
 **Tasks**:
+1. Identify exact location in Galaxy docs: `doc/source/dev/architecture/`
+2. Plan how to handle:
+   - Existing architecture docs in training-material
+   - Version numbering and deprecation
+   - Image storage in Galaxy repo
+   - Build process integration
+3. Create integration checklist
+4. Document the migration process
 
-1. **Create doc/ directory structure**
-   ```bash
-   mkdir -p doc/source/{_static,_templates,architecture}
-   ```
+**Status**: Planning phase
 
-2. **Copy Galaxy's configuration** (`~/workspace/galaxy/doc/source/conf.py`)
-   - Adapt for standalone use (remove Galaxy-specific imports)
-   - Keep MyST parser configuration
-   - Keep theme settings (sphinx_rtd_theme)
-   - Keep static/template paths
-   - Remove autodoc and Galaxy-specific code
+#### 2. Create Automation for Slide Sync
 
-3. **Copy Galaxy's static files**
-   - `_static/style.css` - Custom CSS
-   - Any other static assets needed
+**Goal**: Keep training-material slides in sync with source content
 
-4. **Copy Galaxy's templates**
-   - `_templates/layout.html` - Custom layout template
+**Approach**:
+- Build script to detect changes in topics/
+- Auto-regenerate slides via outputs/training-slides/build.py
+- Copy HTML slides to training-material repo
+- Eventually: GitHub Actions for automated syncing
 
-5. **Create simplified Makefile**
-   - Based on Galaxy's Makefile
-   - Remove Galaxy-specific targets
-   - Keep basic `html`, `clean` targets
+**Current State**:
+- Manual builds work fine
+- No automation yet
 
-6. **Create initial index.md**
-   ```markdown
-   # Galaxy Architecture Documentation
-   
-   This section documents Galaxy's internal architecture.
-   
-   .. toctree::
-     :maxdepth: 2
-     :caption: Architecture Topics
-   
-     architecture/index
-   ```
+**Status**: Not started - defer until Galaxy integration
 
-7. **Add Sphinx dependencies to pyproject.toml**
-   ```toml
-   [project.optional-dependencies]
-   dev = [
-     "pytest>=7.0.0",
-     "sphinx>=7.0.0",
-     "myst-parser>=2.0.0",
-     "sphinx-rtd-theme>=2.0.0",
-   ]
-   ```
+#### 3. Extend Sphinx Features
 
-8. **Test Sphinx build**
-   ```bash
-   cd doc
-   make html
-   # View at doc/build/html/index.html
-   ```
+**Goal**: Use more MyST features for enhanced documentation
 
-**Key Adaptations from Galaxy's Setup**:
-- Remove `sys.path.insert` for Galaxy lib (not needed)
-- Remove autodoc extensions (not documenting code)
-- Remove Galaxy version imports
-- Simplify to focus on architecture docs only
-- Keep MyST parser and theme settings identical
+**Possible Additions**:
+- Cross-references between topics (using MyST {ref} syntax)
+- Callout boxes for important concepts
+- Code examples with language highlighting
+- Tabbed content for different use cases
+- Search indexing optimization
 
-#### Phase 2: Study Galaxy's Documentation Structure
+**Status**: Not needed for initial release
 
-**Location**: `~/workspace/galaxy/doc/`
+### Long-term Work (Phase 7+)
 
-**What to review**:
-- How `.md` files are structured in existing docs
-- How they're included in `index.rst` files
-- What MyST features are commonly used
-- How cross-references work
-- Image handling
+1. **GitHub Hub Article Generation** - Use topics as source for galaxyproject.org articles
+2. **AI Training Integration** - Optimize topics for AI/agentic use cases
+3. **Interactive Tutorials** - Generate Jupyter notebooks from topics
+4. **API Documentation** - Auto-generate from code with architectural context
 
-**Example files to study**:
-- `doc/source/admin/production.md` - Full markdown example
-- `doc/source/dev/schema.md` - Developer doc example
-- `doc/source/dev/index.rst` - How markdown files are included
+---
 
-#### Phase 3: Create `outputs/sphinx-docs/build.py`
+## How It Works
 
-**Purpose**: Generate Markdown files for Galaxy Sphinx docs
+### Generation Process
 
-**Key Features**:
-- Load topic metadata and content
-- Generate MyST-compatible Markdown
-- Handle images (copy or reference)
-- Create proper heading structure
-- Generate index/table of contents
+The Sphinx documentation generation follows this pipeline:
 
-**Output Structure**:
+1. **Load Topics** (`scripts/models.py`)
+   - Load metadata.yaml (questions, objectives, key points, sequencing)
+   - Load content.yaml (content blocks organized by type)
+   - Validate with Pydantic v2
+
+2. **Build Sphinx Output** (`outputs/sphinx-docs/build.py`)
+   - Filter to slide-type blocks (prose skipped for Sphinx)
+   - Generate markdown with:
+     - Learning questions section
+     - Learning objectives section
+     - Content blocks (processed for Sphinx)
+     - Key takeaways section
+   - Process markdown:
+     - Strip speaker notes (content after `???`)
+     - Unwrap Remark.js directives (.code[], .reduce90[], etc.)
+     - Convert .pull-left/.pull-right to side-by-side divider format
+     - Fix image paths (../../images/ → ../_images/)
+     - Fix asset paths ({{ site.baseurl }}/assets/images/ → ../_images/)
+     - Convert bare URLs to markdown links [URL](URL)
+
+3. **Output Management**
+   - Generate to: `outputs/sphinx-docs/generated/architecture/`
+   - Copy to: `doc/source/architecture/` (for local build)
+   - Topic ordering via `continues_to` chain in index file
+
+4. **Build with Sphinx**
+   - Sphinx processes markdown via MyST parser
+   - Generates HTML documentation
+   - Output: `doc/build/html/`
+
+
+## Implementation Summary
+
+### Completed Components ✅
+
+1. **Standalone Sphinx Project** (`doc/` directory)
+   - ✅ Sphinx configuration (`doc/source/conf.py`)
+   - ✅ Makefile with build targets
+   - ✅ Static files and templates
+   - ✅ Builds successfully with `make html`
+
+2. **Build Script** (`outputs/sphinx-docs/build.py`)
+   - ✅ Loads topics via Pydantic v2 models
+   - ✅ Generates learning questions/objectives/key points
+   - ✅ Processes markdown with all transformations
+   - ✅ Handles image path conversion
+   - ✅ Manages topic ordering via `continues_to` chain
+   - ✅ Generates index files
+
+3. **Markdown Processing**
+   - ✅ Speaker notes stripping (per-block)
+   - ✅ Remark.js directive unwrapping
+   - ✅ .pull-left/.pull-right conversion to divider format
+   - ✅ Image path conversion (../../images/ → ../_images/)
+   - ✅ Asset path conversion ({{ site.baseurl }}/assets/images/ → ../_images/)
+   - ✅ Bare URL hyperlinking to markdown links
+
+4. **Testing**
+   - ✅ All 13 topics generating successfully
+   - ✅ Output quality verified as good (not choppy)
+   - ✅ Images displaying correctly
+   - ✅ Topic sequencing working correctly
+
+---
+
+## Remaining Deliverables
+
+### Priority 1: "View as Slides" Link (HIGH)
+
+**What**: Add link in each topic to view as training slides
+
+**Why**: Create connection between documentation and presentation formats
+
+**Where to add**:
+- Top of each Sphinx markdown file generated by `outputs/sphinx-docs/build.py`
+- Or in a note/callout box
+
+**Link format**:
 ```
-outputs/sphinx-docs/generated/
-└── architecture/
-    ├── index.md           # Architecture section index
-    ├── dependency-injection.md
-    ├── startup.md
-    └── ...
-```
-
-**Also copies to test project**:
-```
-doc/source/architecture/
-├── index.md               # Auto-updated from generated
-├── dependency-injection.md
-└── ...
-```
-
-**Implementation Notes**:
-- **No RST conversion** - output Markdown directly
-- Use MyST syntax for advanced features (directives, roles)
-- Preserve existing markdown structure from topics
-- Handle code blocks (already in markdown format)
-- Process images (copy to appropriate location or reference)
-
-#### Phase 4: Markdown Processing
-
-**What needs processing**:
-- **Images**: Convert `../../images/` paths to Sphinx-relative paths
-- **Code blocks**: Already in markdown, ensure language tags work
-- **Cross-references**: Use MyST syntax for internal links
-- **Metadata**: Convert YAML metadata to MyST frontmatter or directives
-
-**Example transformations**:
-```markdown
-# Input (from topic)
-![Alt](../../images/app_py2.plantuml.svg)
-
-# Output (for Sphinx)
-![Alt](../_images/app_py2.plantuml.svg)
-```
-
-#### Phase 5: Testing in Standalone Project
-
-**Test process**:
-1. Generate markdown files using `outputs/sphinx-docs/build.py`
-2. Copy generated files to `doc/source/architecture/`
-3. Update `doc/source/index.md` if needed
-4. Run `make html` in `doc/` directory
-5. View output at `doc/build/html/index.html`
-6. Verify formatting, images, cross-references
-7. Iterate until output matches Galaxy's style
-
-**Benefits of standalone project**:
-- Test without modifying Galaxy repo
-- Preview changes locally
-- Verify MyST features work correctly
-- Ensure images and paths are correct
-- Validate before integration
-
-#### Phase 6: Integration with Galaxy Docs (Future)
-
-**Location in Galaxy repo**:
-```
-doc/source/dev/architecture/
-├── index.md               # Architecture section index
-├── dependency-injection.md
-└── ...
+📊 [View this as training slides](../../../outputs/training-slides/generated/architecture-{topic-id}/slides.html)
 ```
 
-**Index file** (`doc/source/dev/index.rst`):
-```rst
-.. toctree::
-  :maxdepth: 1
-
-  schema
-  api_guidelines
-  ...
-  architecture/index        # Add architecture section
-```
-
-**Architecture index** (`doc/source/dev/architecture/index.md`):
-```markdown
-# Architecture Documentation
-
-This section documents Galaxy's internal architecture.
-
-.. toctree::
-  :maxdepth: 2
-
-  dependency-injection
-  startup
-  ...
-```
-
-#### Phase 7: Build Script Features
-
-**Core functionality**:
+**Implementation in build.py**:
 ```python
-def generate_sphinx_docs(topic_name):
-    """Generate Sphinx markdown for a topic."""
-    # Load topic
-    metadata, content = load_topic(topic_name)
-    
-    # Process markdown
-    # - Fix image paths
-    # - Add MyST frontmatter if needed
-    # - Handle cross-references
-    
-    # Write output
-    output_file = f"outputs/sphinx-docs/generated/architecture/{topic_name}.md"
-    output_file.write_text(processed_markdown)
+# After generating markdown, inject link at top
+slides_link = f"📊 [View as training slides](../../../outputs/training-slides/generated/architecture-{topic_id}/slides.html)\n\n"
+markdown = slides_link + markdown
 ```
 
-**Image handling**:
-- Copy images to `doc/source/_images/` or reference existing location
-- Update paths in generated markdown
+**Status**: ❌ Not implemented - ready to code
 
-**Metadata integration**:
-- Use MyST frontmatter for topic metadata
-- Or convert to Sphinx directives
+### Priority 2: Verify Full Sphinx Build (MEDIUM)
 
-#### Phase 8: Automation (Future)
+**What**: Test `make html` build to ensure Galaxy readiness
 
-**Integration options**:
-- **Manual**: Copy generated files to Galaxy repo
-- **Script**: Sync script to copy files
-- **CI**: Generate on changes, create PR to Galaxy
-- **Migration**: Once in Galaxy repo, generate as part of Galaxy's doc build
+**How**:
+1. Run `cd doc && make html`
+2. Verify no warnings or errors
+3. Check HTML rendering quality
+4. Test all cross-references and links
+5. Verify images load correctly
+6. Check responsive design
 
-## Key Differences from Training Slides
+**Expected output**: `doc/build/html/index.html`
 
-| Aspect | Training Slides | Sphinx Docs |
-|--------|---------------|-------------|
-| Format | HTML (Remark.js) | Markdown (MyST) |
-| Images | `../../images/` | `../_images/` or absolute |
-| Structure | Slides (sections) | Continuous docs |
-| Metadata | YAML frontmatter | MyST frontmatter or directives |
-| Code blocks | `.code[]` wrapper | Standard markdown |
-| Cross-refs | N/A | MyST link syntax |
+**Status**: ❌ Not yet tested
 
-## Implementation Notes
+### Priority 3: Add Prose Content (MEDIUM)
 
-### MyST Features to Use
+**What**: Expand topics beyond slide content
 
-- **Frontmatter**: For metadata
-- **Directives**: For special formatting
-- **Roles**: For inline formatting
-- **Cross-references**: `{ref}` role for internal links
-- **Substitutions**: For reusable content
+**Current state**: Topics contain mostly slides (good for presentations)
 
-### Image Strategy
+**Gaps**:
+- Some topics need more detailed explanations
+- Missing conceptual overviews for complex topics
+- Examples could be more detailed
 
-**Option 1**: Copy images to Galaxy's `_images/` directory
-- Pros: Self-contained, works offline
-- Cons: Duplication, sync needed
+**Approach**:
+1. Identify topics needing prose (ecosystem, frameworks, etc.)
+2. Write extended sections
+3. Add to content.yaml
+4. Regenerate Sphinx output
 
-**Option 2**: Reference images in this repo (if accessible)
-- Pros: Single source of truth
-- Cons: Requires repo to be accessible
+**Status**: ❌ Not started - optional for MVP
 
-**Option 3**: Generate images as part of Galaxy doc build
-- Pros: Always up-to-date
-- Cons: Requires PlantUML setup in Galaxy CI
+### Priority 4: Plan Galaxy Integration (LOW)
 
-**Recommendation**: Start with Option 1 (copy), migrate to Option 3 later.
+**What**: Prepare for eventual migration to Galaxy's doc structure
 
-### Metadata Handling
+**Tasks**:
+1. Document exact location: `~/workspace/galaxy/doc/source/dev/architecture/`
+2. Plan handling of:
+   - Existing architecture docs elsewhere
+   - Version numbering
+   - Image storage in Galaxy repo
+   - Build process integration
+3. Create integration checklist
+4. Document step-by-step migration process
 
-**Option 1**: MyST Frontmatter
-```markdown
----
-title: Dependency Injection in Galaxy
-status: stable
----
+**Status**: 🔄 Partially planned - needs documentation
 
-# Dependency Injection in Galaxy
-```
+### Priority 5: Automation & CI (FUTURE)
 
-**Option 2**: Sphinx Directives
-```markdown
-.. topic:: Dependency Injection in Galaxy
-   :status: stable
+**What**: Automate slide generation and syncing
 
-# Dependency Injection in Galaxy
-```
+**Scope**: Defer to Phase 7+
 
-**Recommendation**: Use MyST frontmatter for consistency with existing Galaxy docs.
+**Includes**:
+- GitHub Actions for validation
+- Auto-generate slides on topic changes
+- Sync to training-material repository
+- Build previews on PRs
 
-## Prerequisites
-
-- [x] Galaxy's doc structure available at `~/workspace/galaxy/doc/`
-- [ ] Set up standalone Sphinx project in this repo
-- [ ] Copy configuration and assets from Galaxy
-- [ ] Review existing `.md` files in Galaxy docs
-- [ ] Understand MyST parser features used
-- [ ] Test markdown generation in standalone project
-- [ ] Verify output matches Galaxy's style
-- [ ] Eventually verify integration with Galaxy's build
-
-## Dependencies
-
-- Galaxy's Sphinx setup (already exists)
-- MyST parser (already configured)
-- Topic content (from this repo)
-- Image files (from `images/` directory)
-
-## Success Criteria
-
-### Standalone Project
-- ✅ Sphinx project builds successfully (`make html`)
-- ✅ Output matches Galaxy's doc style and theme
-- ✅ Generated markdown files render correctly
-- ✅ Images display correctly
-- ✅ Cross-references work
-- ✅ Can preview locally before Galaxy integration
-
-### Future Integration
-- ✅ Generated markdown files build successfully in Galaxy's Sphinx
-- ✅ Formatting matches Galaxy doc style exactly
-- ✅ Can be integrated into Galaxy's doc build process
-- ✅ No manual editing needed after generation
-
-## Timeline
-
-**Phase 1**: Set up standalone Sphinx project (1-2 days)
-- Copy configuration from Galaxy
-- Copy static files and templates
-- Create simplified Makefile
-- Test basic Sphinx build
-- Add dependencies to pyproject.toml
-
-**Phase 2**: Study Galaxy's documentation structure (1 day)
-- Review existing `.md` files in Galaxy docs
-- Understand MyST features used
-- Study cross-reference patterns
-- Review image handling
-
-**Phase 3**: Build script (2-3 days)
-- Create `outputs/sphinx-docs/build.py`
-- Implement markdown processing
-- Handle images and paths
-- Generate architecture index
-
-**Phase 4**: Markdown processing (1 day)
-- Process image paths
-- Handle code blocks
-- Add MyST frontmatter
-- Test transformations
-
-**Phase 5**: Testing in standalone project (1-2 days)
-- Generate docs for existing topics
-- Build and preview locally
-- Verify formatting matches Galaxy style
-- Fix any issues
-
-**Phase 6**: Integration with Galaxy (future, 1-2 days)
-- Copy to Galaxy's `doc/source/dev/architecture/`
-- Update Galaxy's index files
-- Test in Galaxy's build
-- Document process
-
-**Total**: ~1-2 weeks (with standalone project setup)
-
-## Future Enhancements
-
-- Auto-generate architecture index from topics
-- Cross-reference between architecture topics
-- Link to code examples
-- Generate API docs from architecture topics
-- Integrate with Galaxy's doc build CI
+**Status**: ❌ Not started
 
 ---
 
-**Status**: Planning phase  
-**Last Updated**: 2025-01-15
+## How to Generate Sphinx Docs
+
+```bash
+# Generate markdown for all topics
+python outputs/sphinx-docs/build.py all
+
+# Build HTML locally
+cd doc && make html
+
+# View at browser
+open doc/build/html/index.html
+```
+
+All 13 topics are now in `doc/source/architecture/*.md` ready for building.
+
+---
+
+## Implementation Decisions
+
+### Image Strategy (COMPLETED)
+**Chosen**: Option 1 - Copy to doc/source/_images/
+- Implemented via migration scripts
+- All 40+ images already copied
+- Paths converted in generated markdown
+- Self-contained and works offline
+
+### Metadata Handling (COMPLETED)
+**Chosen**: Metadata sections in generated markdown
+- Learning questions as section
+- Learning objectives as section
+- Key takeaways as section
+- Simple, clean approach
+
+### Topic Ordering (COMPLETED)
+**Chosen**: `continues_to`/`previous_to` chain
+- Extracted from navigation footnotes
+- Used in Sphinx index toctree
+- Falls back to alphabetical if chain breaks
+- Maintains conceptual flow
+
+---
+
+**Status**: Phase 5 Complete - Ready for Priority 1 work
+**Last Updated**: 2025-11-11
 
