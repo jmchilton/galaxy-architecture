@@ -58,9 +58,15 @@ def find_source_directory(topic_name: str) -> Optional[tuple[Path, int]]:
     return None
 
 
-def extract_images_from_slides(slides: list[str]) -> set[str]:
-    """Extract image filenames referenced in slides."""
-    images = set()
+def extract_images_from_slides(slides: list[str]) -> tuple[set[str], set[str]]:
+    """Extract image filenames referenced in slides.
+
+    Returns (topic_images, asset_images) - two sets of filenames.
+    Topic images are from ../../images/ paths.
+    Asset images are from {{ site.baseurl }}/assets/ paths.
+    """
+    topic_images = set()
+    asset_images = set()
 
     for slide in slides:
         # Match markdown image syntax: ![alt](path/image.ext)
@@ -68,9 +74,14 @@ def extract_images_from_slides(slides: list[str]) -> set[str]:
         for alt, path in matches:
             # Get just the filename
             filename = Path(path).name
-            images.add(filename)
 
-    return images
+            # Categorize by path type
+            if '/assets/' in path or '{{ site.baseurl }}/assets/' in path:
+                asset_images.add(filename)
+            else:
+                topic_images.add(filename)
+
+    return topic_images, asset_images
 
 
 def copy_images(image_files: set[str], dest_dir: Path) -> list[str]:
@@ -92,6 +103,29 @@ def copy_images(image_files: set[str], dest_dir: Path) -> list[str]:
             copied.append(image_file)
         else:
             print(f"⚠️  Image not found: {image_file}")
+
+    return copied
+
+
+def copy_assets(asset_files: set[str], dest_dir: Path) -> list[str]:
+    """Copy asset files from training-material/assets to local directory.
+
+    Returns list of files that were copied.
+    """
+    source_assets_dir = Path.home() / "workspace" / "training-material" / "assets" / "images"
+    copied = []
+
+    if not source_assets_dir.exists():
+        print(f"⚠️  Source assets directory not found: {source_assets_dir}")
+        return copied
+
+    for asset_file in asset_files:
+        source = source_assets_dir / asset_file
+        if source.exists():
+            shutil.copy2(source, dest_dir / asset_file)
+            copied.append(asset_file)
+        else:
+            print(f"⚠️  Asset not found: {asset_file}")
 
     return copied
 
@@ -441,12 +475,23 @@ def migrate_topic(topic_name: str) -> bool:
             slides[-1] = cleaned_last_slide
 
     # Extract and copy images
-    image_files = extract_images_from_slides(slides)
-    if image_files:
-        copied = copy_images(image_files, Path("images"))
-        print(f"✓ Copied {len(copied)} images")
-        if len(copied) < len(image_files):
-            print(f"⚠️  {len(image_files) - len(copied)} images not found")
+    topic_images, asset_images = extract_images_from_slides(slides)
+
+    # Copy topic images
+    if topic_images:
+        copied = copy_images(topic_images, Path("images"))
+        print(f"✓ Copied {len(copied)} topic images")
+        if len(copied) < len(topic_images):
+            print(f"⚠️  {len(topic_images) - len(copied)} topic images not found")
+
+    # Copy asset images
+    if asset_images:
+        assets_dir = Path("assets")
+        assets_dir.mkdir(exist_ok=True)
+        copied = copy_assets(asset_images, assets_dir)
+        print(f"✓ Copied {len(copied)} asset images")
+        if len(copied) < len(asset_images):
+            print(f"⚠️  {len(asset_images) - len(copied)} asset images not found")
 
     # Create content blocks (skips frontmatter slide if present)
     content_blocks = create_content_blocks(slides, frontmatter)

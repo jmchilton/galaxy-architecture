@@ -67,7 +67,7 @@ CloudLaunch web application to make it easy to launch images on a cloud, drives 
 
 [galaxyproject/**training-material** ](https://github.com/galaxyproject/training-material)
 
-![logo]({{ site.baseurl }}/assets/images/GTNLogo1000.png)
+![logo](../_images/GTNLogo1000.png)
 
 Galaxy training material for scientists, developers, and admins. Powers *https://training.galaxyproject.org/*.
 

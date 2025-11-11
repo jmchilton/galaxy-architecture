@@ -28,6 +28,7 @@ def process_markdown_for_sphinx(markdown: str, topic_id: str) -> str:
     """Process markdown for Sphinx compatibility.
 
     - Fix image paths (../../images/ -> ../_images/)
+    - Fix asset paths ({{ site.baseurl }}/assets/ -> ../_images/)
     - Convert bare URLs to markdown links
 
     Note: Speaker notes should be stripped per-block before this is called.
@@ -37,6 +38,9 @@ def process_markdown_for_sphinx(markdown: str, topic_id: str) -> str:
     # Fix image paths: ../../images/ becomes ../_images/
     # This assumes doc/source/architecture/ and images at doc/source/_images/
     markdown = markdown.replace("../../images/", "../_images/")
+
+    # Fix asset paths: {{ site.baseurl }}/assets/images/ becomes ../_images/
+    markdown = markdown.replace("{{ site.baseurl }}/assets/images/", "../_images/")
 
     # Convert bare URLs (lines that are just a URL) to markdown links
     # Pattern: lines that contain only https://... or http://...
@@ -164,13 +168,22 @@ def generate_sphinx_docs(topic_name: str) -> None:
     Args:
         topic_name: Topic ID or 'all' for all topics
     """
+    import shutil
     topics_dir = Path("topics")
     outputs_dir = Path("outputs/sphinx-docs/generated/architecture")
     doc_arch_dir = Path("doc/source/architecture")
+    doc_images_dir = Path("doc/source/_images")
 
     # Create output directories
     outputs_dir.mkdir(parents=True, exist_ok=True)
     doc_arch_dir.mkdir(parents=True, exist_ok=True)
+    doc_images_dir.mkdir(parents=True, exist_ok=True)
+
+    # Copy assets if they exist
+    if Path("assets").exists():
+        for asset_file in Path("assets").iterdir():
+            if asset_file.is_file():
+                shutil.copy2(asset_file, doc_images_dir / asset_file.name)
 
     # Determine which topics to generate
     if topic_name == "all":
