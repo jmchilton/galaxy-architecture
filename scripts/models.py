@@ -196,11 +196,19 @@ class ContentBlock(BaseModel):
 
     @model_validator(mode='after')
     def validate_content_source(self):
-        """Ensure exactly one content source is specified."""
-        sources = [self.content, self.file, self.fragments]
+        """Ensure exactly one content source is specified, or allow empty for heading-only slides."""
+        # Check for non-empty sources (None, empty string, and empty lists don't count)
+        sources = [
+            self.content if (self.content is not None and self.content.strip()) else None,
+            self.file,
+            self.fragments if self.fragments else None,
+        ]
         non_none = [s for s in sources if s is not None]
 
         if len(non_none) == 0:
+            # Allow empty content only for slides with headings (section dividers)
+            if self.type == ContentBlockType.SLIDE and self.heading:
+                return self
             raise ValueError(
                 f"Block '{self.id}': must specify one of 'content', 'file', or 'fragments'"
             )
@@ -261,7 +269,7 @@ class ContentBlock(BaseModel):
         Raises:
             FileNotFoundError: If referenced file doesn't exist
         """
-        if self.content:
+        if self.content is not None:
             return self.content
 
         elif self.file:

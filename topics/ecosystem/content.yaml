@@ -13,9 +13,9 @@
   heading: The **/galaxyproject** projects
   content: |-
     *The architecture of the ecosystem.*
-    
+
     ???
-    
+
     Too many to cover all but we'll cover some of the big ones in a few big
     categories. User-facing applications, projects for Galaxy plugin developers,
     and projects for Galaxy administrators.
@@ -24,12 +24,12 @@
   heading: Lots of Gitter actually
   content: |-
     ![galaxyproject gitter landing](../../images/gitter_galaxyproject.png)
-    
+
     https://gitter.im/galaxyproject
 - type: slide
   id: user-facing-applications
-  heading: ''
-  content: '**User-Facing Applications**'
+  heading: User-Facing Applications
+  content: ''
   class: enlarge200
 - type: slide
   id: the-main-galaxy-application-web-interf
@@ -87,8 +87,8 @@
   class: white
 - type: slide
   id: for-plugin-developers
-  heading: ''
-  content: '**For Plugin Developers**'
+  heading: For Plugin Developers
+  content: ''
   class: enlarge200
 - type: slide
   id: galaxy-tools-maintained-by-the-iuc-i
@@ -154,8 +154,8 @@
     layer for reproducibility but largely transparent.
 - type: slide
   id: for-deployers-and-admins
-  heading: ''
-  content: '**For Deployers and Admins**'
+  heading: For Deployers and Admins
+  content: ''
   class: enlarge200
 - type: slide
   id: galaxyprojectansible-playbook

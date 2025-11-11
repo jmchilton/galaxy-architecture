@@ -28,7 +28,9 @@ We're here to answer your questions about Galaxy architecture!
 
 [https://gitter.im/galaxyproject](https://gitter.im/galaxyproject)
 
-**User-Facing Applications**
+## User-Facing Applications
+
+
 
 The main Galaxy application.
 
@@ -61,7 +63,9 @@ Many flavors available.
 
 ![Docker](../_images/docker-chart.png)
 
-**For Plugin Developers**
+## For Plugin Developers
+
+
 
 Galaxy tools maintained by the *IUC* ("Intergalactic Utilities Commission").
 
@@ -113,7 +117,9 @@ Build Galaxy framework dependencies as Python wheels when needed.
 
 Provides stable URLs and caching for application links, etc.. An important layer for reproducibility but largely transparent.
 
-**For Deployers and Admins**
+## For Deployers and Admins
+
+
 
 galaxyproject/**{ansible-\*, \*-playbook}**<br>
 usegalaxy-eu/**{ansible-\*, \*-playbook}**
