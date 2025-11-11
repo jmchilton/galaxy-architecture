@@ -13,9 +13,9 @@
   heading: The **/galaxyproject** projects
   content: |-
     *The architecture of the ecosystem.*
-
+    
     ???
-
+    
     Too many to cover all but we'll cover some of the big ones in a few big
     categories. User-facing applications, projects for Galaxy plugin developers,
     and projects for Galaxy administrators.
@@ -24,7 +24,7 @@
   heading: Lots of Gitter actually
   content: |-
     ![galaxyproject gitter landing](../../images/gitter_galaxyproject.png)
-
+    
     https://gitter.im/galaxyproject
 - type: slide
   id: user-facing-applications

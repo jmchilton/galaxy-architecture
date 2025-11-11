@@ -17,19 +17,22 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 from models import load_metadata, load_content, ContentBlockType
 
 
+def strip_speaker_notes(markdown: str) -> str:
+    """Strip speaker notes (everything after ???) from markdown block."""
+    if '???' in markdown:
+        return markdown.split('???')[0].rstrip()
+    return markdown
+
+
 def process_markdown_for_sphinx(markdown: str, topic_id: str) -> str:
     """Process markdown for Sphinx compatibility.
 
-    - Strip speaker notes (everything after ???)
     - Fix image paths (../../images/ -> ../_images/)
     - Convert bare URLs to markdown links
+
+    Note: Speaker notes should be stripped per-block before this is called.
     """
     import re
-
-    # Strip speaker notes (Remark.js notes: everything after ???)
-    # Keep only content before first ???
-    if '???' in markdown:
-        markdown = markdown.split('???')[0]
 
     # Fix image paths: ../../images/ becomes ../_images/
     # This assumes doc/source/architecture/ and images at doc/source/_images/
@@ -115,6 +118,9 @@ def generate_topic_markdown(topic_id: str, topic_dir: Path) -> str:
 
         # Get block content
         block_content = get_block_content(block, topic_dir)
+
+        # Strip speaker notes from block content
+        block_content = strip_speaker_notes(block_content)
 
         # Add heading if present
         if block.heading:
