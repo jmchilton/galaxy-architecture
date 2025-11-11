@@ -1,32 +1,45 @@
 #!/usr/bin/env python3
 """
-Generate GTN-compatible slides from topic content.
+Generate GTN-compatible slides and standalone HTML from topic content.
 
 Usage:
     uv run python outputs/training-slides/build.py dependency-injection
+    uv run python outputs/training-slides/build.py all
 """
 
 import sys
-import yaml
 from pathlib import Path
 from jinja2 import Template
 
+# Add scripts to path so we can import models
+sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 
-def load_topic(topic_name):
-    """Load all files for a topic."""
-    topic_dir = Path(f"topics/{topic_name}")
+from models import load_metadata, load_content, ContentBlockType
 
-    # Load metadata
-    with open(topic_dir / "metadata.yaml") as f:
-        metadata = yaml.safe_load(f)
 
-    # Load content files (exclude .claude directory)
-    content = {}
-    for md_file in topic_dir.glob("*.md"):
-        if md_file.parent.name != ".claude":
-            content[md_file.stem] = md_file.read_text()
+def extract_markdown_from_content_block(block) -> str:
+    """Extract markdown text from a content block.
 
-    return metadata, content
+    Args:
+        block: ContentBlock object with 'source' property
+
+    Returns:
+        Markdown text content or empty string
+    """
+    if not hasattr(block, 'source'):
+        return ""
+
+    source = block.source
+    if isinstance(source, str):
+        return source
+    elif isinstance(source, dict):
+        # If source is a dict, it might have 'text' or 'content' key
+        if 'text' in source:
+            return source['text']
+        elif 'content' in source:
+            return source['content']
+
+    return ""
 
 
 def process_code_wrappers(text):
@@ -129,15 +142,19 @@ def generate_slides(topic_name):
     1. slides.md - GTN-compatible Remark.js markdown format
     2. slides.html - Standalone HTML viewer with embedded Remark.js
     """
-    metadata, content = load_topic(topic_name)
+    metadata = load_metadata(topic_name)
+    content = load_content(topic_name)
 
-    # Convert content to slides
-    # Order: overview, examples (testing excluded - not in original slides)
+    # Extract all slide-type content blocks (exclude prose-only blocks)
     all_slides = []
-    for section_name in ['overview', 'examples']:
-        if section_name in content:
-            slides = markdown_to_slides(content[section_name])
-            all_slides.extend(slides)
+    for block in content.root:
+        # Include blocks that are explicitly slides or blocks that are not marked as prose-only
+        # By default blocks render as slides (doc.render controls doc-only blocks)
+        if block.type != ContentBlockType.PROSE:
+            markdown = block.content or ""
+            if markdown.strip():
+                slides = markdown_to_slides(markdown)
+                all_slides.extend(slides)
 
     # Convert slide dicts to strings for template
     formatted_slides = []
@@ -163,14 +180,14 @@ def generate_slides(topic_name):
     gtn_template = Template(gtn_template_path.read_text())
 
     gtn_output = gtn_template.render(
-        title=metadata['title'],
-        questions=metadata['training']['questions'],
-        objectives=metadata['training']['objectives'],
-        key_points=metadata['training']['key_points'],
-        time_estimation=metadata['training']['time_estimation'],
+        title=metadata.title,
+        questions=metadata.training.questions,
+        objectives=metadata.training.objectives,
+        key_points=metadata.training.key_points,
+        time_estimation=metadata.training.time_estimation,
         slides=formatted_slides,
-        topic_id=metadata['topic_id'],
-        contributors=metadata['training'].get('contributors', ['jmchilton']),
+        topic_id=metadata.topic_id,
+        contributors=['jmchilton'],
     )
 
     # Generate standalone HTML format (slides.html)
@@ -179,7 +196,7 @@ def generate_slides(topic_name):
 
     # Build markdown content for embedding in HTML
     markdown_lines = [
-        f"# {metadata['title']}",
+        f"# {metadata.title}",
         "",
         "*The architecture of connecting Galaxy components.*",
         "",
@@ -187,10 +204,10 @@ def generate_slides(topic_name):
         "",
     ]
     markdown_lines.extend(formatted_slides)
-    markdown_content = '\n\n---\n\n'.join(formatted_slides)
+    markdown_content = '\n'.join(markdown_lines)
 
     html_output = html_wrapper_template.render(
-        title=metadata['title'],
+        title=metadata.title,
         markdown_content=markdown_content,
     )
 
@@ -202,7 +219,7 @@ def generate_slides(topic_name):
     md_file = output_dir / "slides.md"
     md_file.write_text(gtn_output)
     print(f"✓ Generated GTN slides: {md_file}")
-    print(f"  Copy to training-material/topics/dev/tutorials/architecture-{metadata['topic_id']}/slides.html")
+    print(f"  Copy to training-material/topics/dev/tutorials/architecture-{metadata.topic_id}/slides.html")
 
     # Write standalone HTML format
     html_file = output_dir / "slides.html"
