@@ -24,6 +24,19 @@ def strip_speaker_notes(markdown: str) -> str:
     return markdown
 
 
+def create_slides_link(topic_id: str) -> str:
+    """Create link to view topic as training slides.
+
+    Args:
+        topic_id: Topic identifier (e.g., 'dependency-injection')
+
+    Returns:
+        Markdown formatted link string
+    """
+    path = f"../../../outputs/training-slides/generated/architecture-{topic_id}/slides.html"
+    return f"> 📊 [View as training slides]({path})"
+
+
 def _extract_directive_content(content: str, start_pos: int, directive_name: str) -> tuple[str, int]:
     """Extract content from a Remark.js directive using bracket counting.
 
@@ -224,6 +237,10 @@ def generate_topic_markdown(topic_id: str, topic_dir: Path) -> str:
 
     # Start with title
     lines = [f"# {metadata.title}"]
+    lines.append("")
+
+    # Add link to view as training slides
+    lines.append(create_slides_link(topic_id))
     lines.append("")
 
     # Add overview if metadata has description

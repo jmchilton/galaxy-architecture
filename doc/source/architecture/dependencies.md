@@ -1,5 +1,7 @@
 # Dependencies
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-dependencies/slides.html)
+
 ## Learning Questions
 - How does Galaxy manage dependencies?
 - What is the virtualenv used for?

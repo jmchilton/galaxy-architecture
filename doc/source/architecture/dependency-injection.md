@@ -1,5 +1,7 @@
 # Dependency Injection in Galaxy
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-dependency-injection/slides.html)
+
 ## Learning Questions
 - What is dependency injection?
 - Why does Galaxy use dependency injection?

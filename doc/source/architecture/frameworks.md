@@ -1,5 +1,7 @@
 # Frameworks
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-frameworks/slides.html)
+
 ## Learning Questions
 - How does Galaxy handle web requests?
 - What web frameworks does Galaxy use?

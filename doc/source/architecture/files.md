@@ -1,5 +1,7 @@
 # Files
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-files/slides.html)
+
 ## Learning Questions
 - How is the Galaxy codebase organized?
 - Where do I find different components?

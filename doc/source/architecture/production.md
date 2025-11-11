@@ -1,5 +1,7 @@
 # Production
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-production/slides.html)
+
 ## Learning Questions
 - How is Galaxy deployed in production?
 - What is the difference between development and production setups?

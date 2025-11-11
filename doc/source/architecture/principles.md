@@ -1,5 +1,7 @@
 # Principles
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-principles/slides.html)
+
 ## Learning Questions
 - What are the guiding principles of Galaxy architecture?
 - Why is the frontend opinionated but the backend plugin-driven?

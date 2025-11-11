@@ -1,5 +1,7 @@
 # Project Management
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-project-management/slides.html)
+
 ## Learning Questions
 - How do I contribute to Galaxy?
 - What is Galaxy's governance model?

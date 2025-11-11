@@ -1,5 +1,7 @@
 # Application Components
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-application-components/slides.html)
+
 ## Learning Questions
 - How is business logic organized in Galaxy?
 - What are models, managers, and services?

@@ -1,5 +1,7 @@
 # Ecosystem
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-ecosystem/slides.html)
+
 ## Learning Questions
 - What projects make up the Galaxy ecosystem?
 - How do different Galaxy projects interact?

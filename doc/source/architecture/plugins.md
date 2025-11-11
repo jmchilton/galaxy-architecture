@@ -1,5 +1,7 @@
 # Plugins
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-plugins/slides.html)
+
 ## Learning Questions
 - How do I extend Galaxy?
 - What components can be plugged in?

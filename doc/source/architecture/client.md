@@ -1,5 +1,7 @@
 # Client
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-client/slides.html)
+
 ## Learning Questions
 - How is the Galaxy UI built?
 - What frontend technologies does Galaxy use?

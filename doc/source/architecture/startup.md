@@ -1,5 +1,7 @@
 # Startup
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-startup/slides.html)
+
 ## Learning Questions
 - What happens when Galaxy starts?
 - What is the startup sequence?

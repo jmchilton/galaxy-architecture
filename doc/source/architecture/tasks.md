@@ -1,5 +1,7 @@
 # Tasks
 
+> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-tasks/slides.html)
+
 ## Learning Questions
 - How does Galaxy handle long-running tasks?
 - When should I use Celery?
