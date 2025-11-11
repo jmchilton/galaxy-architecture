@@ -14,26 +14,32 @@ Experimental POC to prove that maintaining architecture content as structured ma
 
 - `topics/` - One directory per architectural topic, each contains:
   - metadata.yaml (structured data)
-  - *.md files (narrative content)
+  - content.yaml (narrative content)
   - .claude/CLAUDE.md (topic-specific context)
 - `outputs/` - Build scripts for different formats
 - `scripts/` - Validation and utilities
+- `doc/` - Sphinx project for this content.
 - `docs/` - Meta-documentation
 
 ## Key Files
 
 - **PLAN.md** - Detailed implementation plan with all phases, templates, examples
-- **docs/SCHEMA.md** - Metadata schema specification (to be created)
-- **docs/CONTRIBUTING.md** - How to add/update content (to be created)
+- **docs/SCHEMA.md** - Auto-generated schema documentation from Pydantic models
+- **Makefile** - Top-level build targets (validate, build-slides, build-sphinx, etc.)
+- **scripts/models.py** - Pydantic v2 models for validation (metadata.yaml, content.yaml)
+- **scripts/validate.py** - Topic validation script
+- **scripts/generate_schema_docs.py** - Auto-generates docs/SCHEMA.md from models
+- **outputs/training-slides/build.py** - Generates GTN-compatible slides
+- **outputs/sphinx-docs/build.py** - Generates Sphinx markdown with URL conversion
 
 ## Common Tasks
 
 ### Add new topic
 1. Create `topics/<topic-id>/` directory
 2. Create metadata.yaml from schema
-3. Write overview.md and other content files
+3. Write content.yaml and other content files
 4. Add .claude/CLAUDE.md for topic context
-5. Validate: `python scripts/validate.py`
+5. Validate: `make validate`
 
 ### Update existing topic
 1. Edit markdown files in `topics/<topic-id>/`
@@ -42,32 +48,68 @@ Experimental POC to prove that maintaining architecture content as structured ma
 
 ### Generate training slides
 ```bash
-python outputs/training-slides/build.py <topic-id>
+make build-slides
+```
+
+### Generate Sphinx documentation
+```bash
+make build-sphinx
 ```
 
 ### Validate all content
 ```bash
-python scripts/validate.py
+make validate
 ```
+
+### Build everything
+```bash
+make build
+```
+
+## Content Model
+
+Each topic is defined by three files:
+
+1. **metadata.yaml** - Topic configuration (training, sphinx, hub metadata)
+   - Learning questions, objectives, key points
+   - Audience, target level, time estimation
+   - Related topics and code paths
+
+2. **content.yaml** - Ordered sequence of content blocks
+   - Each block: type (prose/slide), id, heading, content source
+   - Smart defaults: prose renders in docs only; slides render everywhere
+   - Content from inline, single file, or multiple fragments
+
+3. **content.md or fragments/** - Actual content
+   - Slides defined with markdown (supports code, images, blockquotes)
+   - Optional fragments directory for more granular organization
+
+All content validated with Pydantic v2 models before build.
+
+## Build Artifacts
+
+- **outputs/training-slides/generated/** - GTN-compatible Remark.js slides
+- **outputs/sphinx-docs/generated/architecture/** - Markdown for Sphinx
+- **doc/source/architecture/** - Markdown copied for local Sphinx build
+- **doc/build/html/** - Built HTML documentation
 
 ## Current Topics
 
-- **dependency-injection** - How Galaxy uses DI patterns (planned)
-- **startup** - Application startup sequence (planned)
+- **dependency-injection** - How Galaxy uses DI patterns
 
 ## Output Formats
 
-1. **Training slides**: GTN-compatible Remark.js slides (Phase 3)
-2. **Sphinx docs**: RST for Galaxy documentation (Phase 9)
-3. **Hub articles**: Markdown for galaxyproject.org (future)
+1. **Training slides** - GTN-compatible Remark.js slides (outputs/training-slides/generated/)
+2. **Sphinx docs** - Markdown for Galaxy Sphinx documentation (outputs/sphinx-docs/generated/)
+3. **Hub articles** - Markdown for galaxyproject.org (planned)
 
 ## Implementation Status
 
-See PLAN.md for detailed phases. Currently in Phase 0 (bootstrap).
+See PLAN.md for detailed phases.
 
 ## When helping with this repo
 
 - Follow the PLAN.md phases
 - Validate before committing
-- Keep tooling simple (no Obsidian integration)
+- Keep tooling simple
 - Document pain points for iteration
