@@ -195,16 +195,14 @@ def generate_slides(topic_name):
     html_wrapper_template = Template(html_wrapper_path.read_text())
 
     # Build markdown content for embedding in HTML
-    markdown_lines = [
+    # Join slides with --- separator (Remark.js requires this)
+    markdown_parts = [
         f"# {metadata.title}",
         "",
         "*The architecture of connecting Galaxy components.*",
-        "",
-        "---",
-        "",
     ]
-    markdown_lines.extend(formatted_slides)
-    markdown_content = '\n'.join(markdown_lines)
+    # Add all formatted slides with --- separator between them
+    markdown_content = '\n\n---\n\n'.join(markdown_parts + formatted_slides)
 
     html_output = html_wrapper_template.render(
         title=metadata.title,
