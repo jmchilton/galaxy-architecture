@@ -17,6 +17,51 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 from models import load_metadata, load_content, ContentBlockType
 
 
+def rewrite_image_paths_for_html(markdown: str, topic_name: str) -> str:
+    """Rewrite image paths for standalone HTML slides.
+
+    For HTML slides stored at: outputs/training-slides/generated/architecture-{topic}/slides.html
+    Root images are at: ./images/
+
+    Directory depth from slides to root:
+    outputs/training-slides/generated/architecture-{topic}/
+    = 4 levels up (../../../..)
+
+    So paths need to be: ../../../../images/
+
+    Also handle:
+    - GTN template variables: {{ site.baseurl }}/assets/images/... -> ../../../../images/
+    - Shared resources: ../../../../shared/images/ -> ../../../../images/ (map to main images dir)
+    - Relative paths: ../../images/ -> ../../../../images/
+    """
+    import re
+
+    # Handle GTN template variables - convert directly to root images
+    # {{ site.baseurl }}/assets/images/filename.png -> ../../../../images/filename.png
+    markdown = re.sub(
+        r'\{\{\s*site\.baseurl\s*\}\}/assets/images/',
+        '../../../../images/',
+        markdown
+    )
+
+    # Handle shared images: ../../../../shared/images/ -> ../../../../images/
+    markdown = re.sub(
+        r'(\[.*?\])\(../../../../shared/images/',
+        r'\1(../../../../images/',
+        markdown
+    )
+
+    # Handle regular images: ../../images/ -> ../../../../images/
+    # Only match if not already a full URL (contains ://)
+    markdown = re.sub(
+        r'(\[.*?\])\((?!https?://)(?!data:)../../images/',
+        r'\1(../../../../images/',
+        markdown
+    )
+
+    return markdown
+
+
 def extract_markdown_from_content_block(block) -> str:
     """Extract markdown text from a content block.
 
@@ -195,6 +240,9 @@ def generate_slides(topic_name):
     html_wrapper_template = Template(html_wrapper_path.read_text())
 
     # Build markdown content for embedding in HTML
+    # Rewrite image paths for HTML context (different depth than GTN markdown)
+    fixed_slides = [rewrite_image_paths_for_html(slide, topic_name) for slide in formatted_slides]
+
     # Join slides with --- separator (Remark.js requires this)
     markdown_parts = [
         f"# {metadata.title}",
@@ -202,7 +250,7 @@ def generate_slides(topic_name):
         "*The architecture of connecting Galaxy components.*",
     ]
     # Add all formatted slides with --- separator between them
-    markdown_content = '\n\n---\n\n'.join(markdown_parts + formatted_slides)
+    markdown_content = '\n\n---\n\n'.join(markdown_parts + fixed_slides)
 
     html_output = html_wrapper_template.render(
         title=metadata.title,

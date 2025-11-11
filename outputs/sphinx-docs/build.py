@@ -197,6 +197,48 @@ def process_markdown_for_sphinx(markdown: str, topic_id: str) -> str:
     return markdown
 
 
+def rewrite_image_paths_for_sphinx(markdown: str) -> str:
+    """Rewrite image paths to work in Sphinx documentation context.
+
+    Converts:
+    - ../../../../shared/images/ → ../../images/ (shared images)
+    - ../../images/ → ../../images/ (dev images)
+    - ../../../../images/ → ../../images/ (generic images)
+
+    All images are copied to doc/build/html/images/ so relative paths
+    need to point there. From doc/source/architecture/*, we need ../../ to reach images/.
+
+    Sphinx preserves relative markdown links, so:
+    - Markdown: doc/source/architecture/file.md with ![](../../images/img.svg)
+    - Builds to: doc/build/html/architecture/file.html with src="../../images/img.svg"
+    - Resolves to: doc/build/html/images/img.svg ✓
+    """
+    import re
+
+    # Handle shared images: ../../../../shared/images/ → ../../images/
+    markdown = re.sub(
+        r'(\[.*?\])\(../../../../shared/images/',
+        r'\1(../../images/',
+        markdown
+    )
+
+    # Handle dev images: ../../images/ → ../../images/ (already correct, but ensure)
+    markdown = re.sub(
+        r'(\[.*?\])\((?!https?://)(?!data:)../../images/',
+        r'\1(../../images/',
+        markdown
+    )
+
+    # Handle generic 4-level paths: ../../../../images/ → ../../images/
+    markdown = re.sub(
+        r'(\[.*?\])\(../../../../images/',
+        r'\1(../../images/',
+        markdown
+    )
+
+    return markdown
+
+
 def get_block_content(block, topic_dir: Path) -> str:
     """Extract content from a block, handling all content sources."""
     if block.content:
@@ -284,7 +326,11 @@ def generate_topic_markdown(topic_id: str, topic_dir: Path) -> str:
             lines.append(f"- {point}")
         lines.append("")
 
-    return "\n".join(lines)
+    # Build final markdown and rewrite image paths for Sphinx context
+    markdown = "\n".join(lines)
+    markdown = rewrite_image_paths_for_sphinx(markdown)
+
+    return markdown
 
 
 def copy_topic_images(topic_id: str, src_dir: Path, dest_dir: Path) -> None:

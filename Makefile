@@ -1,10 +1,11 @@
-.PHONY: help validate build-slides build-sphinx build clean view-sphinx
+.PHONY: help validate build-slides build-sphinx build clean view-sphinx lint-sphinx
 
 help:
 	@echo "Galaxy Architecture Documentation - Build Targets"
 	@echo ""
 	@echo "Verification:"
 	@echo "  make validate          Validate all topics (metadata.yaml, content.yaml)"
+	@echo "  make lint-sphinx       Check Sphinx build for broken image references"
 	@echo ""
 	@echo "Build:"
 	@echo "  make build             Build all output formats (slides + sphinx)"
@@ -24,6 +25,10 @@ validate:
 	@echo "Validating topics..."
 	uv run python scripts/validate.py
 
+lint-sphinx:
+	@echo "Linting Sphinx output for broken images..."
+	uv run python scripts/sphinx_image_linter.py
+
 build-slides:
 	@echo "Building training slides..."
 	@for topic in $$(ls -d topics/*/metadata.yaml 2>/dev/null | xargs -I {} dirname {} | xargs basename -a); do \
@@ -37,6 +42,9 @@ build-sphinx:
 	uv run python outputs/sphinx-docs/build.py all
 	@echo "Building HTML..."
 	cd doc && uv run sphinx-build -b html source build/html
+	@echo "Copying images for slide support..."
+	@mkdir -p doc/build/html/images
+	@cp images/*.png images/*.svg doc/build/html/images/ 2>/dev/null || true
 	@echo "✓ Sphinx documentation built"
 
 build: validate build-slides build-sphinx

@@ -237,7 +237,7 @@ Django-based infrastructure for creating pools of users, etc.. for training even
 
 ## Some (out of many) friends of the project
 
-![Bioconda](../../../../shared/images/conda_logo.png)
+![Bioconda](../_images/conda_logo.png)
 
 ![Biocontainers](../_images/biocontainers.png)
 

@@ -208,6 +208,24 @@
 
 <script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
 <script>
+    // Path detection: Handle different contexts where HTML might be viewed
+    // - Direct viewing: outputs/training-slides/generated/.../slides.html (uses ../../../../images/)
+    // - Sphinx download: doc/build/html/_downloads/{hash}/slides.html (needs ../../images/)
+
+    const source = document.getElementById('source');
+    let markdown = source.textContent;
+
+    // Detect viewing context
+    let workingPath = '../../../../images/';  // Default for direct viewing
+
+    // If viewing from Sphinx downloads directory, use shorter path
+    if (window.location.href.includes('_downloads')) {
+        workingPath = '../../images/';
+        // Rewrite paths: ../../../../images/ -> ../../images/
+        markdown = markdown.replace(/\.\.\/\.\.\/\.\.\/\.\.\/images\//g, workingPath);
+        source.textContent = markdown;
+    }
+
     const slideshow = remark.create({
         highlightLanguage: 'python',
         highlightLines: true,
