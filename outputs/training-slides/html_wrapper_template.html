@@ -1,0 +1,234 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>{{ title }} - Galaxy Architecture</title>
+    <style>
+        html, body {
+            width: 100%;
+            height: 100%;
+            margin: 0;
+            padding: 0;
+            background: #000;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        .remark-container {
+            width: 100%;
+            height: 100%;
+        }
+
+        .remark-slides-area {
+            width: 100%;
+            height: 100%;
+        }
+
+        /* Remark.js slide styling */
+        .remark-slide-scaler {
+            box-shadow: 0 0 10px rgba(0, 0, 0, 0.3);
+        }
+
+        .remark-slide {
+            background-size: cover;
+            background-position: center;
+        }
+
+        .remark-slide-content {
+            background-color: white;
+            padding: 60px;
+            font-size: 28px;
+            line-height: 1.6;
+        }
+
+        .remark-slide-content h1,
+        .remark-slide-content h2,
+        .remark-slide-content h3 {
+            margin: 0 0 0.5em 0;
+            font-weight: bold;
+        }
+
+        .remark-slide-content h1 {
+            font-size: 56px;
+            color: #003366;
+        }
+
+        .remark-slide-content h2 {
+            font-size: 44px;
+            color: #003366;
+            border-bottom: 3px solid #003366;
+            padding-bottom: 0.3em;
+        }
+
+        .remark-slide-content h3 {
+            font-size: 32px;
+            color: #003366;
+        }
+
+        .remark-slide-content code {
+            background-color: #f0f0f0;
+            padding: 2px 6px;
+            border-radius: 3px;
+            font-family: 'Monaco', 'Courier New', monospace;
+            font-size: 0.85em;
+        }
+
+        .remark-slide-content pre {
+            background-color: #f0f0f0;
+            padding: 20px;
+            border-radius: 5px;
+            overflow-x: auto;
+            margin: 0.5em 0;
+        }
+
+        .remark-slide-content pre code {
+            background-color: transparent;
+            padding: 0;
+            color: #333;
+        }
+
+        .remark-slide-content ul,
+        .remark-slide-content ol {
+            margin: 0.5em 0;
+            padding-left: 2em;
+        }
+
+        .remark-slide-content li {
+            margin: 0.25em 0;
+        }
+
+        .remark-slide-content blockquote {
+            border-left: 4px solid #003366;
+            padding-left: 1em;
+            margin-left: 0;
+            color: #666;
+        }
+
+        .remark-slide-content a {
+            color: #0066cc;
+            text-decoration: none;
+        }
+
+        .remark-slide-content a:hover {
+            text-decoration: underline;
+        }
+
+        .remark-slide-content img {
+            max-width: 100%;
+            height: auto;
+            margin: 10px 0;
+        }
+
+        /* Layout classes */
+        .remark-slide-content.center {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            text-align: center;
+        }
+
+        .remark-slide-content.left {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        .remark-slide-content.middle {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+        }
+
+        /* Title slide styling */
+        .remark-slide-content.center.middle h1 {
+            font-size: 72px;
+            margin: 0;
+            padding: 20px 0;
+        }
+
+        .remark-slide-content.center.middle p {
+            font-size: 32px;
+            margin: 20px 0;
+            color: #666;
+        }
+
+        /* Dark background for title slides */
+        .remark-slide-content.title-slide {
+            background: linear-gradient(135deg, #003366 0%, #004a8f 100%);
+            color: white;
+        }
+
+        .remark-slide-content.title-slide h1 {
+            color: white;
+            font-size: 72px;
+        }
+
+        .remark-slide-content.title-slide h2 {
+            color: white;
+            border-bottom-color: white;
+        }
+
+        .remark-slide-content.title-slide p {
+            color: #ddd;
+            font-size: 32px;
+        }
+
+        /* Incremental lists */
+        .remark-slide-content .remark-slide-number {
+            right: 20px;
+            bottom: 20px;
+            font-size: 18px;
+            color: #999;
+        }
+
+        /* Keyboard hint */
+        .keyboard-hint {
+            position: fixed;
+            bottom: 10px;
+            right: 10px;
+            font-size: 12px;
+            color: #999;
+            background: rgba(0, 0, 0, 0.5);
+            padding: 5px 10px;
+            border-radius: 3px;
+            color: #ccc;
+            z-index: 100;
+        }
+    </style>
+</head>
+<body>
+<textarea id="source">
+{{ markdown_content }}
+</textarea>
+
+<div class="keyboard-hint">
+    Use arrow keys to navigate • P for presenter mode • F for fullscreen
+</div>
+
+<script src="https://remarkjs.com/downloads/remark-latest.min.js"></script>
+<script>
+    const slideshow = remark.create({
+        highlightLanguage: 'python',
+        highlightLines: true,
+        highlightSpans: true,
+        countIncrementalSlides: false,
+        slideNumberFormat: '',
+        ratio: '16:9',
+    });
+
+    // Navigation hints
+    document.addEventListener('keydown', function(e) {
+        if (e.key === '?') {
+            alert('Keyboard shortcuts:\n\n' +
+                  '→/↓: Next slide\n' +
+                  '←/↑: Previous slide\n' +
+                  'P: Presenter mode\n' +
+                  'F: Fullscreen\n' +
+                  'B: Blank screen\n' +
+                  'M: Mirror screen');
+        }
+    });
+</script>
+</body>
+</html>
