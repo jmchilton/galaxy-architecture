@@ -52,11 +52,12 @@ Create an experimental repository that:
 
 ### Overview
 
-Each topic consists of three key files:
+Each topic consists of two key files:
 
 1. **metadata.yaml** - Topic configuration (training, sphinx, hub metadata)
 2. **content.yaml** - Ordered sequence of content blocks (slides and prose)
-3. **content.md** - Main markdown document (or fragments/ directory for split content)
+
+Content is stored inline in content.yaml blocks or in fragments/ directory for more granular organization.
 
 ### Validation with Pydantic
 
@@ -81,7 +82,7 @@ content.yaml defines a sequence of content blocks:
 - type: slide
   id: problem
   heading: The Problem
-  file: content.md        # or fragments/problem.md
+  file: fragments/problem.md
 ```
 
 ### Smart Defaults
@@ -91,19 +92,19 @@ content.yaml defines a sequence of content blocks:
 
 Override with explicit `doc.render: false` or `slides.render: false`.
 
-### Single Document vs Fragments
+### Content Organization
 
-**Option 1: Single document** (simplest)
-- All content in `content.md`
-- content.yaml references the same file for all blocks
-- Best for smaller topics or initial migration
+**Option 1: Inline content** (simplest)
+- All content inline in content.yaml using `content: |` field
+- Best for smaller blocks or single-use content
+- Example: `content: | This is a slide`
 
 **Option 2: Fragments** (more granular)
 - Content split into `fragments/*.md` files
-- content.yaml references specific fragment files
+- content.yaml references with `file: fragments/problem.md` or `fragments: [problem.md, solution.md]`
 - Better for large topics or reusing content across blocks
 
-Both approaches supported - choose based on topic complexity.
+Choose based on topic complexity and content organization preferences.
 
 ## Repository Structure
 
@@ -119,17 +120,15 @@ galaxy-architecture/
 │   ├── dependency-injection/
 │   │   ├── metadata.yaml          # Topic metadata (training, sphinx, hub config)
 │   │   ├── content.yaml           # Content sequence (slides, prose blocks)
-│   │   ├── content.md             # Main content document
 │   │   ├── fragments/             # Optional: reusable content fragments
-│   │   │   └── *.md               # Fragment files (if needed)
+│   │   │   └── *.md               # Fragment files (if using fragments)
 │   │   └── .claude/
 │   │       └── CLAUDE.md          # Topic-specific AI context
 │   │
 │   └── startup/
 │       ├── metadata.yaml          # Topic metadata
 │       ├── content.yaml           # Content sequence
-│       ├── content.md             # Main content document
-│       ├── fragments/             # Optional fragments
+│       ├── fragments/             # Optional: reusable content fragments
 │       └── .claude/
 │           └── CLAUDE.md
 │
@@ -646,8 +645,7 @@ For each topic, follow this process:
 
 2. **Create all required files**
    - metadata.yaml (validated with Pydantic)
-   - content.yaml (sequence of content blocks)
-   - content.md (combined content, or fragments/)
+   - content.yaml (sequence of content blocks with inline content or fragments/)
    - .claude/CLAUDE.md
 
 3. **Generate slides**

@@ -80,9 +80,9 @@ Each topic is defined by three files:
    - Smart defaults: prose renders in docs only; slides render everywhere
    - Content from inline, single file, or multiple fragments
 
-3. **content.md or fragments/** - Actual content
+3. **fragments/** - Actual content (optional for granular organization)
    - Slides defined with markdown (supports code, images, blockquotes)
-   - Optional fragments directory for more granular organization
+   - Can use single fragment per block or multiple fragments per block
 
 All content validated with Pydantic v2 models before build.
 
