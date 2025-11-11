@@ -12,7 +12,7 @@
   id: chat-galaxyproject-lobbyhttps
   heading: ''
   content: |-
-    **Chat:** [galaxyproject Lobby](https://matrix.to/#/#galaxyproject_Lobby:gitter.im)
+    **Chat:** [galaxyproject Lobby](https://matrix.to/#/#galaxyproject_Lobby:gitter.im) (via Element)
 
     **GitHub:** [github.com/galaxyproject ](https://github.com/galaxyproject)
 
@@ -30,12 +30,12 @@
     categories. User-facing applications, projects for Galaxy plugin developers,
     and projects for Galaxy administrators.
 - type: slide
-  id: lots-of-gitter-actually
-  heading: Lots of Gitter actually
+  id: matrix-community-with-element
+  heading: Matrix Community with Element
   content: |-
-    ![galaxyproject gitter landing](../../images/gitter_galaxyproject.png)
+    ![galaxyproject Matrix Element community](../../images/element_galaxyproject.png)
 
-    https://gitter.im/galaxyproject
+    Access via Element client or any Matrix client at https://matrix.to/#/#galaxyproject_Lobby:gitter.im
 - type: slide
   id: more-links-well-mention-as-we-go-throug
   heading: ''

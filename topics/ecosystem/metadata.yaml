@@ -13,7 +13,7 @@ training:
   - Multiple user-facing applications (Galaxy, CloudLaunch, Training Material)
   - Developer libraries for plugin developers
   - Admin tools for deployment
-  - Active community on Matrix/Gitter
+  - Active community on Matrix (via Element client)
   time_estimation: 25m
   continues_to: project-management
 sphinx:

@@ -20,7 +20,7 @@
 
 We're here to answer your questions about Galaxy architecture!
 
-**Chat:** [galaxyproject Lobby](https://matrix.to/#/#galaxyproject_Lobby:gitter.im)
+**Chat:** [galaxyproject Lobby](https://matrix.to/#/#galaxyproject_Lobby:gitter.im) (via Element)
 
 **GitHub:** [github.com/galaxyproject ](https://github.com/galaxyproject)
 
@@ -30,11 +30,11 @@ We're here to answer your questions about Galaxy architecture!
 
 *The architecture of the ecosystem.*
 
-## Lots of Gitter actually
+## Matrix Community with Element
 
-![galaxyproject gitter landing](../_images/gitter_galaxyproject.png)
+![galaxyproject Matrix Element community](../_images/element_galaxyproject.png)
 
-[https://gitter.im/galaxyproject](https://gitter.im/galaxyproject)
+Access via Element client or any Matrix client at [https://matrix.to/#/#galaxyproject_Lobby:gitter.im](https://matrix.to/#/#galaxyproject_Lobby:gitter.im)
 
 More links we'll mention as we go through the slides:
 
@@ -256,4 +256,4 @@ The rest of the slides will focus on the core repository.
 - Multiple user-facing applications (Galaxy, CloudLaunch, Training Material)
 - Developer libraries for plugin developers
 - Admin tools for deployment
-- Active community on Matrix/Gitter
+- Active community on Matrix (via Element client)

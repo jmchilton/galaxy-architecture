@@ -12,7 +12,7 @@ Images in training-material come from multiple locations:
 **Examples**:
 - `docker-chart.png`
 - `biocontainers.png`
-- `gitter_galaxyproject.png`
+- `element_galaxyproject.png`
 - `galaxy_main_scheme.png`
 - Various `.png` and `.svg` files for dev topics
 
