@@ -415,7 +415,20 @@ def migrate_topic(topic_name: str) -> bool:
     # Write content.yaml
     content_yaml_path = topic_path / "content.yaml"
     with open(content_yaml_path, 'w') as f:
-        yaml.dump(content_blocks, f, default_flow_style=False, sort_keys=False)
+        # Custom representer for strings to use plain style when safe
+        class CustomDumper(yaml.SafeDumper):
+            pass
+
+        def represent_str(dumper, data):
+            # Use plain style if no special chars, double-quoted if has apostrophes
+            if '\n' in data or '\r' in data:
+                return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='|')
+            elif "'" in data and '"' not in data:
+                return dumper.represent_scalar('tag:yaml.org,2002:str', data, style='"')
+            return dumper.represent_scalar('tag:yaml.org,2002:str', data)
+
+        CustomDumper.add_representer(str, represent_str)
+        yaml.dump(content_blocks, f, Dumper=CustomDumper, default_flow_style=False, sort_keys=False)
     print(f"✓ Created: {content_yaml_path}")
 
     # Write metadata.yaml

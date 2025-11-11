@@ -7,28 +7,25 @@
 - type: slide
   id: please-interrupt
   heading: Please Interrupt!
-  content: We're here to answer your questions about Galaxy architecture!
+  content: "We're here to answer your questions about Galaxy architecture!"
 - type: slide
   id: the-galaxyproject-projects
   heading: The **/galaxyproject** projects
-  content: '*The architecture of the ecosystem.*
-
+  content: |-
+    *The architecture of the ecosystem.*
 
     ???
 
-
-    Too many to cover all but we''ll cover some of the big ones in a few big
-
+    Too many to cover all but we'll cover some of the big ones in a few big
     categories. User-facing applications, projects for Galaxy plugin developers,
-
-    and projects for Galaxy administrators.'
+    and projects for Galaxy administrators.
 - type: slide
   id: lots-of-gitter-actually
   heading: Lots of Gitter actually
-  content: '![galaxyproject gitter landing](../../images/gitter_galaxyproject.png)
+  content: |-
+    ![galaxyproject gitter landing](../../images/gitter_galaxyproject.png)
 
-
-    https://gitter.im/galaxyproject'
+    https://gitter.im/galaxyproject
 - type: slide
   id: user-facing-applications
   heading: ''
@@ -37,36 +34,33 @@
 - type: slide
   id: the-main-galaxy-application-web-interf
   heading: ''
-  content: 'The main Galaxy application.
-
+  content: |-
+    The main Galaxy application.
 
     Web interface, database model, job running, etc...
 
-
-    Also includes other web applications including the **ToolShed**.'
+    Also includes other web applications including the **ToolShed**.
 - type: slide
   id: logo-sitebaseurl-assetsimages
   heading: ''
-  content: '![logo]({{ site.baseurl }}/assets/images/GTNLogo1000.png)
+  content: |-
+    ![logo]({{ site.baseurl }}/assets/images/GTNLogo1000.png)
 
-
-    Galaxy training material for scientists, developers, and admins. Powers *https://training.galaxyproject.org/*.'
+    Galaxy training material for scientists, developers, and admins. Powers *https://training.galaxyproject.org/*.
 - type: slide
   id: the-galaxy-hub-is-the-community-and-docu
   heading: ''
-  content: 'The Galaxy Hub is the community and documentation hub for the Galaxy Project.
-    It is maintained by the community through this GitHub repository. It is a static
-    website built using the metalsmith static site generator.
+  content: |-
+    The Galaxy Hub is the community and documentation hub for the Galaxy Project. It is maintained by the community through this GitHub repository. It is a static website built using the metalsmith static site generator.
 
-
-    Powers *https://galaxyproject.org/*.'
+    Powers *https://galaxyproject.org/*.
 - type: slide
   id: official-python-client-for-the-galaxy-t
   heading: ''
-  content: 'Official Python client for the Galaxy, ToolShed, and CloudMan APIs.
+  content: |-
+    Official Python client for the Galaxy, ToolShed, and CloudMan APIs.
 
-
-    Best documented path to scripting the Galaxy API.'
+    Best documented path to scripting the Galaxy API.
 - type: slide
   id: galaxy-api-bindings-for-other-languages
   heading: ''
@@ -74,20 +68,18 @@
 - type: slide
   id: galaxy-cloudman-a-web-application-whic
   heading: ''
-  content: 'Galaxy CloudMan - a web application which manages a Galaxy Kubernetes
-    cluster in
-
-    the cloud.'
+  content: |-
+    Galaxy CloudMan - a web application which manages a Galaxy Kubernetes cluster in
+    the cloud.
 - type: slide
   id: high-quality-docker-containers-for-stabl
   heading: ''
-  content: 'High quality Docker containers for stable Galaxy environments.
-
+  content: |-
+    High quality Docker containers for stable Galaxy environments.
 
     Releases corresponding to each new version of Galaxy.
 
-
-    Many flavors available.'
+    Many flavors available.
 - type: slide
   id: dockerimagesdocker-chartpng
   heading: ''
@@ -101,22 +93,17 @@
 - type: slide
   id: galaxy-tools-maintained-by-the-iuc-i
   heading: ''
-  content: 'Galaxy tools maintained by the *IUC* ("Intergalactic Utilities Commission").
+  content: |-
+    Galaxy tools maintained by the *IUC* ("Intergalactic Utilities Commission").
 
-
-    A variety of tools, generally of high quality including many of the core tools
-    for Galaxy main.
-
+    A variety of tools, generally of high quality including many of the core tools for Galaxy main.
 
     Demonstrates *current tool development best practices* - development on
-
     github and then deployed to test/main ToolSheds
-
 
     [galaxyproject/**tools-devteam** ](https://github.com/galaxyproject/tools-devteam)
 
-
-    Many older tools appearing on usegalaxy.org.'
+    Many older tools appearing on usegalaxy.org.
 - type: slide
   id: tools-aside-more-repositories
   heading: Tools Aside - More Repositories
@@ -132,37 +119,30 @@
 - type: slide
   id: intergalactic-workflow-commission-hosti
   heading: ''
-  content: 'Intergalactic Workflow Commission. Hosting workflows and defining best
-    practices for publishing workflows.
+  content: |-
+    Intergalactic Workflow Commission. Hosting workflows and defining best practices for publishing workflows.
 
-
-    https://matrix.to/#/#galaxyproject_iwc:gitter.im'
+    https://matrix.to/#/#galaxyproject_iwc:gitter.im
 - type: slide
   id: command-line-utilities-to-assist-in-the
   heading: ''
-  content: 'Command-line utilities to assist in the development of Galaxy tools and
-    workflows.
-
+  content: |-
+    Command-line utilities to assist in the development of Galaxy tools and workflows.
     Linting, testing, deploying to ToolSheds...
-
 
     *The best practice approach for Galaxy tool development!*
 
-
     [galaxyproject/**planemo-machine** ](https://github.com/galaxyproject/planemo-machine)
 
-
     Builds Galaxy environments for Galaxy tool development including Docker
-
-    container, virtual machines, Google compute images'
+    container, virtual machines, Google compute images
 - type: slide
   id: language-server-implementation-for-galax
   heading: ''
-  content: 'Language server implementation for Galaxy tools. Visual Studio Code extension
-    for tool development.
+  content: |-
+    Language server implementation for Galaxy tools. Visual Studio Code extension for tool development.
 
-
-    Test execution, code completion, best practices, documentation tooltips, etc..'
+    Test execution, code completion, best practices, documentation tooltips, etc..
 - type: slide
   id: build-galaxy-framework-dependencies-as-p
   heading: ''
@@ -180,32 +160,25 @@
 - type: slide
   id: galaxyprojectansible-playbook
   heading: ''
-  content: 'galaxyproject/**{ansible-\*, \*-playbook}**<br>
-
+  content: |-
+    galaxyproject/**{ansible-\*, \*-playbook}**<br>
     usegalaxy-eu/**{ansible-\*, \*-playbook}**
 
-
-    [Ansible](https://www.ansible.com/) components to automate almost every aspect
-    of Galaxy installation and maintenance.
-
+    [Ansible](https://www.ansible.com/) components to automate almost every aspect of Galaxy installation and maintenance.
 
     Ansible is an advanced configuration management system
 
-
-    These playbooks are used to maintain Galaxy main, cloud and Docker images, virtual
-    machines, ...'
+    These playbooks are used to maintain Galaxy main, cloud and Docker images, virtual machines, ...
   class: enlarge150
 - type: slide
   id: a-process-manager-supervisor-and-manag
   heading: ''
-  content: 'A process manager (supervisor) and management tools for Galaxy servers.
+  content: |-
+    A process manager (supervisor) and management tools for Galaxy servers.
 
+    `galaxyctl` which is used to manage the starting, stopping, and logging of Galaxy's various processes.
 
-    `galaxyctl` which is used to manage the starting, stopping, and logging of Galaxy''s
-    various processes.
-
-
-    `galaxy` which can be used to run a Galaxy server in the foreground.'
+    `galaxy` which can be used to run a Galaxy server in the foreground.
 - type: slide
   id: kubernetes-helm-chart-for-deploying-gala
   heading: ''
@@ -214,24 +187,21 @@
 - type: slide
   id: distributed-job-execution-engine-for-gal
   heading: ''
-  content: 'Distributed job execution engine for Galaxy.
-
+  content: |-
+    Distributed job execution engine for Galaxy.
 
     Stages data, scripts, configuration.
 
-
     Can run jobs on Windows machines.
 
-
-    Can act as its own queuing system or access an existing cluster DRM.'
+    Can act as its own queuing system or access an existing cluster DRM.
 - type: slide
   id: library-and-cli-for-managing-galaxy-plug
   heading: ''
-  content: 'Library and CLI for managing Galaxy plugins - tools, index data, and workflows.
+  content: |-
+    Library and CLI for managing Galaxy plugins - tools, index data, and workflows.
 
-
-    Layer on top of BioBlend building useful utilities for working with the Galaxy
-    API from an administrator perspective.'
+    Layer on top of BioBlend building useful utilities for working with the Galaxy API from an administrator perspective.
 - type: slide
   id: handy-command-line-utility-for-galaxy-ad
   heading: ''
@@ -245,15 +215,12 @@
 - type: slide
   id: total-perspective-vortex
   heading: Total Perspective Vortex
-  content: '[galaxyproject/total-perspective-vortex **](https://github.com/galaxyproject/total-perspective-vortex)
-
+  content: |-
+    [galaxyproject/total-perspective-vortex **](https://github.com/galaxyproject/total-perspective-vortex)
 
     ![TPV Logo](https://raw.githubusercontent.com/galaxyproject/total-perspective-vortex/main/docs/images/tpv-logo-wide.png)
 
-
-    TotalPerspectiveVortex (TPV) provides an installable set of dynamic rules for
-    the Galaxy application that can route entities (Tools, Users, Roles) to appropriate
-    job destinations based on a configurable yaml file.'
+    TotalPerspectiveVortex (TPV) provides an installable set of dynamic rules for the Galaxy application that can route entities (Tools, Users, Roles) to appropriate job destinations based on a configurable yaml file.
 - type: slide
   id: django-based-infrastructure-for-creating
   heading: ''
@@ -262,33 +229,26 @@
 - type: slide
   id: some-out-of-many-friends-of-the-project
   heading: Some (out of many) friends of the project
-  content: '![Bioconda](../../../../shared/images/conda_logo.png)
-
+  content: |-
+    ![Bioconda](../../../../shared/images/conda_logo.png)
 
     ![Biocontainers](../../images/biocontainers.png)
 
-
-    Check out dev training materials "Tool Dependencies and Conda" and "Tool Dependencies
-    and Containers"
-
-    for more context.'
+    Check out dev training materials "Tool Dependencies and Conda" and "Tool Dependencies and Containers"
+    for more context.
 - type: slide
   id: putting-it-all-together
   heading: Putting it all together
-  content: '![Large graphic showing different domains and where different portions
-    of the Galaxy community can be found from Biology, Dev, Packaging, Deployment,
-    Documentation, Training, and Support.](../../images/galaxy_main_scheme.png)
-
+  content: |-
+    ![Large graphic showing different domains and where different portions of the Galaxy community can be found from Biology, Dev, Packaging, Deployment, Documentation, Training, and Support.](../../images/galaxy_main_scheme.png)
 
     ???
 
-
-    TODO: cover gxformat2'
+    TODO: cover gxformat2
 - type: slide
   id: the-rest-of-the-slides-will-focus-on-the
   heading: ''
-  content: 'The rest of the slides will focus on the core repository.
+  content: |-
+    The rest of the slides will focus on the core repository.
 
-
-    .footnote[Continue to: [Project Management]({% link topics/dev/tutorials/architecture-2-project-management/slides.html
-    %})]'
+    .footnote[Continue to: [Project Management]({% link topics/dev/tutorials/architecture-2-project-management/slides.html %})]
