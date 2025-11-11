@@ -2,6 +2,14 @@
 
 This document outlines the plan for generating Galaxy Sphinx documentation from topic content.
 
+## Overview
+
+The plan includes two main phases:
+1. **Standalone Test Project**: Set up a Sphinx project in this repository that mirrors Galaxy's setup, allowing local testing and preview
+2. **Galaxy Integration**: Eventually integrate generated docs into Galaxy's documentation structure
+
+This approach allows us to test and iterate locally before making changes to Galaxy's repository.
+
 ## Galaxy's Sphinx Setup
 
 Galaxy's documentation is located at `~/workspace/galaxy/doc/` and uses:
@@ -50,14 +58,103 @@ Generate Markdown files for Galaxy's Sphinx documentation from topic content. **
 
 ### Approach
 
-1. **Generate Markdown files** directly (no conversion)
-2. **Use MyST extensions** for advanced features
-3. **Integrate with existing structure** (likely `doc/source/dev/architecture/`)
-4. **Maintain compatibility** with Galaxy's Sphinx build
+1. **Set up standalone Sphinx project** in this repository (test bed)
+2. **Generate Markdown files** directly (no conversion)
+3. **Use MyST extensions** for advanced features
+4. **Test locally** before integrating with Galaxy
+5. **Eventually integrate** with Galaxy's existing structure (`doc/source/dev/architecture/`)
 
 ### Tasks
 
-#### 1. Study Galaxy's Documentation Structure
+#### Phase 1: Set Up Standalone Sphinx Test Project
+
+**Goal**: Create a standalone Sphinx project in this repository that mirrors Galaxy's setup, allowing us to test and preview documentation locally before integrating into Galaxy.
+
+**Location**: `doc/` directory in this repository
+
+**Structure**:
+```
+doc/
+├── Makefile              # Copied from Galaxy (simplified)
+├── source/
+│   ├── conf.py          # Based on Galaxy's conf.py (standalone version)
+│   ├── index.md         # Main index for architecture docs
+│   ├── _static/         # Static files (CSS, etc.)
+│   │   └── style.css    # Copied from Galaxy
+│   ├── _templates/      # Custom templates
+│   │   └── layout.html  # Copied from Galaxy
+│   └── architecture/    # Generated architecture docs
+│       ├── index.md
+│       ├── dependency-injection.md
+│       └── ...
+└── build/               # Generated HTML (gitignored)
+```
+
+**Tasks**:
+
+1. **Create doc/ directory structure**
+   ```bash
+   mkdir -p doc/source/{_static,_templates,architecture}
+   ```
+
+2. **Copy Galaxy's configuration** (`~/workspace/galaxy/doc/source/conf.py`)
+   - Adapt for standalone use (remove Galaxy-specific imports)
+   - Keep MyST parser configuration
+   - Keep theme settings (sphinx_rtd_theme)
+   - Keep static/template paths
+   - Remove autodoc and Galaxy-specific code
+
+3. **Copy Galaxy's static files**
+   - `_static/style.css` - Custom CSS
+   - Any other static assets needed
+
+4. **Copy Galaxy's templates**
+   - `_templates/layout.html` - Custom layout template
+
+5. **Create simplified Makefile**
+   - Based on Galaxy's Makefile
+   - Remove Galaxy-specific targets
+   - Keep basic `html`, `clean` targets
+
+6. **Create initial index.md**
+   ```markdown
+   # Galaxy Architecture Documentation
+   
+   This section documents Galaxy's internal architecture.
+   
+   .. toctree::
+     :maxdepth: 2
+     :caption: Architecture Topics
+   
+     architecture/index
+   ```
+
+7. **Add Sphinx dependencies to pyproject.toml**
+   ```toml
+   [project.optional-dependencies]
+   dev = [
+     "pytest>=7.0.0",
+     "sphinx>=7.0.0",
+     "myst-parser>=2.0.0",
+     "sphinx-rtd-theme>=2.0.0",
+   ]
+   ```
+
+8. **Test Sphinx build**
+   ```bash
+   cd doc
+   make html
+   # View at doc/build/html/index.html
+   ```
+
+**Key Adaptations from Galaxy's Setup**:
+- Remove `sys.path.insert` for Galaxy lib (not needed)
+- Remove autodoc extensions (not documenting code)
+- Remove Galaxy version imports
+- Simplify to focus on architecture docs only
+- Keep MyST parser and theme settings identical
+
+#### Phase 2: Study Galaxy's Documentation Structure
 
 **Location**: `~/workspace/galaxy/doc/`
 
@@ -73,7 +170,7 @@ Generate Markdown files for Galaxy's Sphinx documentation from topic content. **
 - `doc/source/dev/schema.md` - Developer doc example
 - `doc/source/dev/index.rst` - How markdown files are included
 
-#### 2. Create `outputs/sphinx-docs/build.py`
+#### Phase 3: Create `outputs/sphinx-docs/build.py`
 
 **Purpose**: Generate Markdown files for Galaxy Sphinx docs
 
@@ -94,6 +191,14 @@ outputs/sphinx-docs/generated/
     └── ...
 ```
 
+**Also copies to test project**:
+```
+doc/source/architecture/
+├── index.md               # Auto-updated from generated
+├── dependency-injection.md
+└── ...
+```
+
 **Implementation Notes**:
 - **No RST conversion** - output Markdown directly
 - Use MyST syntax for advanced features (directives, roles)
@@ -101,7 +206,7 @@ outputs/sphinx-docs/generated/
 - Handle code blocks (already in markdown format)
 - Process images (copy to appropriate location or reference)
 
-#### 3. Markdown Processing
+#### Phase 4: Markdown Processing
 
 **What needs processing**:
 - **Images**: Convert `../../images/` paths to Sphinx-relative paths
@@ -118,7 +223,25 @@ outputs/sphinx-docs/generated/
 ![Alt](../_images/app_py2.plantuml.svg)
 ```
 
-#### 4. Integration with Galaxy Docs
+#### Phase 5: Testing in Standalone Project
+
+**Test process**:
+1. Generate markdown files using `outputs/sphinx-docs/build.py`
+2. Copy generated files to `doc/source/architecture/`
+3. Update `doc/source/index.md` if needed
+4. Run `make html` in `doc/` directory
+5. View output at `doc/build/html/index.html`
+6. Verify formatting, images, cross-references
+7. Iterate until output matches Galaxy's style
+
+**Benefits of standalone project**:
+- Test without modifying Galaxy repo
+- Preview changes locally
+- Verify MyST features work correctly
+- Ensure images and paths are correct
+- Validate before integration
+
+#### Phase 6: Integration with Galaxy Docs (Future)
 
 **Location in Galaxy repo**:
 ```
@@ -153,7 +276,7 @@ This section documents Galaxy's internal architecture.
   ...
 ```
 
-#### 5. Build Script Features
+#### Phase 7: Build Script Features
 
 **Core functionality**:
 ```python
@@ -180,18 +303,7 @@ def generate_sphinx_docs(topic_name):
 - Use MyST frontmatter for topic metadata
 - Or convert to Sphinx directives
 
-#### 6. Testing
-
-**Test process**:
-1. Generate markdown files
-2. Copy to Galaxy's `doc/source/dev/architecture/`
-3. Update `doc/source/dev/index.rst` to include architecture section
-4. Run `make html` in `doc/` directory
-5. Verify output looks correct
-6. Check cross-references work
-7. Verify images display
-
-#### 7. Automation (Future)
+#### Phase 8: Automation (Future)
 
 **Integration options**:
 - **Manual**: Copy generated files to Galaxy repo
@@ -260,11 +372,14 @@ status: stable
 
 ## Prerequisites
 
-- [ ] Study Galaxy's doc structure (`~/workspace/galaxy/doc/`)
+- [x] Galaxy's doc structure available at `~/workspace/galaxy/doc/`
+- [ ] Set up standalone Sphinx project in this repo
+- [ ] Copy configuration and assets from Galaxy
 - [ ] Review existing `.md` files in Galaxy docs
 - [ ] Understand MyST parser features used
-- [ ] Test markdown generation locally
-- [ ] Verify integration with Galaxy's build
+- [ ] Test markdown generation in standalone project
+- [ ] Verify output matches Galaxy's style
+- [ ] Eventually verify integration with Galaxy's build
 
 ## Dependencies
 
@@ -275,35 +390,60 @@ status: stable
 
 ## Success Criteria
 
-- ✅ Generated markdown files build successfully in Galaxy's Sphinx
+### Standalone Project
+- ✅ Sphinx project builds successfully (`make html`)
+- ✅ Output matches Galaxy's doc style and theme
+- ✅ Generated markdown files render correctly
 - ✅ Images display correctly
 - ✅ Cross-references work
-- ✅ Formatting matches Galaxy doc style
+- ✅ Can preview locally before Galaxy integration
+
+### Future Integration
+- ✅ Generated markdown files build successfully in Galaxy's Sphinx
+- ✅ Formatting matches Galaxy doc style exactly
 - ✅ Can be integrated into Galaxy's doc build process
+- ✅ No manual editing needed after generation
 
 ## Timeline
 
-**Phase 1**: Study and planning (1-2 days)
-- Review Galaxy's doc structure
-- Understand MyST features
-- Plan integration approach
+**Phase 1**: Set up standalone Sphinx project (1-2 days)
+- Copy configuration from Galaxy
+- Copy static files and templates
+- Create simplified Makefile
+- Test basic Sphinx build
+- Add dependencies to pyproject.toml
 
-**Phase 2**: Build script (2-3 days)
+**Phase 2**: Study Galaxy's documentation structure (1 day)
+- Review existing `.md` files in Galaxy docs
+- Understand MyST features used
+- Study cross-reference patterns
+- Review image handling
+
+**Phase 3**: Build script (2-3 days)
 - Create `outputs/sphinx-docs/build.py`
 - Implement markdown processing
 - Handle images and paths
+- Generate architecture index
 
-**Phase 3**: Testing (1-2 days)
+**Phase 4**: Markdown processing (1 day)
+- Process image paths
+- Handle code blocks
+- Add MyST frontmatter
+- Test transformations
+
+**Phase 5**: Testing in standalone project (1-2 days)
 - Generate docs for existing topics
-- Test in Galaxy's build
-- Fix issues
+- Build and preview locally
+- Verify formatting matches Galaxy style
+- Fix any issues
 
-**Phase 4**: Integration (1-2 days)
-- Create architecture section in Galaxy docs
-- Update index files
+**Phase 6**: Integration with Galaxy (future, 1-2 days)
+- Copy to Galaxy's `doc/source/dev/architecture/`
+- Update Galaxy's index files
+- Test in Galaxy's build
 - Document process
 
-**Total**: ~1 week
+**Total**: ~1-2 weeks (with standalone project setup)
 
 ## Future Enhancements
 
