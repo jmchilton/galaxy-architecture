@@ -21,12 +21,29 @@ def process_markdown_for_sphinx(markdown: str, topic_id: str) -> str:
     """Process markdown for Sphinx compatibility.
 
     - Fix image paths (../../images/ -> ../_images/)
-    - Ensure proper heading structure
+    - Convert bare URLs to markdown links
     """
+    import re
+
     # Fix image paths: ../../images/ becomes ../_images/
     # This assumes doc/source/architecture/ and images at doc/source/_images/
     markdown = markdown.replace("../../images/", "../_images/")
-    return markdown
+
+    # Convert bare URLs (lines that are just a URL) to markdown links
+    # Pattern: lines that contain only https://... or http://...
+    lines = markdown.split('\n')
+    processed_lines = []
+
+    for line in lines:
+        stripped = line.strip()
+        # Match lines that are just a URL (possibly with leading/trailing whitespace)
+        if stripped and re.match(r'^https?://', stripped) and not line.strip().startswith('['):
+            # Convert to markdown link format: [URL](URL)
+            processed_lines.append(f"[{stripped}]({stripped})")
+        else:
+            processed_lines.append(line)
+
+    return '\n'.join(processed_lines)
 
 
 def get_block_content(block, topic_dir: Path) -> str:
