@@ -58,31 +58,6 @@ def find_source_directory(topic_name: str) -> Optional[tuple[Path, int]]:
     return None
 
 
-def extract_slides_from_html(html_path: Path) -> list[str]:
-    """Extract slide content from Remark.js slides.html file.
-
-    Splits on '---' separator and returns list of slide markdown.
-    """
-    if not html_path.exists():
-        raise FileNotFoundError(f"Slides file not found: {html_path}")
-
-    content = html_path.read_text()
-
-    # Extract the textarea content which contains the markdown
-    # Remark.js typically wraps content in <textarea>
-    textarea_match = re.search(r'<textarea[^>]*>(.*?)</textarea>', content, re.DOTALL)
-    if textarea_match:
-        markdown = textarea_match.group(1)
-    else:
-        # Fallback: try to find content between common markers
-        markdown = content
-
-    # Split by --- separator (Remark.js slide separator)
-    slides = markdown.split('---')
-
-    return [slide.strip() for slide in slides if slide.strip()]
-
-
 def extract_images_from_slides(slides: list[str]) -> set[str]:
     """Extract image filenames referenced in slides."""
     images = set()
@@ -121,14 +96,81 @@ def copy_images(image_files: set[str], dest_dir: Path) -> list[str]:
     return copied
 
 
-def create_content_blocks(slides: list[str]) -> list[dict]:
+def extract_frontmatter(slide: str) -> tuple[dict, str]:
+    """Extract YAML frontmatter from a slide.
+
+    Handles both --- delimited and plain YAML at start of slide.
+    Returns tuple of (frontmatter_dict, remaining_content).
+    """
+    import yaml as yaml_lib
+
+    data = {}
+    remaining = slide
+
+    # Try to match YAML frontmatter with --- delimiters first
+    match = re.match(r'^---?\s*\n(.*?)\n---?\s*\n(.*)', slide, re.DOTALL)
+    if match:
+        yaml_content = match.group(1)
+        remaining = match.group(2)
+        try:
+            data = yaml_lib.safe_load(yaml_content) or {}
+        except:
+            return {}, slide
+        return data, remaining
+
+    # Try plain YAML at start (no delimiters)
+    # Remark.js puts YAML at the start, look for it before markdown content
+    lines = slide.split('\n')
+    yaml_lines = []
+
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+
+        # Empty lines are ok in YAML
+        if stripped == '':
+            yaml_lines.append(line)
+        # Lines with ':' are YAML (key: value or list items)
+        elif ':' in line or line.startswith('  -'):
+            # This looks like YAML or list continuation
+            yaml_lines.append(line)
+        # Comments are ok
+        elif stripped.startswith('#'):
+            yaml_lines.append(line)
+        # If we hit a line that doesn't look like YAML, stop
+        else:
+            # This is where content starts
+            break
+
+    if yaml_lines:
+        yaml_content = '\n'.join(yaml_lines).strip()
+        if yaml_content:
+            try:
+                data = yaml_lib.safe_load(yaml_content) or {}
+                # Remaining content is after YAML
+                remaining = '\n'.join(lines[len(yaml_lines):])
+            except:
+                return {}, slide
+
+            return data, remaining
+
+    return data, remaining
+
+
+def create_content_blocks(slides: list[str], frontmatter: dict) -> list[dict]:
     """Convert slides to content.yaml block format.
 
+    Skips the first slide if it's frontmatter, starts from actual content.
     Returns list of content block dictionaries.
     """
     blocks = []
+    start_idx = 0
 
-    for i, slide in enumerate(slides):
+    # Skip first slide if it's just metadata/frontmatter
+    if slides and ('layout' in slides[0] or 'questions' in slides[0] or 'title' in slides[0]):
+        # First slide is likely Remark.js metadata, skip it
+        start_idx = 1
+
+    for i, slide in enumerate(slides[start_idx:], start=start_idx):
         if not slide.strip():
             continue
 
@@ -159,16 +201,33 @@ def create_content_blocks(slides: list[str]) -> list[dict]:
     return blocks
 
 
-def create_metadata(topic_name: str, topic_id: str, num: int) -> dict:
-    """Create metadata.yaml structure."""
+def create_metadata(topic_name: str, topic_id: str, num: int, frontmatter: dict) -> dict:
+    """Create metadata.yaml structure.
+
+    Uses extracted frontmatter from slides if available.
+    """
+    # Extract training metadata from frontmatter
+    questions = frontmatter.get('questions', [])
+    objectives = frontmatter.get('objectives', [])
+    key_points = frontmatter.get('key_points', [])
+    time_estimation = frontmatter.get('time_estimation', '30m')
+
+    # Ensure these are lists
+    if isinstance(questions, str):
+        questions = [questions]
+    if isinstance(objectives, str):
+        objectives = [objectives]
+    if isinstance(key_points, str):
+        key_points = [key_points]
+
     return {
         'topic_id': topic_id,
         'title': topic_name,
         'training': {
-            'questions': [f"What is {topic_name}?"],
-            'objectives': [f"Understand {topic_name}"],
-            'key_points': [f"Key concept about {topic_name}"],
-            'time_estimation': '30m',
+            'questions': questions or [f"What is {topic_name}?"],
+            'objectives': objectives or [f"Understand {topic_name}"],
+            'key_points': key_points or [f"Key concept about {topic_name}"],
+            'time_estimation': time_estimation,
         },
         'sphinx': {
             'section': 'Architecture',
@@ -244,12 +303,29 @@ def migrate_topic(topic_name: str) -> bool:
     # Extract slides
     slides_file = source_dir / "slides.html"
     try:
-        slides = extract_slides_from_html(slides_file)
+        raw_content = slides_file.read_text()
+        # Extract textarea content which contains the markdown
+        textarea_match = re.search(r'<textarea[^>]*>(.*?)</textarea>', raw_content, re.DOTALL)
+        if textarea_match:
+            markdown = textarea_match.group(1)
+        else:
+            markdown = raw_content
+
+        # Split by --- separator (Remark.js slide separator)
+        all_slides = markdown.split('---')
+
+        # First slide (before first ---) is usually empty, next slide is frontmatter
+        slides = [s.strip() for s in all_slides if s.strip()]
         print(f"✓ Extracted {len(slides)} slides")
     except Exception as e:
         print(f"❌ Error extracting slides: {e}")
         shutil.rmtree(topic_path)
         return False
+
+    # Extract frontmatter from first non-empty slide
+    frontmatter = {}
+    if slides:
+        frontmatter, _ = extract_frontmatter(slides[0])
 
     # Extract and copy images
     image_files = extract_images_from_slides(slides)
@@ -259,8 +335,8 @@ def migrate_topic(topic_name: str) -> bool:
         if len(copied) < len(image_files):
             print(f"⚠️  {len(image_files) - len(copied)} images not found")
 
-    # Create content blocks
-    content_blocks = create_content_blocks(slides)
+    # Create content blocks (skips frontmatter slide if present)
+    content_blocks = create_content_blocks(slides, frontmatter)
 
     # Write content.yaml
     content_yaml_path = topic_path / "content.yaml"
@@ -269,7 +345,7 @@ def migrate_topic(topic_name: str) -> bool:
     print(f"✓ Created: {content_yaml_path}")
 
     # Write metadata.yaml
-    metadata = create_metadata(topic_name, topic_id, arch_num)
+    metadata = create_metadata(topic_name, topic_id, arch_num, frontmatter)
     metadata_yaml_path = topic_path / "metadata.yaml"
     with open(metadata_yaml_path, 'w') as f:
         yaml.dump(metadata, f, default_flow_style=False, sort_keys=False)
