@@ -24,9 +24,116 @@ def strip_speaker_notes(markdown: str) -> str:
     return markdown
 
 
+def _extract_directive_content(content: str, start_pos: int, directive_name: str) -> tuple[str, int]:
+    """Extract content from a Remark.js directive using bracket counting.
+
+    Args:
+        content: Full markdown content
+        start_pos: Position of the opening bracket after directive name
+        directive_name: Name of directive (for error messages)
+
+    Returns:
+        (extracted_content, end_position) or (None, -1) if bracket mismatch
+    """
+    bracket_count = 0
+    pos = start_pos
+
+    while pos < len(content):
+        if content[pos] == '[':
+            bracket_count += 1
+        elif content[pos] == ']':
+            bracket_count -= 1
+            if bracket_count == 0:
+                return content[start_pos + 1:pos], pos + 1
+        pos += 1
+
+    return None, -1
+
+
+def _process_pull_directives(markdown: str) -> str:
+    """Convert .pull-left and .pull-right to side-by-side layout.
+
+    Extracts both directives and formats them as:
+    LEFT_CONTENT | RIGHT_CONTENT
+    """
+    import re
+
+    # Look for .pull-left[ and .pull-right[ patterns
+    left_match = re.search(r'\.pull-left\[', markdown)
+    right_match = re.search(r'\.pull-right\[', markdown)
+
+    if not left_match or not right_match:
+        # No pull directives, return as-is
+        return markdown
+
+    # Extract left content
+    left_start = left_match.start()
+    left_bracket_pos = left_match.end() - 1
+    left_content, left_end = _extract_directive_content(markdown, left_bracket_pos, 'pull-left')
+
+    if left_content is None:
+        return markdown
+
+    # Extract right content
+    right_start = right_match.start()
+    right_bracket_pos = right_match.end() - 1
+    right_content, right_end = _extract_directive_content(markdown, right_bracket_pos, 'pull-right')
+
+    if right_content is None:
+        return markdown
+
+    # Build replacement: left and right side-by-side with a divider
+    # Determine which comes first
+    if left_start < right_start:
+        # .pull-left comes before .pull-right
+        before = markdown[:left_start]
+        between = markdown[left_end:right_start]
+        after = markdown[right_end:]
+        replacement = f"{left_content.strip()}\n\n---\n\n{right_content.strip()}"
+    else:
+        # .pull-right comes before .pull-left
+        before = markdown[:right_start]
+        between = markdown[right_end:left_start]
+        after = markdown[left_end:]
+        replacement = f"{right_content.strip()}\n\n---\n\n{left_content.strip()}"
+
+    return before + replacement + after
+
+
+def _unwrap_remark_directives(markdown: str) -> str:
+    """Unwrap remaining Remark.js directives like .code[...], .reduce70[...], etc.
+
+    Uses bracket counting to handle multi-line content and nested brackets.
+    """
+    import re
+
+    while True:
+        # Find the next directive
+        match = re.search(r'\.(\w+)\[', markdown)
+        if not match:
+            break
+
+        directive_start = match.start()
+        bracket_pos = match.end() - 1
+
+        # Extract content using bracket counting
+        content, end_pos = _extract_directive_content(markdown, bracket_pos, match.group(1))
+
+        if content is None:
+            # Malformed directive, skip it
+            break
+
+        # Replace directive with just its content
+        markdown = markdown[:directive_start] + content + markdown[end_pos:]
+
+    return markdown
+
+
 def process_markdown_for_sphinx(markdown: str, topic_id: str) -> str:
     """Process markdown for Sphinx compatibility.
 
+    - Unwrap Remark.js class directives (.code[...], .reduce70[...], etc.)
+    - Convert .pull-left/.pull-right to side-by-side columns
     - Fix image paths (../../images/ -> ../_images/)
     - Fix asset paths ({{ site.baseurl }}/assets/ -> ../_images/)
     - Convert bare URLs to markdown links
@@ -35,6 +142,15 @@ def process_markdown_for_sphinx(markdown: str, topic_id: str) -> str:
     """
     import re
 
+    # Handle .pull-left and .pull-right directives specially
+    # Convert them to a two-column layout for Sphinx
+    markdown = _process_pull_directives(markdown)
+
+    # Unwrap remaining Remark.js class directives like .code[...], .reduce90[...], etc.
+    # These are used in Remark.js for styling but not valid in Sphinx markdown
+    # Use bracket counting to handle multi-line content
+    markdown = _unwrap_remark_directives(markdown)
+
     # Fix image paths: ../../images/ becomes ../_images/
     # This assumes doc/source/architecture/ and images at doc/source/_images/
     markdown = markdown.replace("../../images/", "../_images/")
@@ -42,21 +158,30 @@ def process_markdown_for_sphinx(markdown: str, topic_id: str) -> str:
     # Fix asset paths: {{ site.baseurl }}/assets/images/ becomes ../_images/
     markdown = markdown.replace("{{ site.baseurl }}/assets/images/", "../_images/")
 
-    # Convert bare URLs (lines that are just a URL) to markdown links
-    # Pattern: lines that contain only https://... or http://...
-    lines = markdown.split('\n')
-    processed_lines = []
+    # Convert bare URLs to markdown links
+    # First, protect URLs that are already in markdown links [text](url)
+    protected_pattern = r'\]\(https?://[^\)]+\)'
+    protected = []
 
-    for line in lines:
-        stripped = line.strip()
-        # Match lines that are just a URL (possibly with leading/trailing whitespace)
-        if stripped and re.match(r'^https?://', stripped) and not line.strip().startswith('['):
-            # Convert to markdown link format: [URL](URL)
-            processed_lines.append(f"[{stripped}]({stripped})")
-        else:
-            processed_lines.append(line)
+    def protect_match(m):
+        protected.append(m.group())
+        return f'__PROTECTED_{len(protected)-1}__'
 
-    return '\n'.join(processed_lines)
+    markdown = re.sub(protected_pattern, protect_match, markdown)
+
+    # Now convert bare URLs to markdown links
+    # Matches URLs not inside markdown link syntax
+    markdown = re.sub(
+        r'(https?://[^\s\)]+)',
+        r'[\1](\1)',
+        markdown
+    )
+
+    # Restore protected URLs
+    for i, url_part in enumerate(protected):
+        markdown = markdown.replace(f'__PROTECTED_{i}__', url_part)
+
+    return markdown
 
 
 def get_block_content(block, topic_dir: Path) -> str:
@@ -225,13 +350,58 @@ def generate_sphinx_docs(topic_name: str) -> None:
 def update_architecture_index(topics_to_include: list[str]) -> None:
     """Update doc/source/architecture/index.md with generated topics.
 
+    Topics are ordered by following the continues_to chain, starting from
+    the topic that has no previous_to.
+
     Args:
         topics_to_include: List of topic IDs to include
     """
+    from models import load_metadata
+
     index_file = Path("doc/source/architecture/index.md")
+    topics_dir = Path("topics")
+
+    # Load metadata for all topics to build the chain
+    topic_metadata = {}
+    for topic_id in topics_to_include:
+        try:
+            topic_metadata[topic_id] = load_metadata(topic_id)
+        except Exception:
+            pass
+
+    # Find the starting topic (one with no previous_to)
+    ordered_topics = []
+    current_id = None
+
+    for topic_id in topic_metadata:
+        if not topic_metadata[topic_id].training.previous_to:
+            current_id = topic_id
+            break
+
+    # Follow the chain using continues_to
+    if current_id:
+        visited = set()
+        while current_id and current_id not in visited:
+            ordered_topics.append(current_id)
+            visited.add(current_id)
+            next_id = topic_metadata[current_id].training.continues_to if current_id in topic_metadata else None
+            # Only continue if next topic exists in available topics
+            if next_id and next_id in topic_metadata:
+                current_id = next_id
+            else:
+                current_id = None
+
+    # Add any remaining topics not in the chain (in sorted order)
+    for topic_id in sorted(topics_to_include):
+        if topic_id not in ordered_topics:
+            ordered_topics.append(topic_id)
+
+    # Fall back to sorted list if chain failed to start
+    if not ordered_topics:
+        ordered_topics = sorted(topics_to_include)
 
     # Build toctree
-    toctree_items = "\n".join(topics_to_include)
+    toctree_items = "\n".join(ordered_topics)
 
     content = f"""# Architecture Topics
 
@@ -249,13 +419,10 @@ This section documents Galaxy's key architectural patterns:
 
 """
 
-    # Add links for each topic
-    topics_dir = Path("topics")
-    for topic_id in sorted(topics_to_include):
-        topic_dir = topics_dir / topic_id
-        if (topic_dir / "metadata.yaml").exists():
-            from models import load_metadata
-            metadata = load_metadata(topic_id)
+    # Add links for each topic in order
+    for topic_id in ordered_topics:
+        if topic_id in topic_metadata:
+            metadata = topic_metadata[topic_id]
             content += f"- **[{metadata.title}]({topic_id}.md)**\n"
 
     index_file.write_text(content)
