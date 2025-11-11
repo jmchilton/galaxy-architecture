@@ -48,6 +48,63 @@ Create an experimental repository that:
 ❌ Not requiring GTN or Galaxy buy-in during POC phase
 ❌ Not optimizing for perfection over iteration
 
+## Content Model
+
+### Overview
+
+Each topic consists of three key files:
+
+1. **metadata.yaml** - Topic configuration (training, sphinx, hub metadata)
+2. **content.yaml** - Ordered sequence of content blocks (slides and prose)
+3. **content.md** - Main markdown document (or fragments/ directory for split content)
+
+### Validation with Pydantic
+
+Content structure is enforced using Pydantic v2 models in `scripts/models.py`:
+
+- **TopicMetadata** - Validates metadata.yaml structure
+- **TopicContent** - Validates content.yaml structure
+- **ContentBlock** - Validates individual content blocks (prose or slide)
+
+See `docs/SCHEMA.md` (auto-generated from models) for complete schema documentation.
+
+### Content Blocks
+
+content.yaml defines a sequence of content blocks:
+
+```yaml
+- type: prose
+  id: intro
+  content: |
+    Introduction text for docs only.
+
+- type: slide
+  id: problem
+  heading: The Problem
+  file: content.md        # or fragments/problem.md
+```
+
+### Smart Defaults
+
+- **Prose blocks**: Render in docs by default, NOT in slides
+- **Slide blocks**: Render in BOTH docs and slides by default
+
+Override with explicit `doc.render: false` or `slides.render: false`.
+
+### Single Document vs Fragments
+
+**Option 1: Single document** (simplest)
+- All content in `content.md`
+- content.yaml references the same file for all blocks
+- Best for smaller topics or initial migration
+
+**Option 2: Fragments** (more granular)
+- Content split into `fragments/*.md` files
+- content.yaml references specific fragment files
+- Better for large topics or reusing content across blocks
+
+Both approaches supported - choose based on topic complexity.
+
 ## Repository Structure
 
 ```
@@ -60,18 +117,19 @@ galaxy-architecture/
 │
 ├── topics/                        # Core content - one directory per topic
 │   ├── dependency-injection/
-│   │   ├── metadata.yaml          # Structured metadata for all outputs
-│   │   ├── overview.md            # Main narrative content
-│   │   ├── examples.md            # Code examples and patterns
-│   │   ├── testing.md             # How to test DI patterns
+│   │   ├── metadata.yaml          # Topic metadata (training, sphinx, hub config)
+│   │   ├── content.yaml           # Content sequence (slides, prose blocks)
+│   │   ├── content.md             # Main content document
+│   │   ├── fragments/             # Optional: reusable content fragments
+│   │   │   └── *.md               # Fragment files (if needed)
 │   │   └── .claude/
 │   │       └── CLAUDE.md          # Topic-specific AI context
 │   │
 │   └── startup/
-│       ├── metadata.yaml
-│       ├── overview.md
-│       ├── sequence.md            # Startup sequence details
-│       ├── configuration.md       # Config loading
+│       ├── metadata.yaml          # Topic metadata
+│       ├── content.yaml           # Content sequence
+│       ├── content.md             # Main content document
+│       ├── fragments/             # Optional fragments
 │       └── .claude/
 │           └── CLAUDE.md
 │
@@ -91,7 +149,9 @@ galaxy-architecture/
 │       └── generated/             # Output directory
 │
 ├── scripts/                       # Utility scripts
-│   ├── validate.py                # Validate metadata completeness
+│   ├── models.py                  # Pydantic models for validation
+│   ├── validate.py                # Validate all topics
+│   ├── generate_schema_docs.py    # Generate SCHEMA.md from models
 │   ├── list-topics.py             # List all topics and status
 │   ├── check-links.py             # Verify internal references
 │   └── preview.py                 # Local preview server
@@ -314,51 +374,57 @@ galaxy-architecture/
 
 **Goal**: Fully migrate dependency-injection topic as proof of concept
 
-**Status**: ✅ All tasks completed
+**Status**: ✅ All tasks completed (content.yaml fully migrated - all slides as separate blocks)
 
-**Tasks**:
+**Standard Migration Pattern**:
 
-1. **Extract content from existing slides** - ✅ Complete
+For each topic, follow this process:
+
+1. **Extract slide content** from existing presentations
+2. **Create metadata.yaml** with training/sphinx/hub configuration
+3. **Create content.yaml** with one slide block per slide in the presentation
+   - Each slide gets a unique `id` (descriptive, hyphenated)
+   - Each slide includes `type: slide` and `heading`
+   - Slide content stored inline in `content` field
+   - Image-only slides use `heading: " "` (single space)
+4. **Create .claude/CLAUDE.md** for topic-specific AI context
+5. **Validate**: `uv run python scripts/validate.py`
+6. **Generate slides**: `uv run python outputs/training-slides/build.py <topic-id>`
+
+**Tasks Completed**:
+
+1. **Extracted all slides** - ✅ Complete
    - Source: `~/workspace/training-material/topics/dev/tutorials/architecture-6-dependency-injection/slides.html`
-   - Extracted all content from actual GTN slides
-   - Identified key sections: overview, examples, testing
+   - 26 slides total extracted
 
-2. **Create metadata.yaml** - ✅ Complete
+2. **Created metadata.yaml** - ✅ Complete
    - Extracted questions, objectives, key_points from slide frontmatter
-   - Updated with correct content (type-based DI with Lagom)
-   - Added related code paths (lib/galaxy/di/, structured_app.py, etc.)
-   - Time estimation corrected to 15m
+   - Added training, sphinx, hub, and claude metadata
+   - Related code paths: lib/galaxy/di/, structured_app.py, lagom integration
+   - Time estimation: 15m
 
-3. **Create overview.md** - ✅ Complete
-   - Content matches actual slides
-   - Focus on `app` god object problem
-   - Type-based DI with Lagom explanation
-   - Interfaces breaking circular dependencies
-   - Benefits of typing
+3. **Migrated all slides to content.yaml** - ✅ Complete
+   - Each of 26 slides as separate block with unique id
+   - Format:
+     ```yaml
+     - type: slide
+       id: unique_id
+       heading: "Slide Title"  # or " " for image-only slides
+       content: |
+         Slide markdown content here
+     ```
+   - All slides validate successfully
+   - Smart defaults applied (slides render in both docs and slides by default)
 
-4. **Create examples.md** - ✅ Complete
-   - Old vs new pattern comparisons
-   - FastAPI controller examples
-   - Legacy WSGI controller examples
-   - Celery task examples with `@galaxy_task`
-   - Container usage patterns
-
-5. **Create testing.md** - ✅ Complete
-   - Testing with type-based DI
-   - Mocking individual dependencies
-   - Controller and task testing examples
-   - Best practices for DI testing
-
-6. **Create .claude/CLAUDE.md** - ✅ Complete
-   - Created comprehensive AI context file
+4. **Created .claude/CLAUDE.md** - ✅ Complete
    - Documents type-based DI with Lagom
-   - Includes key files, patterns, and common questions
-   - Updated with correct information from slides
+   - Lists key files and patterns
+   - Includes common questions and how to update content
 
-7. **Validate content structure** - ✅ Complete
-   - All required metadata present
-   - Markdown properly formatted
-   - Validation passes successfully
+5. **Full validation** - ✅ Complete
+   - All 26 slides validated
+   - Pydantic validation passes
+   - File references resolve correctly
    - Content accurately reflects source slides
 
 **Key Learnings**:
@@ -366,6 +432,9 @@ galaxy-architecture/
 - Slides emphasize `app` god object problem and solution with interfaces
 - DI works uniformly across FastAPI, WSGI controllers, and Celery tasks
 - Container-based construction simplifies object creation significantly
+- Migrating each slide as separate block provides granular control
+- Image-only slides require a heading (use single space if none needed)
+- This pattern is repeatable for all topics
 
 ### Phase 3: Build Slide Generator (Days 7-9) ✅ COMPLETE
 
@@ -518,146 +587,53 @@ galaxy-architecture/
 
 **Goal**: Automated checking of content quality and completeness
 
-**Status**: ✅ All tasks completed, validation framework fully functional
+**Status**: ✅ All tasks completed with Pydantic v2 models
 
 **Tasks**:
 
-1. **Create scripts/validate.py** - ✅ Complete (enhanced)
-   ```python
-   #!/usr/bin/env python3
-   """
-   Validate all topics for completeness and correctness.
+1. **Create scripts/models.py** - ✅ Complete
+   - Pydantic v2 models for metadata.yaml and content.yaml
+   - TopicMetadata model with all nested types (TrainingMetadata, SphinxMetadata, etc.)
+   - TopicContent model with ContentBlock validation
+   - Smart defaults applied in validators
+   - Rich validation: topic_id format, date consistency, no self-references, etc.
+   - Loader functions with cross-validation
 
-   Checks:
-   - metadata.yaml has all required fields
-   - All referenced files exist
-   - Internal topic references are valid
-   - Markdown is well-formed
-   - No broken code paths
-   """
+2. **Create scripts/validate.py** - ✅ Complete (simplified)
+   - Uses Pydantic models for all validation
+   - ~100 lines vs previous ~300 lines
+   - Better error messages from Pydantic
+   - Validates metadata.yaml structure
+   - Validates content.yaml structure
+   - Checks file references exist
+   - Verifies related topics exist
+   - Validates images exist
 
-   import sys
-   import yaml
-   from pathlib import Path
+3. **Create scripts/generate_schema_docs.py** - ✅ Complete
+   - Auto-generates docs/SCHEMA.md from Pydantic models
+   - Extracts field types, descriptions, defaults
+   - Documents all models and nested types
+   - Includes examples
+   - Single source of truth for schema
 
-   REQUIRED_METADATA_FIELDS = [
-       'topic_id', 'title', 'status',
-       'training.questions', 'training.objectives',
-       'training.key_points', 'training.time_estimation',
-   ]
-
-   def validate_topic(topic_dir):
-       """Validate a single topic directory."""
-       errors = []
-       warnings = []
-
-       # Check metadata exists
-       metadata_file = topic_dir / "metadata.yaml"
-       if not metadata_file.exists():
-           errors.append(f"Missing metadata.yaml")
-           return errors, warnings
-
-       # Load and validate metadata
-       with open(metadata_file) as f:
-           metadata = yaml.safe_load(f)
-
-       # Check required fields
-       for field in REQUIRED_METADATA_FIELDS:
-           keys = field.split('.')
-           value = metadata
-           for key in keys:
-               value = value.get(key, {})
-           if not value:
-               errors.append(f"Missing required field: {field}")
-
-       # Check content files exist
-       if not (topic_dir / "overview.md").exists():
-           warnings.append("Missing overview.md")
-
-       # Check Claude context
-       if not (topic_dir / ".claude" / "CLAUDE.md").exists():
-           warnings.append("Missing .claude/CLAUDE.md")
-
-       # Check related topics are valid
-       if 'related_topics' in metadata:
-           for related in metadata['related_topics']:
-               related_dir = Path(f"topics/{related}")
-               if not related_dir.exists():
-                   errors.append(f"Related topic not found: {related}")
-
-       return errors, warnings
-
-   def validate_all():
-       """Validate all topics."""
-       topics_dir = Path("topics")
-       all_errors = {}
-       all_warnings = {}
-
-       for topic_dir in topics_dir.iterdir():
-           if topic_dir.is_dir() and not topic_dir.name.startswith('.'):
-               errors, warnings = validate_topic(topic_dir)
-               if errors:
-                   all_errors[topic_dir.name] = errors
-               if warnings:
-                   all_warnings[topic_dir.name] = warnings
-
-       # Report results
-       print(f"\n{'='*60}")
-       print("VALIDATION REPORT")
-       print(f"{'='*60}\n")
-
-       if all_errors:
-           print("❌ ERRORS:\n")
-           for topic, errors in all_errors.items():
-               print(f"  {topic}:")
-               for error in errors:
-                   print(f"    - {error}")
-           print()
-
-       if all_warnings:
-           print("⚠️  WARNINGS:\n")
-           for topic, warnings in all_warnings.items():
-               print(f"  {topic}:")
-               for warning in warnings:
-                   print(f"    - {warning}")
-           print()
-
-       if not all_errors and not all_warnings:
-           print("✅ All topics valid!")
-
-       return len(all_errors) == 0
-
-   if __name__ == "__main__":
-       success = validate_all()
-       sys.exit(0 if success else 1)
-   ```
-
-2. **Create tests/test_validate.py** - ✅ Complete
-   - Unit tests for metadata validation
-   - Tests for content quality checks
-   - Tests for markdown validation
-   - Tests for image validation
-   - All 11 tests passing
-
-3. **Run validation on existing topic** - ✅ Complete
+4. **Run validation** - ✅ Complete
    ```bash
    uv run python scripts/validate.py
    ```
-   - Successfully validates all topics
-   - Detects missing metadata, broken images, content quality issues
+   - Successfully validates dependency-injection topic
+   - Pydantic provides clear error messages
+   - Cross-validation checks pass
 
-4. **Enhanced validation features** - ✅ Complete
-   - ✅ Content quality checks (minimum length, heading hierarchy, code block language)
-   - ✅ Markdown validation (broken images, unclosed code blocks)
-   - ✅ Cross-reference validation (code paths mentioned in content)
-   - ✅ Image path validation (metadata and markdown)
-   - ✅ Better error reporting with file context
+5. **Update pyproject.toml** - ✅ Complete
+   - Added `pydantic>=2.0.0` dependency
+   - Run `uv sync` to install
 
-5. **CI Integration** - ✅ Complete
-   - ✅ Created `.github/workflows/validate.yml`
-   - ✅ Runs validation on push and PR
-   - ✅ Runs test suite automatically
-   - ✅ Uses `uv` for dependency management
+**Additional Work Completed**:
+- Auto-generated docs/SCHEMA.md from models
+- Type safety throughout validation code
+- Smart defaults for prose/slide rendering
+- Comprehensive field validators
+- Single source of truth for schema
 
 ### Phase 5: Migrate Second Topic (Days 12-14)
 
@@ -669,10 +645,9 @@ galaxy-architecture/
    - Source: `training-material/topics/dev/tutorials/architecture-12-startup/slides.html`
 
 2. **Create all required files**
-   - metadata.yaml
-   - overview.md (startup overview)
-   - sequence.md (step-by-step startup sequence)
-   - configuration.md (config loading)
+   - metadata.yaml (validated with Pydantic)
+   - content.yaml (sequence of content blocks)
+   - content.md (combined content, or fragments/)
    - .claude/CLAUDE.md
 
 3. **Generate slides**

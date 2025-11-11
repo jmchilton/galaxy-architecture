@@ -30,9 +30,6 @@ training:
   time_estimation: 15m
   prerequisites:
     - architecture-frameworks
-  contributors:
-    - jmchilton
-    - bgruening
 
 # Sphinx documentation metadata
 sphinx:
@@ -61,19 +58,20 @@ related_code_paths:
 # Images used in slides (shared across topics)
 images:
   - path: ../../images/app_py2.plantuml.svg
-    description: "Python 2 era app structure"
-    source: images/app_py2.plantuml.txt
+    alt: "Python 2 era app structure"
   - path: ../../images/app_types_no_interface.plantuml.svg
-    description: "Typed app without interface showing circular dependency"
-    source: images/app_types_no_interface.plantuml.txt
+    alt: "Typed app without interface showing circular dependency"
   - path: ../../images/app_types.plantuml.svg
-    description: "Typed app with StructuredApp interface breaking circular dependency"
-    source: images/app_types.plantuml.txt
+    alt: "Typed app with StructuredApp interface breaking circular dependency"
   - path: ../../images/app_decomposed.plantuml.svg
-    description: "Decomposed app structure with dependency injection"
-    source: images/app_decomposed.plantuml.txt
+    alt: "Decomposed app structure with dependency injection"
   - path: ../../images/lagom_ss.png
-    description: "Lagom dependency injection library website screenshot"
+    alt: "Lagom dependency injection library website screenshot"
+
+# Contributors
+contributors:
+  - jmchilton
+  - bgruening
 
 # Claude context
 claude:
@@ -82,4 +80,3 @@ claude:
     - Dependency injection patterns
     - Manager initialization
     - Testing with injected dependencies
-

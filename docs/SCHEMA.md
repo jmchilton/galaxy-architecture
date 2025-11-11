@@ -1,194 +1,562 @@
-# Metadata Schema
+# Metadata and Content Schema
 
-Every topic must have a `metadata.yaml` file following this schema.
+This document describes the structure of `metadata.yaml` and `content.yaml` files.
+The schema is enforced by Pydantic models in `scripts/models.py`.
 
-## Required Fields
+## Overview
 
-### `topic_id` (string)
-Unique identifier for the topic. Must match directory name.
+Each topic directory contains:
+
+- **metadata.yaml** - Topic configuration and metadata for all output formats
+- **content.yaml** - Ordered sequence of content blocks with rendering rules
+- **fragments/** - Markdown fragments referenced by content blocks
+
+---
+
+# metadata.yaml
+
+## TopicMetadata
+
+Complete topic metadata from metadata.yaml.
+
+This is the source of truth for topic configuration across all output formats.
+
+### `topic_id`
+
+**Type:** `string`
+
+**Required**
+
+Unique identifier (lowercase, hyphenated)
+
+
+### `title`
+
+**Type:** `string`
+
+**Required**
+
+Human-readable title
+
+
+### `status`
+
+**Type:** `enum: DRAFT, STABLE, DEPRECATED`
+
+**Required**
+
+Current status of the documentation
+
+
+### `created`
+
+**Type:** `date (YYYY-MM-DD)`
+
+**Required**
+
+Date topic was created
+
+
+### `last_updated`
+
+**Type:** `date (YYYY-MM-DD)`
+
+**Required**
+
+Date of last significant update
+
+
+### `last_updated_by`
+
+**Type:** `string`
+
+**Required**
+
+GitHub username of last updater
+
+
+### `training`
+
+**Type:** `TrainingMetadata`
+
+**Required**
+
+Training slide configuration
+
+
+### `sphinx`
+
+**Type:** `Optional`
+
+**Optional**
+
+Sphinx documentation configuration
+
+
+### `hub`
+
+**Type:** `Optional`
+
+**Optional**
+
+Galaxy Hub article configuration
+
+
+### `related_topics`
+
+**Type:** `list of string`
+
+**Default:** `PydanticUndefined`
+
+Related topic IDs for cross-referencing
+
+
+### `related_code_paths`
+
+**Type:** `list of string`
+
+**Default:** `PydanticUndefined`
+
+Galaxy code paths relevant to this topic
+
+
+### `claude`
+
+**Type:** `Optional`
+
+**Optional**
+
+Claude AI context configuration
+
+
+### `contributors`
+
+**Type:** `list of string`
+
+**Default:** `PydanticUndefined`
+
+GitHub usernames of contributors
+
+
+### `images`
+
+**Type:** `list of ImageMetadata`
+
+**Default:** `PydanticUndefined`
+
+Images used in this topic
+
+
+
+## Nested Types
+
+### TrainingMetadata
+
+Training slide metadata.
+
+Defines the learning objectives and structure for training materials.
+
+### `questions`
+
+**Type:** `list of string`
+
+**Required**
+
+Learning questions this topic addresses
+
+
+### `objectives`
+
+**Type:** `list of string`
+
+**Required**
+
+Learning objectives for trainees
+
+
+### `key_points`
+
+**Type:** `list of string`
+
+**Required**
+
+Key takeaways from the training
+
+
+### `time_estimation`
+
+**Type:** `string`
+
+**Required**
+
+Estimated time to complete (e.g., '30m', '1h')
+
+
+### `prerequisites`
+
+**Type:** `list of string`
+
+**Default:** `PydanticUndefined`
+
+Topic IDs that should be learned first
+
+
+### SphinxMetadata
+
+Sphinx documentation metadata.
+
+Controls how the topic appears in Galaxy's Sphinx documentation.
+
+### `section`
+
+**Type:** `string`
+
+**Required**
+
+Top-level section (e.g., 'Architecture')
+
+
+### `subsection`
+
+**Type:** `Optional`
+
+**Optional**
+
+Subsection within the section
+
+
+### `level`
+
+**Type:** `enum: 'beginner', 'intermediate', 'advanced'`
+
+**Default:** `intermediate`
+
+Target audience level
+
+
+### `toc_depth`
+
+**Type:** `integer`
+
+**Default:** `2`
+
+Table of contents depth
+
+
+### HubMetadata
+
+Galaxy Hub article metadata.
+
+Metadata for publishing to galaxyproject.org Hub.
+
+### `audience`
+
+**Type:** `list of string`
+
+**Required**
+
+Target audiences (e.g., 'developers', 'admins')
+
+
+### `tags`
+
+**Type:** `list of string`
+
+**Required**
+
+Tags for categorization and search
+
+
+### ClaudeMetadata
+
+Claude AI context metadata.
+
+Guides how Claude should prioritize and use this content.
+
+### `priority`
+
+**Type:** `enum: 'low', 'medium', 'high'`
+
+**Default:** `medium`
+
+Priority for Claude's context loading
+
+
+### `focus_areas`
+
+**Type:** `list of string`
+
+**Required**
+
+Key areas Claude should focus on
+
+
+### ImageMetadata
+
+Image reference metadata.
+
+### `path`
+
+**Type:** `string`
+
+**Required**
+
+Path to image relative to topic directory
+
+
+### `alt`
+
+**Type:** `string`
+
+**Required**
+
+Alt text for accessibility
+
+
+
+---
+
+# content.yaml
+
+Content is defined as a YAML list of content blocks.
+
+## Smart Defaults
+
+- **Prose blocks:** Render in docs by default, NOT in slides
+- **Slide blocks:** Render in BOTH docs and slides by default
+
+To override, explicitly set `doc.render: false` or `slides.render: false`.
+
+## ContentBlock
+
+Single content block in content.yaml.
+
+Represents one unit of content (prose paragraph or slide) with rendering
+configuration for different output formats.
+
+### `type`
+
+**Type:** `enum: PROSE, SLIDE`
+
+**Required**
+
+Type of content block
+
+
+### `id`
+
+**Type:** `string`
+
+**Required**
+
+Unique identifier for this block
+
+
+### `content`
+
+**Type:** `Optional`
+
+**Optional**
+
+Inline content (for short blocks)
+
+
+### `file`
+
+**Type:** `Optional`
+
+**Optional**
+
+Single fragment file path (relative to topic dir)
+
+
+### `fragments`
+
+**Type:** `Optional`
+
+**Optional**
+
+Multiple fragment file paths to combine
+
+
+### `heading`
+
+**Type:** `Optional`
+
+**Optional**
+
+Heading text (optional for slides)
+
+
+### `separator`
+
+**Type:** `string`
+
+**Default:** `
+
+`
+
+Separator when combining fragments
+
+
+### `doc`
+
+**Type:** `DocRenderConfig`
+
+**Default:** `PydanticUndefined`
+
+Documentation rendering config
+
+
+### `slides`
+
+**Type:** `SlideRenderConfig`
+
+**Default:** `PydanticUndefined`
+
+Slide rendering config
+
+
+
+## Rendering Configuration
+
+### DocRenderConfig
+
+Configuration for rendering in documentation (Sphinx).
+
+Controls how content appears in continuous documentation format.
+
+### `render`
+
+**Type:** `boolean`
+
+**Default:** `True`
+
+Whether to include in documentation
+
+
+### `heading_level`
+
+**Type:** `Optional`
+
+**Optional**
+
+Heading level for this section (1-6)
+
+
+### SlideRenderConfig
+
+Configuration for rendering in training slides.
+
+Controls how content appears in slide presentation format.
+
+### `render`
+
+**Type:** `boolean`
+
+**Default:** `True`
+
+Whether to include in slides
+
+
+### `layout`
+
+**Type:** `Optional`
+
+**Optional**
+
+Slide layout class (e.g., 'left', 'reduce90', 'enlarge150')
+
+
+
+---
+
+# Example metadata.yaml
+
 ```yaml
 topic_id: dependency-injection
-```
-
-### `title` (string)
-Human-readable title for the topic.
-```yaml
 title: Dependency Injection in Galaxy
-```
-
-### `status` (enum: draft | stable | deprecated)
-Current status of the documentation.
-```yaml
 status: stable
-```
 
-### `training` (object)
-Metadata for training slides.
+created: 2025-01-15
+last_updated: 2025-01-15
+last_updated_by: jmchilton
 
-#### `training.questions` (list of strings)
-Learning questions this topic addresses.
-```yaml
 training:
   questions:
     - What is dependency injection?
-    - How does Galaxy implement DI?
-```
-
-#### `training.objectives` (list of strings)
-Learning objectives.
-```yaml
-training:
   objectives:
-    - Understand DI patterns in Galaxy
-    - Identify injection points
-```
-
-#### `training.key_points` (list of strings)
-Key takeaways.
-```yaml
-training:
+    - Understand DI patterns
   key_points:
-    - Galaxy uses PasteScript-style DI
-    - Managers are injected via app
-```
+    - Galaxy uses type-based DI
+  time_estimation: 15m
 
-#### `training.time_estimation` (string)
-Estimated time to learn this material.
-```yaml
-training:
-  time_estimation: 30m
-```
-
-#### `training.prerequisites` (list of strings)
-Other topics that should be learned before this one.
-```yaml
-training:
-  prerequisites:
-    - architecture-frameworks
-    - application-components
-```
-
-#### `training.contributors` (list of strings)
-GitHub usernames of contributors to this topic.
-```yaml
-training:
-  contributors:
-    - jmchilton
-    - bgruening
-```
-
-## Optional Fields
-
-### `created` (date: YYYY-MM-DD)
-When topic was first created.
-
-### `last_updated` (date: YYYY-MM-DD)
-When topic was last significantly updated.
-
-### `last_updated_by` (string)
-Who last updated the topic.
-
-### `training.prerequisites` (list of strings)
-Other topics to learn first.
-```yaml
-training:
-  prerequisites:
-    - frameworks
-    - application-components
-```
-
-### `sphinx` (object)
-Metadata for Sphinx documentation.
-```yaml
 sphinx:
   section: Architecture
-  subsection: Core Patterns
-  level: intermediate  # beginner | intermediate | advanced
-  toc_depth: 2
-```
+  level: intermediate
 
-### `hub` (object)
-Metadata for Galaxy Hub articles.
-```yaml
-hub:
-  audience: [developers, contributors]
-  tags: [architecture, design-patterns]
-```
-
-### `related_topics` (list of strings)
-Cross-references to other topics.
-```yaml
 related_topics:
-  - application-components
-  - startup
+  - frameworks
+
+contributors:
+  - jmchilton
 ```
 
-### `related_code_paths` (list of strings)
-Galaxy code paths relevant to this topic. These should be mentioned in the content files.
+# Example content.yaml
+
 ```yaml
-related_code_paths:
-  - lib/galaxy/managers/
-  - lib/galaxy/app.py
-  - lib/galaxy/di/
+# Prose intro (docs only by default)
+- type: prose
+  id: intro
+  content: |
+    Introduction paragraph...
+
+# Slide (appears in both by default)
+- type: slide
+  id: problem
+  heading: The Problem
+  file: fragments/problem.md
+
+# Prose transition (docs only)
+- type: prose
+  id: transition
+  content: |
+    Now let's look at solutions...
+
+# Slide with custom heading level for docs
+- type: slide
+  id: solution
+  heading: The Solution
+  file: fragments/solution.md
+  doc:
+    heading_level: 3
+
+# Multiple fragments combined
+- type: slide
+  id: examples
+  heading: Examples
+  fragments:
+    - fragments/example1.md
+    - fragments/example2.md
+  separator: "\n\n---\n\n"
 ```
 
-### `images` (list of objects)
-Images used in slides (shared across topics). Each image entry should have:
-- `path`: Relative path from repo root (e.g., `../../images/file.svg`)
-- `description`: Human-readable description
-- `source`: Optional path to source file (e.g., PlantUML `.txt` file)
-```yaml
-images:
-  - path: ../../images/app_py2.plantuml.svg
-    description: "Python 2 era app structure"
-    source: images/app_py2.plantuml.txt
-  - path: ../../images/lagom_ss.png
-    description: "Lagom dependency injection library website screenshot"
+---
+
+# Validation
+
+Run validation with:
+
+```bash
+uv run python scripts/validate.py
 ```
 
-### `claude` (object)
-AI context metadata.
-```yaml
-claude:
-  priority: high  # low | medium | high
-  focus_areas:
-    - Dependency injection patterns
-    - Manager initialization
-```
+This checks:
 
-## Validation Rules
-
-Run `uv run python scripts/validate.py` to check all metadata files.
-
-### Required Fields
-The following fields are **required** and validation will fail if missing:
-- `topic_id` - Must match directory name
-- `title` - Human-readable title
-- `status` - Must be one of: `draft`, `stable`, `deprecated`
-- `training.questions` - List of learning questions
-- `training.objectives` - List of learning objectives
-- `training.key_points` - List of key takeaways
-- `training.time_estimation` - Estimated time (e.g., "15m", "30m")
-
-### Validation Checks
-The validation script checks:
-- ✅ All required fields present
-- ✅ `topic_id` matches directory name
-- ✅ `status` is valid enum value
-- ✅ Training fields are lists (not strings)
-- ✅ Related topics exist (if specified)
-- ✅ Image files exist (if specified)
-- ✅ Code paths are mentioned in content (warning if not)
-
-### Optional Fields
-Optional fields improve output quality but don't cause validation errors:
-- `created`, `last_updated`, `last_updated_by` - Tracking metadata
-- `training.prerequisites` - Learning dependencies
-- `training.contributors` - Attribution
-- `sphinx` - Sphinx documentation metadata (for future use)
-- `hub` - Galaxy Hub metadata (for future use)
-- `related_topics` - Cross-references
-- `related_code_paths` - Code path references
-- `images` - Image metadata
-- `claude` - AI context metadata
-
+- All required fields present
+- Field types and formats correct
+- Referenced files exist
+- Related topics exist
+- No duplicate block IDs
+- At least one slide present
+- Smart defaults applied correctly
