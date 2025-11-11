@@ -15,6 +15,7 @@ training:
   - Admin tools for deployment
   - Active community on Matrix/Gitter
   time_estimation: 25m
+  continues_to: project-management
 sphinx:
   section: Architecture
   subsection: Ecosystem

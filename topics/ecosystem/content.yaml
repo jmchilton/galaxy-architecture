@@ -353,6 +353,4 @@
     [galaxyproject/**galaxy** ](https://github.com/galaxyproject/galaxy)
 
     The rest of the slides will focus on the core repository.
-
-    .footnote[Continue to: [Project Management]({% link topics/dev/tutorials/architecture-2-project-management/slides.html %})]
   class: enlarge200

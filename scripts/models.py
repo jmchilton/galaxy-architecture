@@ -26,6 +26,7 @@ class TrainingMetadata(BaseModel):
     key_points: Annotated[list[str], Field(min_length=1, description="Key takeaways from the training")]
     time_estimation: Annotated[str, Field(description="Estimated time to complete (e.g., '30m', '1h')")]
     prerequisites: Annotated[list[str], Field(default_factory=list, description="Topic IDs that should be learned first")]
+    continues_to: Annotated[Optional[str], Field(None, description="Topic ID that follows this topic in sequence")]
 
 
 class SphinxMetadata(BaseModel):

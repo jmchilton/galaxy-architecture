@@ -250,8 +250,6 @@ for more context.
 
 The rest of the slides will focus on the core repository.
 
-.footnote[Continue to: [Project Management]({% link topics/dev/tutorials/architecture-2-project-management/slides.html %})]
-
 ## Key Takeaways
 - Multiple user-facing applications (Galaxy, CloudLaunch, Training Material)
 - Developer libraries for plugin developers

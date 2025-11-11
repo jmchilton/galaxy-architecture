@@ -277,7 +277,30 @@ def create_content_blocks(slides: list[str], frontmatter: dict) -> list[dict]:
     return blocks
 
 
-def create_metadata(topic_name: str, topic_id: str, num: int, frontmatter: dict) -> dict:
+def extract_continues_to(content: str) -> tuple[str, Optional[str]]:
+    """Extract footnote link to next topic and return cleaned content and topic ID.
+
+    Looks for pattern: .footnote[Continue to: [...]({% link ...architecture-N-topic-name... %})]
+    Returns: (cleaned_content, continues_to_topic_id)
+    """
+    # Match footnote with link
+    footnote_match = re.search(
+        r'\.footnote\[.*?architecture-\d+-([^\s/}]+).*?\]',
+        content,
+        re.DOTALL
+    )
+
+    if footnote_match:
+        # Extract topic name from path (e.g., "project-management" from "architecture-2-project-management")
+        continues_to = footnote_match.group(1)
+        # Remove the footnote from content
+        content = content[:footnote_match.start()] + content[footnote_match.end():]
+        return content.rstrip(), continues_to
+
+    return content, None
+
+
+def create_metadata(topic_name: str, topic_id: str, num: int, frontmatter: dict, continues_to: Optional[str] = None) -> dict:
     """Create metadata.yaml structure.
 
     Uses extracted frontmatter from slides if available.
@@ -296,15 +319,21 @@ def create_metadata(topic_name: str, topic_id: str, num: int, frontmatter: dict)
     if isinstance(key_points, str):
         key_points = [key_points]
 
+    training_meta = {
+        'questions': questions or [f"What is {topic_name}?"],
+        'objectives': objectives or [f"Understand {topic_name}"],
+        'key_points': key_points or [f"Key concept about {topic_name}"],
+        'time_estimation': time_estimation,
+    }
+
+    # Add continues_to if present
+    if continues_to:
+        training_meta['continues_to'] = continues_to
+
     return {
         'topic_id': topic_id,
         'title': topic_name,
-        'training': {
-            'questions': questions or [f"What is {topic_name}?"],
-            'objectives': objectives or [f"Understand {topic_name}"],
-            'key_points': key_points or [f"Key concept about {topic_name}"],
-            'time_estimation': time_estimation,
-        },
+        'training': training_meta,
         'sphinx': {
             'section': 'Architecture',
             'subsection': topic_name,
@@ -403,6 +432,14 @@ def migrate_topic(topic_name: str) -> bool:
     if slides:
         frontmatter, _ = extract_frontmatter(slides[0])
 
+    # Extract continues_to from last slide's footnote
+    continues_to = None
+    if slides:
+        last_slide = slides[-1]
+        cleaned_last_slide, continues_to = extract_continues_to(last_slide)
+        if continues_to:
+            slides[-1] = cleaned_last_slide
+
     # Extract and copy images
     image_files = extract_images_from_slides(slides)
     if image_files:
@@ -434,7 +471,7 @@ def migrate_topic(topic_name: str) -> bool:
     print(f"✓ Created: {content_yaml_path}")
 
     # Write metadata.yaml
-    metadata = create_metadata(topic_name, topic_id, arch_num, frontmatter)
+    metadata = create_metadata(topic_name, topic_id, arch_num, frontmatter, continues_to)
     metadata_yaml_path = topic_path / "metadata.yaml"
     with open(metadata_yaml_path, 'w') as f:
         yaml.dump(metadata, f, default_flow_style=False, sort_keys=False)
