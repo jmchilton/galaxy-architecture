@@ -6,6 +6,7 @@ Core documentation about Galaxy's internal architecture and design.
 :maxdepth: 1
 
 dependency-injection
+ecosystem
 ```
 
 ## Available Topics
@@ -13,3 +14,4 @@ dependency-injection
 This section documents Galaxy's key architectural patterns:
 
 - **[Dependency Injection in Galaxy](dependency-injection.md)**
+- **[Ecosystem](ecosystem.md)**

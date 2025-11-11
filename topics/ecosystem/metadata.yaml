@@ -2,12 +2,19 @@ topic_id: ecosystem
 title: Ecosystem
 training:
   questions:
-  - What is Ecosystem?
+  - What projects make up the Galaxy ecosystem?
+  - How do different Galaxy projects interact?
+  - What tools are available for developers vs administrators?
   objectives:
-  - Understand Ecosystem
+  - Identify the major projects in the Galaxy ecosystem
+  - Understand the difference between user-facing and developer tools
+  - Learn about Galaxy communication channels
   key_points:
-  - Key concept about Ecosystem
-  time_estimation: 30m
+  - Multiple user-facing applications (Galaxy, CloudLaunch, Training Material)
+  - Developer libraries for plugin developers
+  - Admin tools for deployment
+  - Active community on Matrix/Gitter
+  time_estimation: 25m
 sphinx:
   section: Architecture
   subsection: Ecosystem

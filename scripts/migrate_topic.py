@@ -156,9 +156,60 @@ def extract_frontmatter(slide: str) -> tuple[dict, str]:
     return data, remaining
 
 
+def extract_remark_directives(slide: str) -> tuple[dict, str]:
+    """Extract Remark.js directives (layout, class, name, etc.) from slide.
+
+    Returns (directives_dict, remaining_content).
+    """
+    import yaml as yaml_lib
+
+    directives = {}
+    lines = slide.split('\n')
+    directive_end = 0  # Index where directives section ends
+
+    # Scan from start to find where directives end
+    for i, line in enumerate(lines):
+        stripped = line.strip()
+
+        # Empty lines are OK within directives
+        if stripped == '':
+            directive_end = i + 1
+        # Lines with key: value pattern (but not markdown headings with #:)
+        elif ':' in line and not line.strip().startswith('#'):
+            directive_end = i + 1
+        # List items with indentation
+        elif line.strip().startswith('- ') or (line.startswith('  ') and ':' in line):
+            directive_end = i + 1
+        else:
+            # Hit non-directive content, stop here
+            break
+
+    # Extract directive lines and remaining content
+    directive_lines = lines[:directive_end]
+    content_lines = lines[directive_end:]
+
+    # Parse directives
+    if directive_lines:
+        yaml_str = '\n'.join(directive_lines).strip()
+        if yaml_str:
+            try:
+                directives = yaml_lib.safe_load(yaml_str) or {}
+                # Skip complex structures, keep only simple key-value pairs
+                if isinstance(directives, dict):
+                    for key, val in list(directives.items()):
+                        if isinstance(val, list):
+                            del directives[key]
+            except:
+                directives = {}
+
+    content = '\n'.join(content_lines).strip()
+    return directives, content
+
+
 def create_content_blocks(slides: list[str], frontmatter: dict) -> list[dict]:
     """Convert slides to content.yaml block format.
 
+    Extracts Remark.js directives into slide metadata.
     Skips the first slide if it's frontmatter, starts from actual content.
     Returns list of content block dictionaries.
     """
@@ -167,34 +218,47 @@ def create_content_blocks(slides: list[str], frontmatter: dict) -> list[dict]:
 
     # Skip first slide if it's just metadata/frontmatter
     if slides and ('layout' in slides[0] or 'questions' in slides[0] or 'title' in slides[0]):
-        # First slide is likely Remark.js metadata, skip it
         start_idx = 1
 
     for i, slide in enumerate(slides[start_idx:], start=start_idx):
         if not slide.strip():
             continue
 
-        # Extract heading from slide (first # heading or ## heading)
-        heading_match = re.search(r'^#+\s+(.+?)$', slide, re.MULTILINE)
-        heading = heading_match.group(1).strip() if heading_match else f"Slide {i+1}"
+        # Extract Remark.js directives from slide
+        remark_directives, content = extract_remark_directives(slide)
 
-        # Generate ID from heading
-        block_id = kebab_case(heading)
+        # Extract heading from remaining content (first # or ## heading)
+        heading_match = re.search(r'^#+\s+(.+?)$', content, re.MULTILINE)
+        heading = heading_match.group(1).strip() if heading_match else ""
+
+        # Skip slides with no real content and no heading
+        if not heading and not content.strip():
+            continue
+
+        # Generate ID from heading, or use content preview
+        if heading:
+            block_id = kebab_case(heading)
+        else:
+            # Use first meaningful content for ID
+            preview = re.sub(r'\s+', ' ', content[:40]).strip()
+            block_id = kebab_case(preview) if preview else f"slide-{i}"
 
         # Ensure unique ID
         base_id = block_id
         counter = 1
-        for existing_block in blocks:
-            if existing_block['id'] == block_id:
-                block_id = f"{base_id}-{counter}"
-                counter += 1
+        while any(b['id'] == block_id for b in blocks):
+            block_id = f"{base_id}-{counter}"
+            counter += 1
 
         block = {
             'type': 'slide',
             'id': block_id,
             'heading': heading,
-            'content': slide,
+            'content': content,
         }
+
+        # Add Remark.js directives as top-level metadata
+        block.update(remark_directives)
 
         blocks.append(block)
 

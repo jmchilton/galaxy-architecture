@@ -41,6 +41,8 @@
             self.tag_handler = tags.GalaxyTagHandler(app.model.context)
             self.ldda_manager = lddas.LDDAManager(app)
     ```
+  doc:
+    render: false
 
 - type: slide
   id: app_types_no_interface

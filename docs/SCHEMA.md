@@ -39,42 +39,6 @@ Unique identifier (lowercase, hyphenated)
 Human-readable title
 
 
-### `status`
-
-**Type:** `enum: DRAFT, STABLE, DEPRECATED`
-
-**Required**
-
-Current status of the documentation
-
-
-### `created`
-
-**Type:** `date (YYYY-MM-DD)`
-
-**Required**
-
-Date topic was created
-
-
-### `last_updated`
-
-**Type:** `date (YYYY-MM-DD)`
-
-**Required**
-
-Date of last significant update
-
-
-### `last_updated_by`
-
-**Type:** `string`
-
-**Required**
-
-GitHub username of last updater
-
-
 ### `training`
 
 **Type:** `TrainingMetadata`
@@ -93,15 +57,6 @@ Training slide configuration
 Sphinx documentation configuration
 
 
-### `hub`
-
-**Type:** `Optional`
-
-**Optional**
-
-Galaxy Hub article configuration
-
-
 ### `related_topics`
 
 **Type:** `list of string`
@@ -118,33 +73,6 @@ Related topic IDs for cross-referencing
 **Default:** `PydanticUndefined`
 
 Galaxy code paths relevant to this topic
-
-
-### `claude`
-
-**Type:** `Optional`
-
-**Optional**
-
-Claude AI context configuration
-
-
-### `contributors`
-
-**Type:** `list of string`
-
-**Default:** `PydanticUndefined`
-
-GitHub usernames of contributors
-
-
-### `images`
-
-**Type:** `list of ImageMetadata`
-
-**Default:** `PydanticUndefined`
-
-Images used in this topic
 
 
 
@@ -223,94 +151,6 @@ Top-level section (e.g., 'Architecture')
 **Optional**
 
 Subsection within the section
-
-
-### `level`
-
-**Type:** `enum: 'beginner', 'intermediate', 'advanced'`
-
-**Default:** `intermediate`
-
-Target audience level
-
-
-### `toc_depth`
-
-**Type:** `integer`
-
-**Default:** `2`
-
-Table of contents depth
-
-
-### HubMetadata
-
-Galaxy Hub article metadata.
-
-Metadata for publishing to galaxyproject.org Hub.
-
-### `audience`
-
-**Type:** `list of string`
-
-**Required**
-
-Target audiences (e.g., 'developers', 'admins')
-
-
-### `tags`
-
-**Type:** `list of string`
-
-**Required**
-
-Tags for categorization and search
-
-
-### ClaudeMetadata
-
-Claude AI context metadata.
-
-Guides how Claude should prioritize and use this content.
-
-### `priority`
-
-**Type:** `enum: 'low', 'medium', 'high'`
-
-**Default:** `medium`
-
-Priority for Claude's context loading
-
-
-### `focus_areas`
-
-**Type:** `list of string`
-
-**Required**
-
-Key areas Claude should focus on
-
-
-### ImageMetadata
-
-Image reference metadata.
-
-### `path`
-
-**Type:** `string`
-
-**Required**
-
-Path to image relative to topic directory
-
-
-### `alt`
-
-**Type:** `string`
-
-**Required**
-
-Alt text for accessibility
 
 
 

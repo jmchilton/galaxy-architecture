@@ -1,10 +1,5 @@
 # Dependency Injection in Galaxy
 
-**Status**: draft
-**Created**: 2025-01-15
-**Last Updated**: 2025-01-15
-**Last Updated By**: jmchilton
-
 ## Learning Questions
 - What is dependency injection?
 - Why does Galaxy use dependency injection?
@@ -28,7 +23,7 @@
 
 > "a God object is an object that knows too much or does too much. The God object is an example of an anti-pattern and a code smell."
 
-https://en.wikipedia.org/wiki/God_object
+[https://en.wikipedia.org/wiki/God_object](https://en.wikipedia.org/wiki/God_object)
 
 Not only does `app` know and do too much, it is also used way too many places. Every interesting component, every controller, the web transaction, etc. has a reference to `app`.
 
@@ -213,7 +208,7 @@ We went with **Lagom**, but we've built abstractions that would make it very eas
 
 ![Lagom Website](../_images/lagom_ss.png)
 
-https://lagom-di.readthedocs.io/en/latest/
+[https://lagom-di.readthedocs.io/en/latest/](https://lagom-di.readthedocs.io/en/latest/)
 
 
 ## Tips for Designing New Galaxy Backend Components
@@ -241,7 +236,7 @@ class FastAPITags:
 
 Dependency injection allows for type checking but doesn't use type inference (requires factory functions, etc.)
 
-https://fastapi.tiangolo.com/tutorial/dependencies/
+[https://fastapi.tiangolo.com/tutorial/dependencies/](https://fastapi.tiangolo.com/tutorial/dependencies/)
 
 
 ## DI and Controllers - FastAPI Limitations
