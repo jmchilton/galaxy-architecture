@@ -1,4 +1,4 @@
-.PHONY: help validate build-slides build-sphinx build clean view-sphinx lint-sphinx
+.PHONY: help validate build-slides build-sphinx build clean view-sphinx lint-sphinx images
 
 help:
 	@echo "Galaxy Architecture Documentation - Build Targets"
@@ -37,7 +37,7 @@ build-slides:
 	done
 	@echo "✓ Training slides built"
 
-build-sphinx:
+build-sphinx: images
 	@echo "Building Sphinx documentation..."
 	uv run python outputs/sphinx-docs/build.py all
 	@echo "Building HTML..."
@@ -46,6 +46,10 @@ build-sphinx:
 	@mkdir -p doc/build/html/images
 	@cp images/*.png images/*.svg doc/build/html/images/ 2>/dev/null || true
 	@echo "✓ Sphinx documentation built"
+
+images:
+	@echo "Building PlantUML diagrams..."
+	@make -C images all
 
 build: validate build-slides build-sphinx
 	@echo ""
@@ -66,4 +70,5 @@ clean:
 	rm -rf doc/build
 	rm -rf outputs/training-slides/generated
 	rm -rf outputs/sphinx-docs/generated
+	rm -f images/*.svg
 	@echo "✓ Cleaned"

@@ -1,8 +1,10 @@
+.PHONY: all clean
+
 MINDMAPS := $(wildcard *.mindmap.yml)
 INPUTS := $(wildcard *.plantuml.txt)
 OUTPUTS := $(INPUTS:.txt=.svg)
 
-all: plantuml.jar $(MINDMAPS) $(OUTPUTS)
+all: plantuml.jar $(OUTPUTS)
 
 $(OUTPUTS): $(INPUTS) $(MINDMAPS)
 	python mindmap_yaml_to_plantuml.py $(MINDMAPS)
@@ -10,3 +12,6 @@ $(OUTPUTS): $(INPUTS) $(MINDMAPS)
 
 plantuml.jar:
 	wget http://jaist.dl.sourceforge.net/project/plantuml/plantuml.jar || curl --output plantuml.jar http://jaist.dl.sourceforge.net/project/plantuml/plantuml.jar
+
+clean:
+	rm -f *.svg
