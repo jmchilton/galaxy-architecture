@@ -166,7 +166,9 @@
 - type: prose
   id: galaxy-api-bindings-links
   content: |-
-    **Resources:** blend4php [README](https://github.com/galaxyproject/blend4php#readme) | [Issues](https://github.com/galaxyproject/blend4php/issues) ([LGPL-3.0](https://github.com/galaxyproject/blend4php/blob/main/LICENSE)); blend4j [README](https://github.com/galaxyproject/blend4j#readme) ([EPL-1.0](https://github.com/galaxyproject/blend4j/blob/main/LICENSE))
+    **Resources:**
+    - blend4php: [README](https://github.com/galaxyproject/blend4php#readme) | [Issues](https://github.com/galaxyproject/blend4php/issues) | **License:** [LGPL-3.0](https://github.com/galaxyproject/blend4php/blob/main/LICENSE)
+    - blend4j: [README](https://github.com/galaxyproject/blend4j#readme) | [Issues](https://github.com/galaxyproject/blend4j/issues) | **License:** [EPL-1.0](https://github.com/galaxyproject/blend4j/blob/main/LICENSE)
 - type: slide
   id: bgrueningdocker-galaxy-stable-ht
   heading: ''
@@ -212,7 +214,9 @@
 - type: prose
   id: galaxyproject-tools-iuc-links
   content: |-
-    **Resources:** tools-iuc [README](https://github.com/galaxyproject/tools-iuc#readme) | [Issues](https://github.com/galaxyproject/tools-iuc/issues) ([MIT](https://github.com/galaxyproject/tools-iuc/blob/main/LICENSE)); tools-devteam [README](https://github.com/galaxyproject/tools-devteam#readme) | [Issues](https://github.com/galaxyproject/tools-devteam/issues)
+    **Resources:**
+    - tools-iuc: [README](https://github.com/galaxyproject/tools-iuc#readme) | [Issues](https://github.com/galaxyproject/tools-iuc/issues) | **License:** [MIT](https://github.com/galaxyproject/tools-iuc/blob/main/LICENSE)
+    - tools-devteam: [README](https://github.com/galaxyproject/tools-devteam#readme) | [Issues](https://github.com/galaxyproject/tools-devteam/issues)
 - type: slide
   id: tools-aside-more-repositories
   heading: Tools Aside - More Repositories
@@ -257,7 +261,9 @@
 - type: prose
   id: galaxyproject-planemo-links
   content: |-
-    **Resources:** planemo [README](https://github.com/galaxyproject/planemo#readme) | [Issues](https://github.com/galaxyproject/planemo/issues) ([MIT](https://github.com/galaxyproject/planemo/blob/main/LICENSE)); planemo-machine [README](https://github.com/galaxyproject/planemo-machine#readme) | [Issues](https://github.com/galaxyproject/planemo-machine/issues) ([MIT](https://github.com/galaxyproject/planemo-machine/blob/main/LICENSE))
+    **Resources:**
+    - planemo: [README](https://github.com/galaxyproject/planemo#readme) | [Issues](https://github.com/galaxyproject/planemo/issues) | **License:** [MIT](https://github.com/galaxyproject/planemo/blob/main/LICENSE)
+    - planemo-machine: [README](https://github.com/galaxyproject/planemo-machine#readme) | [Issues](https://github.com/galaxyproject/planemo-machine/issues) | **License:** [MIT](https://github.com/galaxyproject/planemo-machine/blob/main/LICENSE)
 - type: slide
   id: galaxyprojectgalaxy-language-server
   heading: ''
