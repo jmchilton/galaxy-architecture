@@ -1,10 +1,11 @@
-.PHONY: help validate build-slides build-sphinx build clean view-sphinx lint-sphinx images
+.PHONY: help validate validate-files build-slides build-sphinx build clean view-sphinx lint-sphinx images
 
 help:
 	@echo "Galaxy Architecture Documentation - Build Targets"
 	@echo ""
 	@echo "Verification:"
 	@echo "  make validate          Validate all topics (metadata.yaml, content.yaml)"
+	@echo "  make validate-files    Verify file references in mindmaps exist in ~/workspace/galaxy"
 	@echo "  make lint-sphinx       Check Sphinx build for broken image references"
 	@echo ""
 	@echo "Build:"
@@ -24,6 +25,10 @@ help:
 validate:
 	@echo "Validating topics..."
 	uv run python scripts/validate.py
+
+validate-files:
+	@echo "Validating file references in mindmaps..."
+	uv run python scripts/generate_files_prose.py images/ topics/files/fragments/
 
 lint-sphinx:
 	@echo "Linting Sphinx output for broken images..."

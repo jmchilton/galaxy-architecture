@@ -100,13 +100,16 @@ def generate_prose_block(slide_id: str, files: dict[str, str]) -> str:
     return block
 
 
-def process_mindmap_files(images_dir: str, output_dir: str) -> None:
+def process_mindmap_files(images_dir: str, output_dir: str) -> bool:
     """Process file-related mindmap files and generate prose blocks.
 
     Only processes mindmaps with 'files' in the name to exclude conceptual
     diagrams like core_plugins_overview.mindmap.yml.
 
     Writes generated prose blocks to output_dir as YAML fragments.
+
+    Returns:
+        True if all files verified successfully, False if any files were missing
     """
     images_path = Path(images_dir)
     output_path = Path(output_dir)
@@ -115,6 +118,8 @@ def process_mindmap_files(images_dir: str, output_dir: str) -> None:
     # Only process mindmaps with "files" in the name
     mindmap_files = list(images_path.glob("*files*.mindmap.yml"))
     print(f"Found {len(mindmap_files)} file-related mindmap files\n")
+
+    has_warnings = False
 
     for mindmap_file in sorted(mindmap_files):
         print(f"Processing {mindmap_file.name}...")
@@ -125,6 +130,11 @@ def process_mindmap_files(images_dir: str, output_dir: str) -> None:
 
         # Verify in Galaxy
         verified = verify_files_in_galaxy(files)
+        missing_count = len(files) - len(verified)
+
+        if missing_count > 0:
+            has_warnings = True
+
         print(f"  Verified {len(verified)} in ~/workspace/galaxy")
 
         # Generate prose block
@@ -138,6 +148,8 @@ def process_mindmap_files(images_dir: str, output_dir: str) -> None:
                 f.write(prose)
             print(f"  Wrote to {output_file}")
 
+    return not has_warnings
+
 
 if __name__ == "__main__":
     import sys
@@ -147,4 +159,5 @@ if __name__ == "__main__":
         print("Example: python generate_files_prose.py images/ topics/files/fragments/")
         sys.exit(1)
 
-    process_mindmap_files(sys.argv[1], sys.argv[2])
+    success = process_mindmap_files(sys.argv[1], sys.argv[2])
+    sys.exit(0 if success else 1)

@@ -60,20 +60,26 @@ uv sync
 uv sync --extra dev
 ```
 
-### Common Tasks
+### Build Targets
 
 ```bash
 # Validate all topics
-uv run python scripts/validate.py
+make validate
+
+# Verify file references in mindmaps exist in ~/workspace/galaxy
+make validate-files
 
 # Generate training slides for a topic
 uv run python outputs/training-slides/build.py dependency-injection
 
-# Run tests
-uv run pytest tests/ -v
+# Build everything (slides + sphinx docs)
+make build
 
-# View generated slides
-open outputs/training-slides/generated/architecture-dependency-injection/slides.html
+# View Sphinx documentation in browser
+make view-sphinx
+
+# Clean all generated files
+make clean
 ```
 
 ### Example: Adding a New Topic
@@ -151,6 +157,39 @@ galaxy-architecture/
 - **Co-location**: Documentation should live with code (migration planned)
 - **Validation**: Automated checks ensure quality and consistency
 - **Iteration**: Experiment and improve before organizational adoption
+
+## Ongoing Maintenance
+
+Regular tasks to keep the repository healthy:
+
+### File Reference Validation
+
+The `make validate-files` target verifies that all file paths referenced in architecture mindmaps exist in `~/workspace/galaxy`. This ensures documentation stays in sync with the actual codebase.
+
+**When to run:**
+- Before committing changes to mindmap files
+- When Galaxy repository is updated with new/moved files
+- As part of CI/CD pipeline
+
+**What it checks:**
+- All files in `images/*.mindmap.yml` files exist in Galaxy repo
+- Reports missing files with their mindmap source
+- Returns non-zero exit code if any files are missing
+
+**Common workflow:**
+```bash
+# Update a mindmap file
+# Run validation
+make validate-files
+
+# If there are missing files, either:
+# 1. Update the mindmap to reference correct files
+# 2. Remove/document obsolete file references
+
+# Commit with validated mindmaps
+git add images/
+git commit -m "Update architecture mindmaps"
+```
 
 ## Contributing
 
