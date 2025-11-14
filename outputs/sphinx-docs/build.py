@@ -304,6 +304,10 @@ def generate_topic_markdown(topic_id: str, topic_dir: Path) -> str:
         if block.type != ContentBlockType.SLIDE:
             continue
 
+        # Check if doc rendering is explicitly disabled
+        if block.doc and block.doc.render is False:
+            continue
+
         # Get block content
         block_content = get_block_content(block, topic_dir)
 

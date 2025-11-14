@@ -30,24 +30,6 @@
 Not only does `app` know and do too much, it is also used way too many places. Every interesting component, every controller, the web transaction, etc. has a reference to `app`.
 
 
-## A Typical Usage
-
-```python
-class DatasetCollectionManager:
-
-     def __init__(self, app):
-        self.type_registry = DATASET_COLLECTION_TYPES_REGISTRY
-        self.collection_type_descriptions = COLLECTION_TYPE_DESCRIPTION_FACTORY
-        self.model = app.model
-        self.security = app.security
-
-        self.hda_manager = hdas.HDAManager(app)
-        self.history_manager = histories.HistoryManager(app)
-        self.tag_handler = tags.GalaxyTagHandler(app.model.context)
-        self.ldda_manager = lddas.LDDAManager(app)
-```
-
-
 ![Big Interconnected App Python 3 - no right](../_images/app_types_no_interface.plantuml.svg)
 
 

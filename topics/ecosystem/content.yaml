@@ -8,6 +8,8 @@
   id: please-interrupt
   heading: Please Interrupt!
   content: "We're here to answer your questions about Galaxy architecture!"
+  doc:
+    render: false
 - type: slide
   id: chat-galaxyproject-lobbyhttps
   heading: ''

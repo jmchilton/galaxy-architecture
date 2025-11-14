@@ -16,10 +16,6 @@
 
 *The architecture of the ecosystem.*
 
-## Please Interrupt!
-
-We're here to answer your questions about Galaxy architecture!
-
 **Chat:** [galaxyproject Lobby](https://matrix.to/#/#galaxyproject_Lobby:gitter.im) (via Element)
 
 **GitHub:** [github.com/galaxyproject ](https://github.com/galaxyproject)
