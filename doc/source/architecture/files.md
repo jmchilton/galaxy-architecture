@@ -58,8 +58,6 @@ Each sub-directory of `packages` contains a logical subset of this `galaxy` name
 
 ![Package Files](../_images/core_files_code_package.plantuml.svg)
 
-({% link topics/dev/tutorials/architecture-5-frameworks/slides.html %})]
-
 ## Key Takeaways
 - Project documentation in root (README, CONTRIBUTING, CODE_OF_CONDUCT)
 - Code in `lib` (monolithic) and `packages` (modular)

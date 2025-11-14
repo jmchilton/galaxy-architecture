@@ -306,7 +306,7 @@ for more context.
 The rest of the slides will focus on the core repository.
 
 ## Key Takeaways
-- Multiple user-facing applications (Galaxy, CloudLaunch, Training Material)
+- Multiple user-facing applications (Galaxy, Training Material)
 - Developer libraries for plugin developers
 - Admin tools for deployment
 - Active community on Matrix (via Element client)

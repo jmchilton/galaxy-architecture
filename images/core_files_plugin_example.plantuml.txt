@@ -15,6 +15,6 @@
  Module with multiple implementations of plugins.;
 *****:<b><i>mulled.py</i></b>
  More implementations of plugins.;
-**:<b><i>config/container_resolvers_conf.xml.sample</i></b>
+**:<b><i>config/container_resolvers.yml.sample</i></b>
  Example configuration file for deployers;
 @endmindmap

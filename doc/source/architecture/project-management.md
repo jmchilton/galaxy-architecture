@@ -155,8 +155,6 @@ Video from Marius presenting Gitpod at the Galaxy Developer Roundtable ([https:/
 All these documents as well as versions code and deployment documentation and release notes
 can be found at [docs.galaxyproject.org](https://docs.galaxyproject.org).
 
-({% link topics/dev/tutorials/architecture-3-principles/slides.html %})]
-
 ## Key Takeaways
 - Open governance through pull requests and voting
 - Working groups coordinate major efforts
