@@ -11,6 +11,8 @@ venv/
 dist/
 build/
 
+images/plantuml.jar
+
 # uv
 uv.lock
 .python-version
