@@ -56,7 +56,7 @@ images:
 	@echo "Building PlantUML diagrams..."
 	@make -C images all
 
-build: validate build-slides build-sphinx
+build: validate build-slides build-sphinx lint-sphinx
 	@echo ""
 	@echo "✓ All artifacts built successfully"
 
