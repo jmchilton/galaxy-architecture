@@ -42,3 +42,7 @@ Add a new project slide to `topics/ecosystem/content.yaml`.
 - Handles both GitHub and other URLs
 - Automatically extracts relevant project description from README
 - Places project in appropriate category based on content analysis
+
+## Consider adding prose
+
+After the slide, consider adding a prose block with quick links (README, Issues) and license information. This enriches the Sphinx documentation while keeping the slides focused. The prose block won't appear in training slides but will be valuable for readers of the generated docs.
