@@ -110,6 +110,18 @@
   content: |-
     **Resources:** [README](https://github.com/galaxyproject/galaxy-hub#readme) | [Issues](https://github.com/galaxyproject/galaxy-hub/issues)
 - type: slide
+  id: usegalaxy-eu-galaxy-social
+  heading: ''
+  content: |-
+    [**usegalaxy-eu/galaxy-social** ](https://github.com/usegalaxy-eu/galaxy-social)
+
+    Content distribution system for publishing to multiple social media platforms. Post once, share across Mastodon, Bluesky, Matrix, Slack, and LinkedIn with automatic formatting.
+  class: enlarge150
+- type: prose
+  id: usegalaxy-eu-galaxy-social-links
+  content: |-
+    **Resources:** [README](https://github.com/usegalaxy-eu/galaxy-social#readme) | [Issues](https://github.com/usegalaxy-eu/galaxy-social/issues) | **License:** [CC0-1.0](https://github.com/usegalaxy-eu/galaxy-social/blob/main/LICENSE)
+- type: slide
   id: galaxyprojectgalaxy-codex
   heading: ''
   content: |-
