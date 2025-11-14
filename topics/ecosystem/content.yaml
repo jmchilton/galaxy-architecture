@@ -78,14 +78,6 @@
     Also includes other web applications including the **ToolShed**.
   class: enlarge150
 - type: slide
-  id: galaxyprojectcloudlaunch-https
-  heading: ''
-  content: |-
-    [galaxyproject/**cloudlaunch** ](https://github.com/galaxyproject/cloudlaunch)
-
-    CloudLaunch web application to make it easy to launch images on a cloud, drives *https://launch.usegalaxy.org*
-  class: enlarge150
-- type: slide
   id: galaxyprojecttraining-material-h
   heading: ''
   content: |-
@@ -106,6 +98,14 @@
     Powers *https://galaxyproject.org/*.
   class: enlarge150
 - type: slide
+  id: galaxyprojectgalaxy-codex
+  heading: ''
+  content: |-
+    [galaxyproject/**galaxy_codex** ](https://github.com/galaxyproject/galaxy_codex)
+
+    Community resource repository for Galaxy users and contributors. Provides access to the Galaxy Community Catalog featuring tools, training materials, and workflows. Galaxy Labs for creating customized community subdomain pages.
+  class: enlarge150
+- type: slide
   id: galaxyprojectbioblend-httpsgi
   heading: ''
   content: |-
@@ -116,18 +116,21 @@
     Best documented path to scripting the Galaxy API.
   class: enlarge150
 - type: slide
+  id: galaxyproject-node-api
+  content: |- 
+    A standalone client library for the Galaxy API, built using the type definitions from the main Galaxy client.
+
+    https://www.npmjs.com/package/@galaxyproject/galaxy-api-client
+
+- type: slide
   id: galaxy-api-bindings-for-other-languages
   heading: ''
-  content: Galaxy API bindings for other languages, less actively maintained.
-- type: slide
-  id: galaxyprojectcloudmanhttpsgit
-  heading: ''
   content: |-
-    [galaxyproject/**cloudman**](https://github.com/galaxyproject/cloudman)
+    - [galaxyproject/**blend4php**](https://github.com/galaxyproject/blend4php)
+    - [galaxyproject/**blend4j**](https://github.com/galaxyproject/blend4j)
+    - [**chapmanb/clj-blend**](https://github.com/chapmanb/clj-blend)
 
-    Galaxy CloudMan - a web application which manages a Galaxy Kubernetes cluster in
-    the cloud.
-  class: enlarge150
+    Galaxy API bindings for other languages, less actively maintained.
 - type: slide
   id: bgrueningdocker-galaxy-stable-ht
   heading: ''
