@@ -1,0 +1,6 @@
+- type: prose
+  id: core_files_managers-files
+  content: |-
+    **Files:**
+    - [lib/galaxy/managers/configuration.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/managers/configuration.py) - Manager for exposing Galaxy's configuration.
+    - [lib/galaxy/managers/users.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/managers/users.py) - Managers for working with Galaxy user objects.

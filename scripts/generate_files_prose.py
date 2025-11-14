@@ -24,7 +24,12 @@ def parse_mindmap_yaml_items(items: list, prefix: str = "") -> dict[str, str]:
             item_label = item.get('label', '')
             item_doc = item.get('doc', '')
 
-        item_path = f"{prefix}/{item_label}".lstrip('/')
+        # Construct path, avoiding double slashes
+        if prefix:
+            item_path = f"{prefix}/{item_label}".lstrip('/')
+        else:
+            item_path = item_label.lstrip('/')
+        item_path = '/'.join(p for p in item_path.split('/') if p)  # Remove empty parts
 
         if item_doc:
             files[item_path] = item_doc
@@ -95,13 +100,17 @@ def generate_prose_block(slide_id: str, files: dict[str, str]) -> str:
     return block
 
 
-def process_mindmap_files(images_dir: str) -> None:
+def process_mindmap_files(images_dir: str, output_dir: str) -> None:
     """Process file-related mindmap files and generate prose blocks.
 
     Only processes mindmaps with 'files' in the name to exclude conceptual
     diagrams like core_plugins_overview.mindmap.yml.
+
+    Writes generated prose blocks to output_dir as YAML fragments.
     """
     images_path = Path(images_dir)
+    output_path = Path(output_dir)
+    output_path.mkdir(parents=True, exist_ok=True)
 
     # Only process mindmaps with "files" in the name
     mindmap_files = list(images_path.glob("*files*.mindmap.yml"))
@@ -123,16 +132,19 @@ def process_mindmap_files(images_dir: str) -> None:
         prose = generate_prose_block(slide_id, verified)
 
         if prose:
-            print(f"\nGenerated prose block for {slide_id}:\n")
-            print(prose)
+            # Write to output file
+            output_file = output_path / f"{slide_id}.yaml"
+            with open(output_file, 'w') as f:
+                f.write(prose)
+            print(f"  Wrote to {output_file}")
 
 
 if __name__ == "__main__":
     import sys
 
-    if len(sys.argv) < 2:
-        print("Usage: python generate_files_prose.py <images_dir>")
-        print("Example: python generate_files_prose.py images/")
+    if len(sys.argv) < 3:
+        print("Usage: python generate_files_prose.py <images_dir> <output_dir>")
+        print("Example: python generate_files_prose.py images/ topics/files/fragments/")
         sys.exit(1)
 
-    process_mindmap_files(sys.argv[1])
+    process_mindmap_files(sys.argv[1], sys.argv[2])

@@ -1,0 +1,21 @@
+label: /
+items:
+- label: run.sh
+  doc: shell script for starting Galaxy standalone
+- label: Makefile
+  doc: common developement and deployment tasks
+- label: run_tests.sh
+  doc: script meant to be friendly wrapper for running tests
+- label: scripts/
+  doc: directory full of more specific scripts (mostly admin stuff)
+  items:
+  - label: galaxy-main
+    doc: script to run Galaxy without a web server
+  - label: db_shell.py
+    doc: interactive environment for exploring Galaxy database and models
+  - label: cleanup_datasets/
+    items:
+    - label: pgcleanup.py
+      doc: optimized postgres commands for managing Galaxy datasets, etc.
+- label: manage_db.sh
+  doc: script to upgrade/downgrade Galaxy database

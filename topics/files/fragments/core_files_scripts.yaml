@@ -1,0 +1,12 @@
+- type: prose
+  id: core_files_scripts-files
+  content: |-
+    **Files:**
+    - [Makefile](https://github.com/galaxyproject/galaxy/blob/dev/Makefile) - common developement and deployment tasks
+    - [manage_db.sh](https://github.com/galaxyproject/galaxy/blob/dev/manage_db.sh) - script to upgrade/downgrade Galaxy database
+    - [run.sh](https://github.com/galaxyproject/galaxy/blob/dev/run.sh) - shell script for starting Galaxy standalone
+    - [run_tests.sh](https://github.com/galaxyproject/galaxy/blob/dev/run_tests.sh) - script meant to be friendly wrapper for running tests
+    - [scripts](https://github.com/galaxyproject/galaxy/blob/dev/scripts) - directory full of more specific scripts (mostly admin stuff)
+    - [scripts/cleanup_datasets/pgcleanup.py](https://github.com/galaxyproject/galaxy/blob/dev/scripts/cleanup_datasets/pgcleanup.py) - optimized postgres commands for managing Galaxy datasets, etc.
+    - [scripts/db_shell.py](https://github.com/galaxyproject/galaxy/blob/dev/scripts/db_shell.py) - interactive environment for exploring Galaxy database and models
+    - [scripts/galaxy-main](https://github.com/galaxyproject/galaxy/blob/dev/scripts/galaxy-main) - script to run Galaxy without a web server

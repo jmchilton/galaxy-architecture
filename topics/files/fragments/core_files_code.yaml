@@ -1,0 +1,11 @@
+- type: prose
+  id: core_files_code-files
+  content: |-
+    **Files:**
+    - [client](https://github.com/galaxyproject/galaxy/blob/dev/client) - Galaxy frontend project
+    - [client/src](https://github.com/galaxyproject/galaxy/blob/dev/client/src) - Galaxy frontend ES6 source files
+    - [lib](https://github.com/galaxyproject/galaxy/blob/dev/lib) - root of monolithic Python backend
+    - [lib/galaxy](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy) - most of the code that makes up the backend
+    - [lib/galaxy_ext](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy_ext) - a few more files used standalone by jobs, etc..
+    - [lib/tool_shed](https://github.com/galaxyproject/galaxy/blob/dev/lib/tool_shed) - source code for the Galaxy ToolShed
+    - [packages](https://github.com/galaxyproject/galaxy/blob/dev/packages) - Python backend decomposed into pieces (same files)

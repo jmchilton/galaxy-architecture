@@ -1,0 +1,18 @@
+label: /
+items:
+- label: lib/
+  doc: root of monolithic Python backend
+  items:
+  - label: galaxy/
+    doc: most of the code that makes up the backend
+  - label: galaxy_ext/
+    doc: a few more files used standalone by jobs, etc..
+  - label: tool_shed/
+    doc: source code for the Galaxy ToolShed
+- label: packages/
+  doc: Python backend decomposed into pieces (same files)
+- label: client/
+  doc: Galaxy frontend project
+  items:
+  - label: src/
+    doc: Galaxy frontend ES6 source files

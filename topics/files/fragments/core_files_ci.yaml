@@ -1,0 +1,7 @@
+- type: prose
+  id: core_files_ci-files
+  content: |-
+    **Files:**
+    - [.circleci/config.yml](https://github.com/galaxyproject/galaxy/blob/dev/.circleci/config.yml) - lint, tool validation, etc.. on CircleCI
+    - [.github/workflows/api.yaml](https://github.com/galaxyproject/galaxy/blob/dev/.github/workflows/api.yaml) - run API test suite with GitHub Actions
+    - [.github/workflows/converter_tests.yaml](https://github.com/galaxyproject/galaxy/blob/dev/.github/workflows/converter_tests.yaml) - run tool tests for datatype converts

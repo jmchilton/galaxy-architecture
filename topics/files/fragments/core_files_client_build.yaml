@@ -1,0 +1,11 @@
+- type: prose
+  id: core_files_client_build-files
+  content: |-
+    **Files:**
+    - [client/docs](https://github.com/galaxyproject/galaxy/blob/dev/client/docs) - Vue Styleguidist entrypoint.
+    - [client/package.json](https://github.com/galaxyproject/galaxy/blob/dev/client/package.json) - Defines top-level node project - including dependencies, yarn targets.
+    - [client/prettier.config.js](https://github.com/galaxyproject/galaxy/blob/dev/client/prettier.config.js) - Code format configuration.
+    - [client/src](https://github.com/galaxyproject/galaxy/blob/dev/client/src) - Client source code.
+    - [client/src/style/scss](https://github.com/galaxyproject/galaxy/blob/dev/client/src/style/scss) - Shared Galaxy stylesheet sources.
+    - [client/tests](https://github.com/galaxyproject/galaxy/blob/dev/client/tests) - Configurations for running unit tests (jest, qunit, etc.)
+    - [client/webpack.config.js](https://github.com/galaxyproject/galaxy/blob/dev/client/webpack.config.js) - Webpack bundling configuration.

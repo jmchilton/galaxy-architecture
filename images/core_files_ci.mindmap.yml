@@ -1,0 +1,16 @@
+label: /
+items:
+- label: .circleci/
+  items:
+  - label: config.yml
+    doc: lint, tool validation, etc.. on CircleCI
+- label: .github/workflows
+  items:
+  - label: api.yaml
+    doc: run API test suite with GitHub Actions
+  - label: integration.yaml
+  - label: integration_selenium.yaml
+  - label: jest.yaml
+  - label: toolshed.yaml
+  - label: converter_tests.yaml
+    doc: run tool tests for datatype converts

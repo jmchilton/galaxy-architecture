@@ -1,0 +1,8 @@
+- type: prose
+  id: core_files_datatypes-files
+  content: |-
+    **Files:**
+    - [lib/galaxy/datatypes/binary.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/datatypes/binary.py) - Simple and base binary datatypes.
+    - [lib/galaxy/datatypes/data.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/datatypes/data.py) - Contains base datatypes custom datatypes should inherit from.
+    - [lib/galaxy/datatypes/registry.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/datatypes/registry.py) - Framework code for finding, configuring, and loading datatypes.
+    - [lib/galaxy/datatypes/text.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/datatypes/text.py) - Simple and base textual datatypes.

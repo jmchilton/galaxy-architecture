@@ -1,0 +1,12 @@
+label: Branches
+items:
+- label: dev
+  doc: Most active development happens here!  New features must be added here
+- label: master
+  doc: References latest stable branch.  Generally never develop or deploy  against
+    this branch.
+- label: release_21.05
+  doc: Release branches - named by month.  Generally bug fixes should target  oldest
+    relevant branch
+- label: release_21.01
+- label: release_20.09
