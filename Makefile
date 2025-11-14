@@ -75,5 +75,5 @@ clean:
 	rm -rf doc/build
 	rm -rf outputs/training-slides/generated
 	rm -rf outputs/sphinx-docs/generated
-	rm -f images/*.svg
+	@make -C images clean
 	@echo "✓ Cleaned"

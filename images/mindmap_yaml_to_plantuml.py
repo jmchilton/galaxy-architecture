@@ -44,7 +44,7 @@ def main():
         
         append_lines(mindmap)
         lines.append("@endmindmap")
-        plantuml_path = arg_name[0:-len("mindmap.yml")] + "plantuml.txt"
+        plantuml_path = arg_name[0:-len("mindmap.yml")] + "mindmap.plantuml.txt"
         with open(plantuml_path, "w") as f:
             f.write("\n".join(lines) + "\n")
 
