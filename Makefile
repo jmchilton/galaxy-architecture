@@ -41,7 +41,7 @@ build-sphinx:
 	@echo "Building Sphinx documentation..."
 	uv run python outputs/sphinx-docs/build.py all
 	@echo "Building HTML..."
-	cd doc && uv run sphinx-build -b html source build/html
+	uv run --extra docs sphinx-build -b html doc/source doc/build/html
 	@echo "Copying images for slide support..."
 	@mkdir -p doc/build/html/images
 	@cp images/*.png images/*.svg doc/build/html/images/ 2>/dev/null || true
