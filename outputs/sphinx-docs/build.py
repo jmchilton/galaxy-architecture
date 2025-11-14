@@ -300,12 +300,21 @@ def generate_topic_markdown(topic_id: str, topic_dir: Path) -> str:
 
     # Process content blocks
     for block in content.root:
-        # Only include slide blocks in Sphinx output (not prose)
-        if block.type != ContentBlockType.SLIDE:
-            continue
-
         # Check if doc rendering is explicitly disabled
         if block.doc and block.doc.render is False:
+            continue
+
+        # Check if block should render in docs based on smart defaults
+        # Slides: render in docs by default
+        # Prose: render in docs by default
+        if block.type == ContentBlockType.SLIDE:
+            # Include slides in docs (default behavior)
+            pass
+        elif block.type == ContentBlockType.PROSE:
+            # Include prose blocks in docs (default behavior)
+            pass
+        else:
+            # Unknown block type, skip
             continue
 
         # Get block content
