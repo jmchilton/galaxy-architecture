@@ -34,7 +34,7 @@
 - type: slide
   id: branches
   heading: Branches
-  content: '![Branches](../../images/core_branches.plantuml.svg)'
+  content: '![Branches](../../images/core_branches.mindmap.plantuml.svg)'
 - type: slide
   id: committers-open-goverance
   heading: Committers & Open Goverance

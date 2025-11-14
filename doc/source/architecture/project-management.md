@@ -40,7 +40,7 @@ Check out the full policy in [SECURITY_POLICY.md](https://github.com/galaxyproje
 
 ## Branches
 
-![Branches](../_images/core_branches.plantuml.svg)
+![Branches](../_images/core_branches.mindmap.plantuml.svg)
 
 ## Committers & Open Goverance
 

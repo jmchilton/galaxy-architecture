@@ -25,11 +25,11 @@
 
 ## Plugins All the Way Down
 
-![Plugins](../_images/core_plugins_overview.plantuml.svg)
+![Plugins](../_images/core_plugins_overview.mindmap.plantuml.svg)
 
 ## Datatypes
 
-![Datatype Files](../_images/core_files_datatypes.plantuml.svg)
+![Datatype Files](../_images/core_files_datatypes.mindmap.plantuml.svg)
 
 Developer docs on adding new datatypes can be found at [https://docs.galaxyproject.org/en/latest/dev/data_types.html.](https://docs.galaxyproject.org/en/latest/dev/data_types.html.)
 
@@ -157,7 +157,7 @@ description of configured plugins.
 
 ## `lib/galaxy/util/plugin_config.py` Example Files
 
-![Workflow Modules](../_images/core_files_plugin_example.plantuml.svg)
+![Workflow Modules](../_images/core_files_plugin_example.mindmap.plantuml.svg)
 
 ## `lib/galaxy/util/plugin_config.py` Plugin Implementations
 

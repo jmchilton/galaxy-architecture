@@ -53,11 +53,11 @@
 - type: slide
   id: managers-some-key-files
   heading: Managers - Some Key Files
-  content: '![Key Managers](../../images/core_files_managers.plantuml.svg)'
+  content: '![Key Managers](../../images/core_files_managers.mindmap.plantuml.svg)'
 - type: slide
   id: managers-some-helpers
   heading: Managers - Some Helpers
-  content: '![Manager Helpers](../../images/core_files_managers_helpers.plantuml.svg)'
+  content: '![Manager Helpers](../../images/core_files_managers_helpers.mindmap.plantuml.svg)'
 - type: slide
   id: galaxy-models
   heading: Galaxy Models

@@ -54,11 +54,11 @@ in a manager instead of in the model.
 
 ## Managers - Some Key Files
 
-![Key Managers](../_images/core_files_managers.plantuml.svg)
+![Key Managers](../_images/core_files_managers.mindmap.plantuml.svg)
 
 ## Managers - Some Helpers
 
-![Manager Helpers](../_images/core_files_managers_helpers.plantuml.svg)
+![Manager Helpers](../_images/core_files_managers_helpers.mindmap.plantuml.svg)
 
 ## Galaxy Models
 

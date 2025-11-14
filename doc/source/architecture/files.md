@@ -22,27 +22,27 @@
 
 ## Project Docs
 
-![Project Files](../_images/core_files_project_docs.plantuml.svg)
+![Project Files](../_images/core_files_project_docs.mindmap.plantuml.svg)
 
 ## Code
 
-![Code](../_images/core_files_code.plantuml.svg)
+![Code](../_images/core_files_code.mindmap.plantuml.svg)
 
 ## Scripts
 
-![Scripts](../_images/core_files_scripts.plantuml.svg)
+![Scripts](../_images/core_files_scripts.mindmap.plantuml.svg)
 
 ## Test Sources
 
-![Test Source Files](../_images/core_files_test.plantuml.svg)
+![Test Source Files](../_images/core_files_test.mindmap.plantuml.svg)
 
 ## Continuous Integration
 
-![Continuous Integration Files](../_images/core_files_ci.plantuml.svg)
+![Continuous Integration Files](../_images/core_files_ci.mindmap.plantuml.svg)
 
 ## One Repository, Two Views of a Project
 
-![Two Views of Galaxy Python Project](../_images/core_files_code_python_2_views.plantuml.svg)
+![Two Views of Galaxy Python Project](../_images/core_files_code_python_2_views.mindmap.plantuml.svg)
 
 `lib` contains a single monolithic view of the `galaxy` namespace.
 
@@ -56,7 +56,7 @@ Each sub-directory of `packages` contains a logical subset of this `galaxy` name
 
 ![galaxy-tool-util on PyPI](../_images/core_tool_util_pypi.png)
 
-![Package Files](../_images/core_files_code_package.plantuml.svg)
+![Package Files](../_images/core_files_code_package.mindmap.plantuml.svg)
 
 ## Key Takeaways
 - Project documentation in root (README, CONTRIBUTING, CODE_OF_CONDUCT)

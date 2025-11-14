@@ -97,11 +97,11 @@ Lots of active development and complexity around Viz plugins and dependencies fo
 
 ## Package and Build Files
 
-![Client Build Files](../_images/core_files_client_build.plantuml.svg)
+![Client Build Files](../_images/core_files_client_build.mindmap.plantuml.svg)
 
 ## Source Files
 
-![Client Build Files](../_images/core_files_client_sources.plantuml.svg)
+![Client Build Files](../_images/core_files_client_sources.mindmap.plantuml.svg)
 
 ## ES6
 

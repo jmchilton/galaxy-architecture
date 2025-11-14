@@ -99,11 +99,11 @@
 - type: slide
   id: package-and-build-files
   heading: Package and Build Files
-  content: '![Client Build Files](../../images/core_files_client_build.plantuml.svg)'
+  content: '![Client Build Files](../../images/core_files_client_build.mindmap.plantuml.svg)'
 - type: slide
   id: source-files
   heading: Source Files
-  content: '![Client Build Files](../../images/core_files_client_sources.plantuml.svg)'
+  content: '![Client Build Files](../../images/core_files_client_sources.mindmap.plantuml.svg)'
 - type: slide
   id: es6
   heading: ES6

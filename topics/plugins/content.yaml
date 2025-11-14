@@ -15,12 +15,12 @@
 - type: slide
   id: plugins-all-the-way-down
   heading: Plugins All the Way Down
-  content: '![Plugins](../../images/core_plugins_overview.plantuml.svg)'
+  content: '![Plugins](../../images/core_plugins_overview.mindmap.plantuml.svg)'
 - type: slide
   id: datatypes
   heading: Datatypes
   content: |-
-    ![Datatype Files](../../images/core_files_datatypes.plantuml.svg)
+    ![Datatype Files](../../images/core_files_datatypes.mindmap.plantuml.svg)
 
     Developer docs on adding new datatypes can be found at https://docs.galaxyproject.org/en/latest/dev/data_types.html.
 - type: slide
@@ -170,7 +170,7 @@
 - type: slide
   id: libgalaxyutilplugin-configpy-example-files
   heading: '`lib/galaxy/util/plugin_config.py` Example Files'
-  content: '![Workflow Modules](../../images/core_files_plugin_example.plantuml.svg)'
+  content: '![Workflow Modules](../../images/core_files_plugin_example.mindmap.plantuml.svg)'
 - type: slide
   id: libgalaxyutilplugin-configpy-plugin-implementations
   heading: '`lib/galaxy/util/plugin_config.py` Plugin Implementations'
