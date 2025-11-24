@@ -7,7 +7,7 @@ items:
 - label: CODE_OF_CONDUCT.md
   doc: '"expectations for participants within the Galaxy community"'
 - label: LICENSE.txt
-  doc: AFL license
+  doc: MIT license
 - label: CITATION
   doc: description of how to cite Galaxy
 - label: CONTRIBUTORS.md

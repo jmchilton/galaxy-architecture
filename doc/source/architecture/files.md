@@ -16,10 +16,6 @@
 
 *The physical architecture of the Galaxy code.*
 
-## Files and Directories
-
-*The physical architecture of the Galaxy code.*
-
 ## Project Docs
 
 ![Project Files](../_images/core_files_project_docs.mindmap.plantuml.svg)

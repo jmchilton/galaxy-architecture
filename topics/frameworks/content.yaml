@@ -1,24 +1,22 @@
 - type: slide
   id: galaxy-web-frameworks
-  heading: Galaxy Web Frameworks
+  heading: Web Frameworks
   content: '*The architecture of an interaction.*'
   layout: introduction_slides
   topic_name: Galaxy Architecture
 - type: slide
-  id: web-frameworks
-  heading: Web Frameworks
-  content: '*The architecture of an interaction.*'
-- type: slide
   id: client-server-communicationsim
   heading: ''
+  class: center
   content: |-
     ![Client-Server Communications](../../images/server_client_vuejs.plantuml.svg)
 
     Bits and pieces of older client technologies appear throughout - ranging from Python
-    mako templates to generate HTML, lower-level jQuery, and lots of Backbone legacy MVC.
+    mako templates to generate HTML, lower-level jQuery, Axios interactions, and Backbone legacy MVC.
   class: reduce70
 - type: slide
   id: processing-requests-on-the-server
+  class: center
   heading: ''
   content: |-
     ![Processing requests on the server](../../images/asgi_app.plantuml.svg)
@@ -117,6 +115,7 @@
 - type: slide
   id: processing-requests-on-the-server-1
   heading: ''
+  class: center
   content: '![Processing requests on the server](../../images/asgi_app.plantuml.svg)'
 - type: slide
   id: fastapi-call
@@ -254,6 +253,7 @@
 - type: slide
   id: router-class-diagramimagesrou
   heading: ''
+  class: center
   content: |-
     ![Router Class Diagram](../../images/routers.plantuml.svg)
 
@@ -369,6 +369,7 @@
 - type: slide
   id: router-class-diagramimagesrou-1
   heading: ''
+  class: center
   content: |-
     ![Router Class Diagram](../../images/routers.plantuml.svg)
 
@@ -430,14 +431,17 @@
 - type: slide
   id: processing-requests-on-the-server-wsg
   heading: ''
+  class: center
   content: '![Processing requests on the server (WSGI)](../../images/wsgi_app.plantuml.svg)'
 - type: slide
   id: instances
   heading: Instances
+  class: center
   content: '![webapp](../../images/webapp.plantuml.svg)'
 - type: slide
   id: classes
   heading: Classes
+  class: center
   content: '![GalaxyWebApplication class diagram](../../images/webapp_classes.plantuml.svg)'
 - type: slide
   id: routes
@@ -464,6 +468,7 @@
 - type: slide
   id: simplified-handle-request-from-libga
   heading: ''
+  class: reduce70
   content: |-
     Simplified `handle_request` from `lib/galaxy/web/framework/base.py`.
 
@@ -593,6 +598,7 @@
 - type: slide
   id: wsgi-api-controller-example
   heading: WSGI API Controller Example
+  class: reduce50
   content: |-
     `lib/galaxy/webapps/galaxy/controllers/api/roles.py`
 
@@ -631,7 +637,6 @@
             role = self.role_manager.create_role(trans, role_definition_model)
             return role_to_model(trans, role)
     ```
-  class: reduce70
 - type: slide
   id: legacy-wsgi-controllers
   heading: Legacy WSGI Controllers

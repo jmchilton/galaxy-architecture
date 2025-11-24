@@ -16,10 +16,6 @@
 
 *The social architecture of the project.*
 
-## Project Management
-
-*The social architecture of the project.*
-
 ## Contributing Quick Start
 
 Contribution guidelines: [https://bit.ly/gx-CONTRIBUTING-md](https://bit.ly/gx-CONTRIBUTING-md)
@@ -69,7 +65,7 @@ Check out the full policy in [CODE_OF_CONDUCT.md](https://github.com/galaxyproje
 New large releases are issued roughly every 4 months. The process is guided by an auto-created
 self documenting release issue.
 
-Check out the [21.05 release issue](https://github.com/galaxyproject/galaxy/issues/11770) as an example.
+Check out the [25.1 release issue](https://github.com/galaxyproject/galaxy/issues/20952) as an example.
 
 Working groups create roadmaps aligned with each release and coordinated with project leadership.
 

@@ -5,12 +5,9 @@
   layout: introduction_slides
   topic_name: Galaxy Architecture
 - type: slide
-  id: application-components-models-managers-and-services
-  heading: Application Components - Models, Managers, and Services
-  content: '*The architecture surrounding Galaxy components.*'
-- type: slide
   id: this-section-will-talk-about-that-mana
   heading: ''
+  class: center
   content: '![This section will talk about that manager layer and what lies below](../../images/asgi_app.plantuml.svg)'
 - type: slide
   id: there-are-many-ways-to-describe-and-visu
@@ -27,6 +24,7 @@
 - type: slide
   id: models-and-managersimagescore
   heading: ''
+  class: center
   content: '![Models and Managers](../../images/core_models_managers.plantuml.svg)'
 - type: slide
   id: services
@@ -37,7 +35,8 @@
     Thin layer below the controllers to shield applciation logic from FastAPI internals.
 
     In practice, it is totally fine to skip this layer and have FastAPI controllers talk directly
-    to managers.
+    to managers. Also in practice, there are many places where the controller or service layers
+    are thicker than they should be - and these are anti-patterns that shouldn't be followed.
   class: enlarge150
 - type: slide
   id: managers
@@ -71,6 +70,7 @@
 - type: slide
   id: sqlalchemy-architectureimages
   heading: ''
+  class: center
   content: '![SQLAlchemy Architecture](../../images/sqla_arch_small.png)'
 - type: slide
   id: galaxy-database-schema-migrations
@@ -100,19 +100,20 @@
 - type: slide
   id: database-diagram
   heading: Database Diagram
+  class: center
   content: |-
     ![Galaxy Schema](../../images/galaxy_schema.png)
-
-
 
     https://galaxyproject.org/admin/internals/data-model/
 - type: slide
   id: hdaimageshdasvg
   heading: ''
+  class: center
   content: '![HDA](../../images/hda.svg)'
 - type: slide
   id: hda-datasetimageshda-dataset
   heading: ''
+  class: center
   content: '![HDA Dataset](../../images/hda_dataset.plantuml.svg)'
 - type: slide
   id: dataset-metadata

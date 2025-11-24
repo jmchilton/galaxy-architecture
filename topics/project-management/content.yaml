@@ -5,10 +5,6 @@
   layout: introduction_slides
   topic_name: Galaxy Architecture
 - type: slide
-  id: project-management
-  heading: Project Management
-  content: '*The social architecture of the project.*'
-- type: slide
   id: contributing-quick-start
   heading: Contributing Quick Start
   content: 'Contribution guidelines: https://bit.ly/gx-CONTRIBUTING-md'
@@ -70,7 +66,7 @@
     New large releases are issued roughly every 4 months. The process is guided by an auto-created
     self documenting release issue.
 
-    Check out the [21.05 release issue](https://github.com/galaxyproject/galaxy/issues/11770) as an example.
+    Check out the [25.1 release issue](https://github.com/galaxyproject/galaxy/issues/20952) as an example.
 
     Working groups create roadmaps aligned with each release and coordinated with project leadership.
   class: enlarge150
@@ -160,6 +156,7 @@
 - type: slide
   id: docsgalaxyprojectorg
   heading: docs.galaxyproject.org
+  class: center
   content: |-
     ![docs.galaxyproject.org](../../images/core_docs.png)
 

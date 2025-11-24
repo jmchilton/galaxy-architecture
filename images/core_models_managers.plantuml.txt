@@ -13,6 +13,7 @@ component metadata
 component objectstore
 component jobmetrics
 component managers
+component services
 component api
 
 [models] ..> [database]
@@ -30,6 +31,7 @@ component api
 [managers] ..> [toolbox]
 [managers] ..> [auth]
 [managers] ..> [jobs]
-[api] ..> [managers]
+[services] ..> [managers]
+[api] ..> [services]
 
 @enduml

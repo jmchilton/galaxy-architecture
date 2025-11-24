@@ -2,16 +2,19 @@
 !include plantuml_options.txt
 
 package galaxy {
+component tool_util_models
 component util
 component auth
 component files
 component data
+component navigation
 component [job-execution] as job_execution
 component [job-metrics] as job_metrics
 component objectstore
 component selenium
 component [tool-util] as tool_util
 'component toolshed
+component tours
 
 component app
 component [web-apps] as web_apps
@@ -28,11 +31,14 @@ package galaxy_test {
 
 
 [tool_util] --> [util]
+[tool_util] --> [tool_util_models]
 [files] --> [util]
 [objectstore] --> [util]
 [data] --> [objectstore]
 [data] --> [files]
 [selenium] --> [util]
+[selenium] --> [navigation]
+[tours] --> [navigation]
 [web_stack] --> [util]
 [job_metrics] --> [util]
 [job_execution] --> [data]
@@ -40,6 +46,7 @@ package galaxy_test {
 [app] --> [auth]
 [app] --> [job_execution]
 [app] --> [web_framework]
+[app] --> [tours]
 [web_framework] --> [data]
 [web_framework] --> [web_stack]
 [web_apps] --> [app]

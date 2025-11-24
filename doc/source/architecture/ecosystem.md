@@ -21,7 +21,9 @@
 **GitHub:** [github.com/galaxyproject ](https://github.com/galaxyproject)
 
 **Bluesky:** [bsky.app/profile/galaxyproject.bsky.social](https://bsky.app/profile/galaxyproject.bsky.social)
+
 **Mastodon:** [@galaxyproject](https://mstdn.science/@galaxyproject)
+
 **LinkedIn:** [Galaxy Project](https://www.linkedin.com/groups/4907635/)
 
 ## The **/galaxyproject** projects

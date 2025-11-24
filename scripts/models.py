@@ -167,6 +167,12 @@ class ContentBlock(BaseModel):
         Field("\n\n", description="Separator when combining fragments")
     ]
 
+    # Convenience field: layout class for slides (shorthand for slides.layout)
+    class_: Annotated[
+        Optional[str],
+        Field(None, alias='class', description="Layout class for slides (shorthand for slides.layout)")
+    ]
+
     # Rendering configuration with smart defaults
     doc: Annotated[
         DocRenderConfig,
@@ -180,6 +186,10 @@ class ContentBlock(BaseModel):
     @model_validator(mode='after')
     def apply_smart_defaults(self):
         """Apply smart defaults based on content type."""
+        # Propagate convenience field 'class_' to slides.layout
+        if self.class_ and not self.slides.layout:
+            self.slides.layout = self.class_
+
         if self.type == ContentBlockType.PROSE:
             # Prose: render in docs by default, NOT in slides
             if self.doc.render is True:  # Using default

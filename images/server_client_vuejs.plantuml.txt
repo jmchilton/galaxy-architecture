@@ -9,7 +9,7 @@ activate Server
 Server -->Browser: Static Content (HTML+JS+CSS)
 deactivate Server
 
-note left of Browser: Components built with VueJS.\nAxios used to build service layer.
+note left of Browser: Components built with VueJS.\nopenapi-fetch used to build service layer.
 Browser -> Server: API Request (JSON)
 activate Server
 note right of Server: Build JSON response\nin Galaxy "API" controllers

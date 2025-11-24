@@ -15,4 +15,4 @@ items:
   doc: Galaxy frontend project
   items:
   - label: src/
-    doc: Galaxy frontend ES6 source files
+    doc: Galaxy frontend TypeScript & ES6 source files

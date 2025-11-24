@@ -17,10 +17,6 @@
 
 *The architecture surrounding Galaxy components.*
 
-## Application Components - Models, Managers, and Services
-
-*The architecture surrounding Galaxy components.*
-
 ![This section will talk about that manager layer and what lies below](../_images/asgi_app.plantuml.svg)
 
 There are many ways to describe and visualize the Galaxy server architecture,
@@ -41,7 +37,8 @@ Handle API and web processing details of requests and responses at a high-level.
 Thin layer below the controllers to shield applciation logic from FastAPI internals.
 
 In practice, it is totally fine to skip this layer and have FastAPI controllers talk directly
-to managers.
+to managers. Also in practice, there are many places where the controller or service layers
+are thicker than they should be - and these are anti-patterns that shouldn't be followed.
 
 ## Managers
 
@@ -97,8 +94,6 @@ in a manager instead of in the model.
 ## Database Diagram
 
 ![Galaxy Schema](../_images/galaxy_schema.png)
-
-
 
 [https://galaxyproject.org/admin/internals/data-model/](https://galaxyproject.org/admin/internals/data-model/)
 

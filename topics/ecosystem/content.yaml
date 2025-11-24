@@ -19,7 +19,9 @@
     **GitHub:** [github.com/galaxyproject ](https://github.com/galaxyproject)
 
     **Bluesky:** [bsky.app/profile/galaxyproject.bsky.social](https://bsky.app/profile/galaxyproject.bsky.social)
+
     **Mastodon:** [@galaxyproject](https://mstdn.science/@galaxyproject)
+
     **LinkedIn:** [Galaxy Project](https://www.linkedin.com/groups/4907635/)
   class: enlarge200
 - type: slide
@@ -43,6 +45,7 @@
 - type: slide
   id: more-links-well-mention-as-we-go-throug
   heading: ''
+  class: reduce70 center
   content: |-
     More links we'll mention as we go through the slides:
 
@@ -198,6 +201,7 @@
 - type: slide
   id: galaxyprojecttools-iuc-httpsg
   heading: ''
+  class: reduce70 center
   content: |-
     [galaxyproject/**tools-iuc** ](https://github.com/galaxyproject/tools-iuc)
 
@@ -220,6 +224,7 @@
 - type: slide
   id: tools-aside-more-repositories
   heading: Tools Aside - More Repositories
+  class: center reduce70
   content: "Other repositories with high quality tools:\n\n * [Bj\xF6rn Gr\xFCning's\
     \ repo](https://github.com/bgruening/galaxytools)\n * Peter Cock's repos:\n  \
     \ * [blast repo](https://github.com/peterjc/galaxy_blast)\n   * [pico repo](https://github.com/peterjc/pico_galaxy)\n\

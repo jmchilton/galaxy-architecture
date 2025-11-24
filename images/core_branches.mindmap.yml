@@ -5,8 +5,9 @@ items:
 - label: master
   doc: References latest stable branch.  Generally never develop or deploy  against
     this branch.
-- label: release_21.05
-  doc: Release branches - named by month.  Generally bug fixes should target  oldest
+- label: release_25.1
+  doc: Release branches - named by year and version.  Generally bug fixes should target oldest
     relevant branch
-- label: release_21.01
-- label: release_20.09
+- label: release_25.0
+- label: release_24.2
+- label: release_24.1

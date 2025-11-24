@@ -13,10 +13,6 @@
 - Understand WSGI and legacy routing
 - Learn about middleware layers
 
-## Galaxy Web Frameworks
-
-*The architecture of an interaction.*
-
 ## Web Frameworks
 
 *The architecture of an interaction.*
@@ -24,7 +20,7 @@
 ![Client-Server Communications](../_images/server_client_vuejs.plantuml.svg)
 
 Bits and pieces of older client technologies appear throughout - ranging from Python
-mako templates to generate HTML, lower-level jQuery, and lots of Backbone legacy MVC.
+mako templates to generate HTML, lower-level jQuery, Axios interactions, and Backbone legacy MVC.
 
 ![Processing requests on the server](../_images/asgi_app.plantuml.svg)
 

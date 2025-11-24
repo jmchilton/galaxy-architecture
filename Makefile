@@ -1,4 +1,4 @@
-.PHONY: help validate validate-files build-slides build-sphinx build clean view-sphinx lint-sphinx images
+.PHONY: help validate validate-files build-slides build-sphinx build clean view-sphinx lint-sphinx images watch watch-sphinx watch-images
 
 help:
 	@echo "Galaxy Architecture Documentation - Build Targets"
@@ -16,6 +16,10 @@ help:
 	@echo "Development:"
 	@echo "  make view-sphinx       Build and open Sphinx docs in browser"
 	@echo "  make clean             Remove all generated files"
+	@echo ""
+	@echo "Watch (requires entr: brew install entr):"
+	@echo "  make watch             Watch content.yaml files, rebuild sphinx on change"
+	@echo "  make watch-images      Watch image sources, rebuild on change"
 	@echo ""
 	@echo "Examples:"
 	@echo "  make validate          # Validate all topics"
@@ -77,3 +81,16 @@ clean:
 	rm -rf outputs/sphinx-docs/generated
 	@make -C images clean
 	@echo "✓ Cleaned"
+
+# Watch targets (require entr: brew install entr)
+watch: watch-sphinx
+
+watch-sphinx:
+	@echo "Watching content.yaml files for changes..."
+	@echo "Press Ctrl+C to stop"
+	find topics -name 'content.yaml' | entr -c make build
+
+watch-images:
+	@echo "Watching image sources for changes..."
+	@echo "Press Ctrl+C to stop"
+	find images -name '*.plantuml.txt' -o -name '*.mindmap.yml' | entr -c make images

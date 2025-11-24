@@ -5,17 +5,16 @@
   layout: introduction_slides
   topic_name: Galaxy Architecture
 - type: slide
-  id: galaxy-tasks
-  heading: Galaxy Tasks
-  content: '*The architecture surrounding Galaxy task management.*'
-- type: slide
   id: processing-requests-on-the-server
   heading: ''
+  class: center
   content: |-
     ![Processing requests on the server](../../images/asgi_app.plantuml.svg)
-
-    ???
-
+- type: slide
+  id: web-servers-are-a-terrible-place-to-do-work
+  class: enlarge120
+  heading: 'Avoid Doing Work in Web Threads'
+  content: |-
     Web servers are a terrible place to do work. Traditional Python WSGI servers
     are meant for processing requests that take less a minute - they are meant
     for long running tasks.
@@ -26,10 +25,12 @@
 - type: slide
   id: zoom-in-on-backendimagescore
   heading: ''
+  class: center
   content: '![Zoom in on Backend](../../images/core_backend_controllers.plantuml.svg)'
 - type: slide
   id: infrastructure-including-celery
   heading: ''
+  class: center
   content: |-
     ![Infrastructure including Celery](../../images/core_backend_celery.plantuml.svg)
 
@@ -41,6 +42,7 @@
 - type: slide
   id: celery-overviewhttpsd33wubrfki0l6
   heading: ''
+  class: center
   content: '![Celery Overview](https://d33wubrfki0l68.cloudfront.net/f6a5a0c33eac1250034747d375da9a396e5488ce/0196f/media/async-task-python.png)'
 - type: slide
   id: downsides-of-celery
@@ -80,6 +82,7 @@
 - type: slide
   id: celery-tasks-being-registered-at-start
   heading: ''
+  class: center
   content: '![Celery tasks being registered at startup](../../images/celery_tasks_list.png)'
 - type: slide
   id: declaring-a-task
@@ -106,12 +109,12 @@
     ):
         model_store_manager.setup_history_export_job(request)
     ```]
-  class: enlarge150
 - type: slide
   id: the-galaxy-task-decorator
   heading: The `galaxy_task` Decorator
+  class: reduce70
   content: |-
-    .code[```
+    .code[```python
     @galaxy_task(
         ignore_result=True,
         action="setting up export history job"
@@ -126,7 +129,6 @@
     - `galaxy_task` is a wrapper around Celery's `task` decorator
     - Wrap a simple function to turn it into a task.
     - Ensure all inputs are JSON serializable or components in Galaxy's dependency injection container
-  class: enlarge150
 - type: slide
   id: celery-and-pydantic
   heading: Celery and Pydantic
@@ -134,7 +136,7 @@
     The `request` argument to `export_history` is a Pydantic model type named
     `SetupHistoryExportJob`. These are mostly defined in `galaxy.schema.tasks`.
 
-    .code[```
+    .code[```python
     from pydantic import BaseModel
 
     class SetupHistoryExportJob(BaseModel):
@@ -145,7 +147,6 @@
         include_hidden: bool
         include_deleted: bool
     ```]
-  class: enlarge150
 - type: slide
   id: celery-and-pydantic-implementation
   heading: Celery and Pydantic - Implementation
@@ -175,14 +176,13 @@
       the Galaxy manager object of this class to be passed to the function when the
       task is running.
     - Client does not need to have any knowledge of this class.
-  class: enlarge150
 - type: slide
   id: executing-tasks-from-galaxy
   heading: Executing Tasks from Galaxy
   content: |-
     See `lib/galaxy/tools/imp_exp/__init__.py`:
 
-    .code[```
+    .code[```python
     from galaxy.schema.tasks import SetupHistoryExportJob
 
     ...
@@ -250,7 +250,7 @@
   id: robust-pdf-export
   heading: Robust PDF Export
   content: |-
-    .code[```
+    .code[```python
     from galaxy.managers.markdown_util import generate_branded_pdf
 
     @galaxy_task(
@@ -267,7 +267,6 @@
             short_term_storage_monitor,
         )
     ```]
-  class: enlarge120
 - type: slide
   id: exporting-histories-invocations-libraries
   heading: Exporting Histories, Invocations, Libraries

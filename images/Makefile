@@ -18,5 +18,5 @@ plantuml.jar:
 	wget http://jaist.dl.sourceforge.net/project/plantuml/plantuml.jar || curl --output plantuml.jar http://jaist.dl.sourceforge.net/project/plantuml/plantuml.jar
 
 clean:
-	rm -f *.svg
+	rm -f *.platnuml.svg
 	rm -f *.mindmap.plantuml.txt

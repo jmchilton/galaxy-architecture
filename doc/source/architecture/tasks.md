@@ -17,11 +17,17 @@
 
 *The architecture surrounding Galaxy task management.*
 
-## Galaxy Tasks
-
-*The architecture surrounding Galaxy task management.*
-
 ![Processing requests on the server](../_images/asgi_app.plantuml.svg)
+
+## Avoid Doing Work in Web Threads
+
+Web servers are a terrible place to do work. Traditional Python WSGI servers
+are meant for processing requests that take less a minute - they are meant
+for long running tasks.
+
+This request/response cycle is inappropriate for deleting all the files in a
+history, submitted 10,000 batch jobs for a collection, building a zip file for
+a library folder.
 
 ![Zoom in on Backend](../_images/core_backend_controllers.plantuml.svg)
 
@@ -81,7 +87,7 @@ def export_history(
 
 ## The `galaxy_task` Decorator
 
-```
+```python
 @galaxy_task(
     ignore_result=True,
     action="setting up export history job"
@@ -102,7 +108,7 @@ def export_history(
 The `request` argument to `export_history` is a Pydantic model type named
 `SetupHistoryExportJob`. These are mostly defined in `galaxy.schema.tasks`.
 
-```
+```python
 from pydantic import BaseModel
 
 class SetupHistoryExportJob(BaseModel):
@@ -144,7 +150,7 @@ def export_history(
 
 See `lib/galaxy/tools/imp_exp/__init__.py`:
 
-```
+```python
 from galaxy.schema.tasks import SetupHistoryExportJob
 
 ...
@@ -201,7 +207,7 @@ class GeneratePdfDownload(BaseModel):
 
 ## Robust PDF Export
 
-```
+```python
 from galaxy.managers.markdown_util import generate_branded_pdf
 
 @galaxy_task(

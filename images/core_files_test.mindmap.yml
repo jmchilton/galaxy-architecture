@@ -13,10 +13,14 @@ items:
   items:
   - label: base/
     doc: base Python infrastructure for testing
+  - label: driver/
+    doc: Python infrastructure for bootstrapping Galaxy for tests
   - label: api/
     doc: tests against Galaxy API
   - label: selenium/
     doc: end-to-end tests with automated browser
+  - label: workflow/
+    doc: workflow testing driver and tests
 - label: test/
   doc: misc Python tests
   items:

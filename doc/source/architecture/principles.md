@@ -16,10 +16,6 @@
 
 *The guiding principles of the core code architecture.*
 
-## Principles
-
-*The guiding principles of the core code architecture.*
-
 ## Aspirational Principles of Galaxy Architecture
 
 Whereas the architecture of the frontend (Web UI) aims for consistency and is
@@ -31,7 +27,7 @@ highly opinionated, the backend (Python server) is guided by flexibility and is 
 - Consistent colors, fonts, themes, etc...
 - Reusable components for presenting common widgets - from the generic (forms and grids) to the specific (tools and histories).
 - Tied to specific technologies:
-  - Implemented in JavaScript (ES6)
+  - Implemented in TypeScript
   - Built with [webpack](https://webpack.js.org/)
   - [Vue.js](https://vuejs.org/) for component definitions
 
@@ -43,7 +39,7 @@ can be adapted to many different technologies.
 - SQLAlchemy allows using SQLite, PostgreSQL, or MySQL (sort of) for your database.
 - Many different cluster backends or job managers are supported.
 - Different frontend proxies (e.g. nginx) are supported as well as web
-  application containers (e.g. uWSGI, gunicorn).
+  application containers (e.g. uvicorn, gunicorn).
 - Different storage strategies and technologies are supported (e.g. S3, iRODS).
 - Tool definitions, job metrics, stat middleware, tool dependency resolution, workflow modules,
   datatype definitions are all plugin driven.

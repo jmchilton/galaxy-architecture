@@ -334,15 +334,6 @@ Dependencies are automatically injected based on type annotations!
 
 
 ## Key Takeaways
-
-1. **Type annotations** enable automatic dependency resolution
-2. **Interfaces** (like `StructuredApp`) break circular dependencies
-3. **Container-based construction** simplifies object creation
-4. **Uniform pattern** works across FastAPI, WSGI controllers, and Celery tasks
-5. **Dependencies form a DAG** - no circular dependencies
-
-
-## Key Takeaways
 - `app` was a god object that knew/did too much
 - Interfaces break circular dependencies
 - Type-based DI with Lagom simplifies construction
