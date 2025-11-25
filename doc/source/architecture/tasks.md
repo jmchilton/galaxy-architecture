@@ -1,6 +1,6 @@
 # Galaxy Task Management with Celery
 
-> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-tasks/slides.html)
+> 📊 <a href="slides.html">View as training slides</a>
 
 ## Learning Questions
 - How does Galaxy handle long-running tasks?

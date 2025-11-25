@@ -1,6 +1,6 @@
 # Dependency Injection in Galaxy
 
-> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-dependency-injection/slides.html)
+> 📊 <a href="slides.html">View as training slides</a>
 
 ## Learning Questions
 - What is dependency injection?

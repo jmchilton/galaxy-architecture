@@ -1,6 +1,6 @@
 # Galaxy Application Components: Models, Managers, and Services
 
-> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-application-components/slides.html)
+> 📊 <a href="slides.html">View as training slides</a>
 
 ## Learning Questions
 - How is business logic organized in Galaxy?
