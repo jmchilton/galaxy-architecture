@@ -13,6 +13,9 @@ Establish architecture documentation as a structured, multi-format knowledge bas
 
 ✅ **Migration complete** - All 13 architecture topics extracted from GTN and restructured
 ✅ **Dual outputs** - Both training slides and Sphinx documentation generating successfully
+✅ **GitHub Pages publishing** - Automated deployment to https://jmchilton.github.io/galaxy-architecture/
+✅ **Training-material sync** - Scripts and make targets for bi-directional sync
+✅ **PlantUML infrastructure** - Diagram generation from source files with mindmap YAML support
 ✅ **Validation** - Pydantic v2 schema ensures content quality
 ✅ **Topic sequencing** - Established via `previous_to`/`continues_to` metadata chain
 
@@ -123,14 +126,14 @@ galaxy-architecture/
 ├── outputs/                       # Generated content (gitignored)
 │   ├── training-slides/           # GTN slide generation
 │   │   ├── build.py               # Builder script
-│   │   ├── template.html          # Remark.js template
-│   │   └── generated/             # Output directory
+│   │   ├── template.html          # Jekyll markdown template (for GTN)
+│   │   └── generated/             # Output directory (.md and .html)
 │   │
-│   ├── sphinx-docs/               # Galaxy docs generation (planned)
+│   ├── sphinx-docs/               # Sphinx documentation generation
 │   │   ├── build.py               # Builder script (generates Markdown)
 │   │   └── generated/             # Output directory
 │   │
-│   └── hub-articles/              # Galaxy Hub generation
+│   └── hub-articles/              # Galaxy Hub generation (planned)
 │       ├── build.py               # Builder script
 │       ├── templates/             # Markdown templates
 │       └── generated/             # Output directory
@@ -139,9 +142,21 @@ galaxy-architecture/
 │   ├── models.py                  # Pydantic models for validation
 │   ├── validate.py                # Validate all topics
 │   ├── generate_schema_docs.py    # Generate SCHEMA.md from models
-│   ├── list-topics.py             # List all topics and status
-│   ├── check-links.py             # Verify internal references
-│   └── preview.py                 # Local preview server
+│   ├── sync_to_training_material.py  # Sync slides to GTN
+│   ├── sync_images.py             # Sync image assets
+│   ├── compare_slides.py          # Diff with training-material
+│   ├── validate_sync.py           # Validate synced content
+│   └── sphinx_image_linter.py     # Check Sphinx image refs
+│
+├── images/                        # PlantUML diagrams and mindmaps
+│   ├── *.plantuml.txt             # PlantUML source files
+│   ├── *.mindmap.yml              # YAML mindmap definitions
+│   ├── Makefile                   # Diagram build infrastructure
+│   └── mindmap_yaml_to_plantuml.py  # Converter script
+│
+├── doc/                           # Sphinx project
+│   ├── source/                    # Source RST/MD (includes generated)
+│   └── build/html/                # Built HTML (published to GitHub Pages)
 │
 ├── .claude/                       # Repository-level Claude context
 │   ├── CLAUDE.md                  # Overall repo context
@@ -155,59 +170,84 @@ galaxy-architecture/
 │   ├── SCHEMA.md                  # Metadata schema specification
 │   ├── CONTRIBUTING.md            # How to add/update content
 │   ├── OUTPUTS.md                 # How output generation works
-│   └── MIGRATION.md               # Plan for eventually moving to Galaxy
+│   ├── MIGRATION.md               # Plan for eventually moving to Galaxy
+│   ├── GITHUB_PAGES_QUICKSTART.md # GitHub Pages setup guide
+│   └── GITHUB_PAGES_SETUP.md      # Technical deployment details
 │
-└── tests/                         # Validation tests
-    ├── test_metadata.py           # Test metadata validity
-    ├── test_content.py            # Test content formatting
-    └── test_builds.py             # Test output generation
+└── .github/workflows/             # CI/CD configuration
+    ├── validate.yml               # Validation on PRs
+    └── deploy-docs.yml            # GitHub Pages deployment
 ```
 
 ## Strategic Initiatives
 
-### 1. Keep Training Material in Sync
+### 0. GitHub Pages Publishing (Completed ✅)
+
+**Goal**: Automatically build and publish documentation on every commit
+
+**Status**: Fully implemented and operational
+
+**Implementation**:
+- GitHub Actions workflow: `.github/workflows/deploy-docs.yml`
+- Triggers on push to main branch
+- Builds: PlantUML diagrams → training slides → Sphinx docs
+- Publishes to: https://jmchilton.github.io/galaxy-architecture/
+- Includes: All 13 topics, embedded slide presentations, full-text search
+
+**Documentation**:
+- Setup: `docs/GITHUB_PAGES_QUICKSTART.md`
+- Technical: `docs/GITHUB_PAGES_SETUP.md`
+
+**Outcome**: Documentation is always up-to-date with latest commits
+
+### 1. Keep Training Material in Sync (Completed ✅)
 
 **Goal**: Automatically sync generated slides back to training-material repository
 
-**Approach**:
-- Build system that detects changes in topics/
-- Automatically regenerates training slides via outputs/training-slides/build.py
-- Creates PRs or copies to ~/workspace/training-material/
-- Keeps GTN training material in sync without manual intervention
+**Status**: Fully implemented with scripts and make targets
 
-**Benefits**:
-- Single source of truth in this repo
-- Training slides auto-updated
-- No need to maintain dual copies
-- Clear audit trail of what changed
+**Implementation**:
+- `scripts/sync_to_training_material.py` - Main sync script
+- `scripts/sync_images.py` - Sync image assets (SVG/PNG only)
+- `scripts/compare_slides.py` - Diff with training-material
+- `scripts/validate_sync.py` - Post-sync validation
+- Make targets: `make sync-to-training`, `make compare-slides`
+- Navigation footnotes added during sync (not in source)
 
-**Next Steps**:
-1. Establish copy/sync workflow (local script first)
-2. Test with single topic update
-3. Eventually GitHub Actions for automated sync
+**Workflow**:
+1. Update content in this repo
+2. Run `make build-slides` to generate
+3. Run `make compare-slides` to preview changes
+4. Run sync script to copy to ~/workspace/training-material
+5. Review diff and commit in training-material
 
-### 2. Enhance Sphinx Output for Galaxy Integration
+**Benefits Achieved**:
+- Single source of truth maintained
+- Clean separation: base slides here, GTN-specific nav in sync
+- Audit trail of all changes
+- Validation prevents broken syncs
 
-**Goal**: Full integration with Galaxy's documentation system
+### 2. Sphinx Documentation (Completed ✅)
 
-**Current State**:
-- Generates Markdown successfully
-- All 13 topics rendering
-- Proper image paths and formatting
-- Topic ordering working
+**Goal**: Full integration with documentation publishing
 
-**Remaining Work**:
-- Test build with `cd doc && make html`
-- Verify all images display correctly
-- Check cross-references and links
-- Add prose content to flesh out topics
-- Consider formatting for Galaxy's doc style
+**Status**: Fully implemented and published to GitHub Pages
 
-**Next Steps**:
-1. Build Sphinx locally to validate output quality
-2. Fix any rendering issues discovered
-3. Add additional prose sections if needed
-4. Plan integration into Galaxy/doc/
+**Implementation**:
+- Generates Markdown from content.yaml
+- Builds Sphinx HTML with embedded Remark.js slides
+- Publishes automatically via GitHub Actions
+- Live at: https://jmchilton.github.io/galaxy-architecture/
+
+**Features Working**:
+- All 13 topics rendering correctly
+- Embedded slide presentations work
+- PlantUML diagrams display properly
+- Cross-references and navigation working
+- Full-text search enabled
+- Image paths correct for all contexts
+
+**Next Phase**: Integration into Galaxy's main docs (future)
 
 ### 3. AI Knowledge Base
 
@@ -272,22 +312,25 @@ galaxy-architecture/
 - [x] Topic sequencing (previous_to/continues_to chain)
 - [x] Asset image copying and path conversion
 - [x] Remark.js directive handling
-- [x] Documentation (SCHEMA.md, CONTRIBUTING.md, MIGRATION.md)
+- [x] Documentation (SCHEMA.md, CONTRIBUTING.md, MIGRATION.md, etc.)
+- [x] **PlantUML/mindmap diagram infrastructure**
+- [x] **GitHub Pages publishing with automated deployment**
+- [x] **Training-material sync scripts and make targets**
+- [x] **Sphinx build verified and published**
+- [x] **Image linting and validation**
 
 ### In Progress 🔄
 
-- [ ] Verify Sphinx build quality (test with `make html`)
-- [ ] Add prose content to topics
-- [ ] Create enhanced AI context files
-- [ ] Build automation workflow (copy slides to training-material)
+- [ ] Add more prose content to topics (beyond slide content)
+- [ ] Create enhanced AI context files (.claude/CLAUDE.md per topic)
+- [ ] Test agentic AI workflows with structured content
 
 ### Future Phases 📋
 
-- [ ] GitHub Actions for validation and preview
-- [ ] Automated slide sync to training-material
-- [ ] Hub article generation
-- [ ] Integration into Galaxy repository
+- [ ] Hub article generation (outputs/hub-articles/)
+- [ ] Integration into Galaxy repository (doc/source/architecture/)
 - [ ] Support for additional documentation types
+- [ ] Community contribution guidelines and workflows
 
 ---
 
