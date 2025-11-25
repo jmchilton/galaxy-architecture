@@ -269,8 +269,12 @@ def generate_slides(topic_name):
     gtn_template_path = Path(__file__).parent / "template.html"
     gtn_template = Template(gtn_template_path.read_text())
 
+    # Format title as "Architecture NN - <title>" for proper lexicographic sorting
+    tutorial_num = metadata.training.tutorial_number
+    formatted_title = f"Architecture {tutorial_num:02d} - {metadata.title}"
+
     gtn_output = gtn_template.render(
-        title=metadata.title,
+        title=formatted_title,
         subtitle=metadata.training.subtitle,
         questions=metadata.training.questions,
         objectives=metadata.training.objectives,
