@@ -12,10 +12,6 @@
 - Understand JavaScript dependency management
 - Learn about the wheels server
 
-## Dependencies
-
-
-
 ## Dependencies - Python
 
 `script/common_startup.sh` sets up a `virtualenv` with required dependencies in `$GALAXY_ROOT/.venv` (or `$GALAXY_VIRTUAL_ENV` if set).

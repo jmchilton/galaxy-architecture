@@ -13,10 +13,6 @@
 - Understand dependency installation
 - Learn about database migrations and plugin loading
 
-## Galaxy Startup Process
-
-
-
 ## Cloning Galaxy
 
 ```bash

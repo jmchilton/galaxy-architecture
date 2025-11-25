@@ -4,7 +4,6 @@ This section documents Galaxy's internal architecture and design patterns.
 
 ```{toctree}
 :maxdepth: 2
-:caption: Architecture Topics
 
 architecture/index
 ```
