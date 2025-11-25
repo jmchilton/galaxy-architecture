@@ -7,8 +7,21 @@
 This repository maintains Galaxy architecture knowledge as structured content (markdown + metadata) and generates multiple output formats:
 
 - **Training Slides** - GTN-compatible Remark.js slides for architecture tutorials
-- **Sphinx Docs** - Planned for Galaxy documentation (Phase 9)
+- **Sphinx Docs** - Published at https://jmchilton.github.io/galaxy-architecture/
+- **Training Material Sync** - Back-sync to training-material repository
 - **Hub Articles** - Planned for galaxyproject.org
+
+## Published Documentation
+
+**Live site**: https://jmchilton.github.io/galaxy-architecture/
+
+The documentation is automatically built and published to GitHub Pages on every push to `main`. Includes:
+- Sphinx HTML documentation for all 13 architecture topics
+- Embedded Remark.js slide presentations
+- PlantUML diagrams and mindmaps
+- Full-text search and navigation
+
+See [docs/GITHUB_PAGES_QUICKSTART.md](docs/GITHUB_PAGES_QUICKSTART.md) for setup details.
 
 ## Why This Exists
 
@@ -23,21 +36,21 @@ Architecture knowledge was previously locked in presentation slides within the G
 
 ## Quick Links
 
+- **[Published Documentation](https://jmchilton.github.io/galaxy-architecture/)** - Live Sphinx docs with embedded slides
 - **[PLAN.md](PLAN.md)** - Detailed implementation plan with phases and progress
 - **[docs/SCHEMA.md](docs/SCHEMA.md)** - Complete metadata schema documentation
-- **[docs/CONTRIBUTING.md](docs/CONTRIBUTING.md)** - Guide for adding/updating topics
-- **[docs/OUTPUTS.md](docs/OUTPUTS.md)** - Output format documentation
-- **[docs/MIGRATION.md](docs/MIGRATION.md)** - Long-term migration plan
+- **[docs/GITHUB_PAGES_QUICKSTART.md](docs/GITHUB_PAGES_QUICKSTART.md)** - GitHub Pages publishing setup
+- **[docs/GITHUB_PAGES_SETUP.md](docs/GITHUB_PAGES_SETUP.md)** - Technical deployment details
+- **[BACK_TO_TRAINING_PLAN.md](BACK_TO_TRAINING_PLAN.md)** - Sync strategy to training-material
 
 ## Current Status
 
-- ✅ **Phase 0-1**: Repository structure and schema defined
-- ✅ **Phase 2**: First topic migrated (dependency-injection)
-- ✅ **Phase 3**: Slide generator complete with all features
-- ✅ **Phase 4**: Validation framework with CI integration
-- ⏳ **Phase 5-6**: Additional topics and Claude integration (skipped for now)
-- ✅ **Phase 7**: Documentation complete
-- ⏳ **Phase 8-9**: Real-world usage and Sphinx output (future)
+- ✅ **Phase 0-4**: Core infrastructure, validation, and slide generation
+- ✅ **Phase 5**: All 13 architecture topics migrated from training-material
+- ✅ **Phase 7**: PlantUML/mindmap diagram infrastructure
+- ✅ **Phase 8**: Sphinx documentation with GitHub Pages publishing
+- ✅ **Phase 9**: Training-material back-sync infrastructure
+- ⏳ **Phase 10**: Hub articles and Galaxy repo integration (future)
 
 ## Quick Start
 
@@ -63,22 +76,37 @@ uv sync --extra dev
 ### Build Targets
 
 ```bash
-# Validate all topics
+# Validate all topics and metadata
 make validate
 
 # Verify file references in mindmaps exist in ~/workspace/galaxy
 make validate-files
 
-# Generate training slides for a topic
-uv run python outputs/training-slides/build.py dependency-injection
+# Build PlantUML diagrams from source
+make images
 
-# Build everything (slides + sphinx docs)
+# Generate training slides
+make build-slides
+
+# Generate Sphinx documentation
+make build-sphinx
+
+# Build everything (validates + generates all outputs)
 make build
 
-# View Sphinx documentation in browser
+# View local Sphinx site
 make view-sphinx
 
-# Clean all generated files
+# Compare with training-material
+make compare-slides
+
+# Sync to training-material (dry-run)
+make sync-to-training
+
+# Watch and rebuild on changes
+make watch
+
+# Clean generated files
 make clean
 ```
 
@@ -86,69 +114,83 @@ make clean
 
 ```bash
 # 1. Create topic directory
-mkdir -p topics/my-topic/.claude
+mkdir -p topics/my-topic
 
-# 2. Create metadata.yaml (see docs/SCHEMA.md)
-# 3. Create overview.md with content
-# 4. Create .claude/CLAUDE.md for context
+# 2. Create metadata.yaml (see docs/SCHEMA.md for schema)
+# 3. Create content.yaml with content blocks
+# 4. Optionally create fragments/ for granular content organization
 
 # 5. Validate
-uv run python scripts/validate.py
+make validate
 
-# 6. Generate slides
-uv run python outputs/training-slides/build.py my-topic
+# 6. Generate outputs
+make build
+
+# 7. View locally
+make view-sphinx
 ```
 
-See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for detailed instructions.
+See [docs/SCHEMA.md](docs/SCHEMA.md) for the metadata and content.yaml schema.
 
 ## Repository Structure
 
 ```
 galaxy-architecture/
-├── topics/                 # Content organized by architectural topic
-│   └── dependency-injection/
-│       ├── metadata.yaml  # Structured metadata
-│       ├── overview.md     # Main content
-│       ├── examples.md     # Code examples
-│       └── .claude/
-│           └── CLAUDE.md   # AI context
-├── outputs/               # Build scripts for different formats
-│   └── training-slides/
-│       ├── build.py       # Slide generator
-│       ├── template.html  # GTN template
-│       └── generated/     # Output directory
-├── scripts/               # Validation and utilities
-│   └── validate.py       # Content validation
-├── tests/                 # Test suite
-│   └── test_validate.py   # Validation tests
-├── docs/                  # Meta-documentation
-│   ├── SCHEMA.md         # Metadata schema
-│   ├── CONTRIBUTING.md   # Contribution guide
-│   ├── OUTPUTS.md        # Output format docs
-│   └── MIGRATION.md      # Migration plan
-├── images/                # Shared images (PlantUML diagrams)
-└── .github/workflows/     # CI configuration
-    └── validate.yml       # Validation workflow
+├── topics/                     # 13 architectural topics
+│   └── ecosystem/
+│       ├── metadata.yaml       # Topic metadata (training, sphinx)
+│       ├── content.yaml        # Ordered content blocks
+│       └── fragments/          # Optional: granular content files
+├── outputs/
+│   ├── training-slides/
+│   │   ├── build.py           # Generates Remark.js slides
+│   │   ├── template.html      # Jekyll markdown template (for GTN)
+│   │   └── generated/         # Generated slides (.md and .html)
+│   └── sphinx-docs/
+│       ├── build.py           # Generates Sphinx markdown
+│       └── generated/         # Generated Sphinx content
+├── doc/                        # Sphinx project
+│   ├── source/                # Source files (incl. generated)
+│   └── build/html/            # Built site (published to GitHub Pages)
+├── scripts/
+│   ├── validate.py            # Content validation
+│   ├── models.py              # Pydantic schemas
+│   ├── sync_to_training_material.py  # Sync slides to GTN
+│   ├── sync_images.py         # Sync image assets
+│   └── compare_slides.py      # Diff with training-material
+├── images/                     # PlantUML diagrams and mindmaps
+│   ├── *.plantuml.txt         # PlantUML source files
+│   ├── *.mindmap.yml          # YAML mindmap definitions
+│   └── Makefile              # Diagram build rules
+├── docs/                      # Documentation
+│   ├── SCHEMA.md             # Auto-generated from Pydantic models
+│   ├── GITHUB_PAGES_QUICKSTART.md
+│   └── GITHUB_PAGES_SETUP.md
+└── .github/workflows/
+    ├── validate.yml          # CI validation
+    └── deploy-docs.yml       # GitHub Pages deployment
 ```
 
 ## Features
 
 ### ✅ Implemented
 
-- **Structured Content**: Markdown + YAML metadata per topic
-- **Slide Generation**: GTN-compatible Remark.js slides
-- **Validation Framework**: Automated quality checks
-- **CI Integration**: GitHub Actions for validation and testing
-- **Image Management**: Shared image directory with PlantUML support
-- **Layout Classes**: Support for `reduce90`, `enlarge150` classes
-- **Code Formatting**: `.code[]` wrapper and diff format support
+- **13 Architecture Topics**: Ecosystem, project management, principles, files, frameworks, DI, tasks, components, plugins, client, dependencies, startup, production
+- **Structured Content**: `metadata.yaml` + `content.yaml` with content blocks
+- **Slide Generation**: GTN-compatible Remark.js slides (Jekyll markdown + standalone HTML)
+- **Sphinx Documentation**: Published to GitHub Pages with embedded slides
+- **GitHub Pages**: Automated deployment on push to main
+- **PlantUML Diagrams**: Build infrastructure for architecture diagrams and mindmaps
+- **Training-Material Sync**: Scripts to sync slides back to training-material repo
+- **Validation Framework**: Pydantic v2 models with file reference checking
+- **CI Integration**: Automated validation and deployment
+- **Layout Classes**: Support for `reduce90`, `enlarge150`, `code[]` wrappers
+- **Navigation**: Previous/next footnotes generated during sync
 
 ### ⏳ Planned
 
-- **Sphinx Output**: Generate Galaxy documentation (Phase 9)
 - **Hub Articles**: Generate galaxyproject.org articles
-- **Claude Commands**: AI-assisted workflows (Phase 6)
-- **Navigation Footer**: Previous/next tutorial links (Issue #1)
+- **Galaxy Repo Migration**: Move content into main Galaxy repository
 
 ## Philosophy
 
@@ -193,19 +235,20 @@ git commit -m "Update architecture mindmaps"
 
 ## Contributing
 
-See [docs/CONTRIBUTING.md](docs/CONTRIBUTING.md) for:
-- How to add new topics
-- Content style guidelines
-- Testing and validation
-- Pull request process
+To add or update topics:
+1. Review [docs/SCHEMA.md](docs/SCHEMA.md) for metadata and content structure
+2. Create/edit `metadata.yaml` and `content.yaml` in topic directory
+3. Run `make validate` to check for errors
+4. Run `make build` to generate all outputs
+5. Submit pull request
 
 ## Migration Plan
 
-Long-term goal: Move into Galaxy repository. See [docs/MIGRATION.md](docs/MIGRATION.md) for:
-- Migration strategy
-- Prerequisites
-- Integration plan
-- Timeline estimates
+Long-term goal: Move into Galaxy repository for co-location with code. Current approach:
+- Content maintained in this repo as single source of truth
+- Slides synced to training-material via `make sync-to-training`
+- Sphinx docs published to GitHub Pages
+- Future: Integrate into Galaxy's main documentation
 
 ## License
 
