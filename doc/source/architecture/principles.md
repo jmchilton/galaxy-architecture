@@ -1,6 +1,6 @@
 # Galaxy Architecture Principles
 
-> 📊 <a href="slides.html">View as training slides</a>
+> 📊 <a href="principles/slides.html">View as slides</a>
 
 ## Learning Questions
 - What are the guiding principles of Galaxy architecture?

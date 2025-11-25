@@ -1,6 +1,6 @@
 # Galaxy Dependencies Management
 
-> 📊 <a href="slides.html">View as training slides</a>
+> 📊 <a href="dependencies/slides.html">View as slides</a>
 
 ## Learning Questions
 - How does Galaxy manage dependencies?

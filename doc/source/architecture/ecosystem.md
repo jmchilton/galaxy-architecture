@@ -1,6 +1,6 @@
 # Galaxy Ecosystem and Projects
 
-> 📊 <a href="slides.html">View as training slides</a>
+> 📊 <a href="ecosystem/slides.html">View as slides</a>
 
 ## Learning Questions
 - What projects make up the Galaxy ecosystem?

@@ -1,6 +1,6 @@
 # Dependency Injection in Galaxy
 
-> 📊 <a href="slides.html">View as training slides</a>
+> 📊 <a href="dependency-injection/slides.html">View as slides</a>
 
 ## Learning Questions
 - What is dependency injection?

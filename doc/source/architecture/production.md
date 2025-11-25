@@ -1,6 +1,6 @@
 # Galaxy Production Deployment
 
-> 📊 <a href="slides.html">View as training slides</a>
+> 📊 <a href="production/slides.html">View as slides</a>
 
 ## Learning Questions
 - How is Galaxy deployed in production?
