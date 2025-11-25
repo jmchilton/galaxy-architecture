@@ -38,7 +38,8 @@ topic_name: Galaxy Architecture
 
 {% for slide in slides %}
 {{ slide }}
+{% if not loop.last %}
 
 ---
+{% endif %}
 {% endfor %}
-
