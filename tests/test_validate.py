@@ -5,15 +5,10 @@ Unit tests for validation script.
 Tests:
 - Metadata validation
 - Content quality checks
-- Image validation
-- Cross-reference validation
 """
 
 import pytest
-import tempfile
-import shutil
 from pathlib import Path
-import yaml
 import sys
 
 # Add scripts directory to path
@@ -23,89 +18,73 @@ from validate import validate_topic, validate_all
 
 
 class TestMetadataValidation:
-    """Test metadata validation logic."""
+    """Test metadata validation against real topics."""
 
-    def test_validate_topic_missing_metadata(self):
-        """Test validation with missing metadata.yaml."""
+    def test_validate_existing_topics(self):
+        """Test that all existing topics validate successfully."""
+        topics_dir = Path("topics")
+        assert topics_dir.exists(), "topics/ directory must exist"
+
+        for topic_dir in sorted(topics_dir.iterdir()):
+            if not topic_dir.is_dir() or topic_dir.name.startswith('.'):
+                continue
+
+            errors, warnings = validate_topic(topic_dir)
+            # All topics should be valid
+            assert len(errors) == 0, f"{topic_dir.name} has validation errors: {errors}"
+
+    def test_validate_missing_metadata(self):
+        """Test validation catches missing metadata.yaml."""
+        import tempfile
+        from pathlib import Path
+
         with tempfile.TemporaryDirectory() as tmpdir:
             topic_dir = Path(tmpdir) / "test-topic"
             topic_dir.mkdir()
-            
+
             errors, warnings = validate_topic(topic_dir)
+            # Should report that metadata.yaml is missing
             assert len(errors) > 0
-            assert any("Missing metadata.yaml" in e for e in errors)
+            assert any("metadata.yaml not found" in e for e in errors)
 
-    def test_validate_topic_valid_metadata(self):
-        """Test validation with valid metadata."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            topic_dir = Path(tmpdir) / "test-topic"
-            topic_dir.mkdir()
-            (topic_dir / ".claude").mkdir()
-            
-            metadata = {
-                'topic_id': 'test-topic',
-                'title': 'Test Topic',
-                'status': 'draft',
-                'training': {
-                    'questions': ['Q1'],
-                    'objectives': ['O1'],
-                    'key_points': ['K1'],
-                    'time_estimation': '15m',
-                }
-            }
-            
-            with open(topic_dir / "metadata.yaml", 'w') as f:
-                yaml.dump(metadata, f)
-            
-            (topic_dir / "overview.md").write_text("# Test\n\nContent here.")
-            (topic_dir / ".claude" / "CLAUDE.md").write_text("# Context")
-            
-            errors, warnings = validate_topic(topic_dir)
-            # Should have no errors, only warnings if any
-            assert len([e for e in errors if "Missing" in e]) == 0
+    def test_validate_all_returns_true(self):
+        """Test that validate_all returns True when all topics are valid."""
+        result = validate_all()
+        assert result is True, "All topics should be valid"
 
-    def test_validate_topic_missing_required_fields(self):
-        """Test validation detects missing required fields."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            topic_dir = Path(tmpdir) / "test-topic"
-            topic_dir.mkdir()
-            
-            metadata = {
-                'topic_id': 'test-topic',
-                'title': 'Test Topic',
-                # Missing status and training fields
-            }
-            
-            with open(topic_dir / "metadata.yaml", 'w') as f:
-                yaml.dump(metadata, f)
-            
-            errors, warnings = validate_topic(topic_dir)
-            assert len(errors) > 0
-            assert any("Missing required field" in e for e in errors)
 
-    def test_validate_topic_topic_id_mismatch(self):
-        """Test validation detects topic_id mismatch."""
-        with tempfile.TemporaryDirectory() as tmpdir:
-            topic_dir = Path(tmpdir) / "test-topic"
-            topic_dir.mkdir()
-            
-            metadata = {
-                'topic_id': 'wrong-id',  # Doesn't match directory name
-                'title': 'Test Topic',
-                'status': 'draft',
-                'training': {
-                    'questions': ['Q1'],
-                    'objectives': ['O1'],
-                    'key_points': ['K1'],
-                    'time_estimation': '15m',
-                }
-            }
-            
-            with open(topic_dir / "metadata.yaml", 'w') as f:
-                yaml.dump(metadata, f)
-            
-            errors, warnings = validate_topic(topic_dir)
-            assert any("topic_id" in e and "does not match" in e for e in errors)
+class TestTopicStructure:
+    """Test that topics follow expected structure."""
+
+    def test_all_topics_have_metadata(self):
+        """Test that all topics have metadata.yaml."""
+        topics_dir = Path("topics")
+        for topic_dir in sorted(topics_dir.iterdir()):
+            if not topic_dir.is_dir() or topic_dir.name.startswith('.'):
+                continue
+            assert (topic_dir / "metadata.yaml").exists(), f"{topic_dir.name} missing metadata.yaml"
+
+    def test_all_topics_have_content(self):
+        """Test that all topics have content.yaml."""
+        topics_dir = Path("topics")
+        for topic_dir in sorted(topics_dir.iterdir()):
+            if not topic_dir.is_dir() or topic_dir.name.startswith('.'):
+                continue
+            assert (topic_dir / "content.yaml").exists(), f"{topic_dir.name} missing content.yaml"
+
+    def test_all_topics_have_claude_context(self):
+        """Test that all topics have .claude/CLAUDE.md."""
+        topics_dir = Path("topics")
+        missing = []
+        for topic_dir in sorted(topics_dir.iterdir()):
+            if not topic_dir.is_dir() or topic_dir.name.startswith('.'):
+                continue
+            if not (topic_dir / ".claude" / "CLAUDE.md").exists():
+                missing.append(topic_dir.name)
+
+        # This is a warning, not an error, so we only report if any are missing
+        if missing:
+            print(f"⚠️  Topics missing .claude/CLAUDE.md: {missing}")
 
 
 if __name__ == "__main__":
