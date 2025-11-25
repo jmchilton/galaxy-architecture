@@ -1,0 +1,33 @@
+label: /
+items:
+- label: client/
+  items:
+  - label: src/components/
+    doc: VueJS components define tests next to source file
+  - label: tests/
+    items:
+    - label: jest/
+      doc: standalone JS mocha unit tests
+- label: lib/galaxy_test/
+  doc: properly packaged Python tests
+  items:
+  - label: base/
+    doc: base Python infrastructure for testing
+  - label: driver/
+    doc: Python infrastructure for bootstrapping Galaxy for tests
+  - label: api/
+    doc: tests against Galaxy API
+  - label: selenium/
+    doc: end-to-end tests with automated browser
+  - label: workflow/
+    doc: workflow testing driver and tests
+- label: test/
+  doc: misc Python tests
+  items:
+  - label: integration/
+    doc: API tests against custom Galaxy configs
+  - label: integration_selenium/
+  - label: unit/
+    doc: Python unit tests
+- label: tox.ini
+  doc: Tox entry point for linting Python, etc..

@@ -1,4 +1,4 @@
-# Application Components
+# Galaxy Application Components: Models, Managers, and Services
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-application-components/slides.html)
 
@@ -12,14 +12,6 @@
 - Learn about SQLAlchemy and the ORM
 - Understand database migrations with Alembic
 - Navigate the Galaxy data model
-
-## Galaxy Application Components: Models, Managers, and Services
-
-*The architecture surrounding Galaxy components.*
-
-## Application Components - Models, Managers, and Services
-
-*The architecture surrounding Galaxy components.*
 
 ![This section will talk about that manager layer and what lies below](../_images/asgi_app.plantuml.svg)
 
@@ -41,7 +33,8 @@ Handle API and web processing details of requests and responses at a high-level.
 Thin layer below the controllers to shield applciation logic from FastAPI internals.
 
 In practice, it is totally fine to skip this layer and have FastAPI controllers talk directly
-to managers.
+to managers. Also in practice, there are many places where the controller or service layers
+are thicker than they should be - and these are anti-patterns that shouldn't be followed.
 
 ## Managers
 
@@ -54,11 +47,11 @@ in a manager instead of in the model.
 
 ## Managers - Some Key Files
 
-![Key Managers](../_images/core_files_managers.plantuml.svg)
+![Key Managers](../_images/core_files_managers.mindmap.plantuml.svg)
 
 ## Managers - Some Helpers
 
-![Manager Helpers](../_images/core_files_managers_helpers.plantuml.svg)
+![Manager Helpers](../_images/core_files_managers_helpers.mindmap.plantuml.svg)
 
 ## Galaxy Models
 
@@ -98,11 +91,9 @@ in a manager instead of in the model.
 
 ![Galaxy Schema](../_images/galaxy_schema.png)
 
-
-
 [https://galaxyproject.org/admin/internals/data-model/](https://galaxyproject.org/admin/internals/data-model/)
 
-![HDA](../_images/hda.svg)
+![HDA foor bar...](../_images/hda.svg)
 
 ![HDA Dataset](../_images/hda_dataset.plantuml.svg)
 

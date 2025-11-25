@@ -1,10 +1,4 @@
 - type: slide
-  id: galaxy-client-architecture
-  heading: Galaxy Client Architecture
-  content: "*The architecture of Galaxy's web user interface.*"
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
   id: client-architecture
   heading: Client Architecture
   content: "*The architecture of Galaxy's web user interface.*"
@@ -99,11 +93,11 @@
 - type: slide
   id: package-and-build-files
   heading: Package and Build Files
-  content: '![Client Build Files](../../images/core_files_client_build.plantuml.svg)'
+  content: '![Client Build Files](../../images/core_files_client_build.mindmap.plantuml.svg)'
 - type: slide
   id: source-files
   heading: Source Files
-  content: '![Client Build Files](../../images/core_files_client_sources.plantuml.svg)'
+  content: '![Client Build Files](../../images/core_files_client_sources.mindmap.plantuml.svg)'
 - type: slide
   id: es6
   heading: ES6
@@ -124,12 +118,14 @@
 
     The idea behind Vue.js is fairly simple to pick up and there is a lot of great tutorials and videos available. https://vuejs.org/v2/guide/ is a really good jumping off point.
 - type: slide
-  id: vuex
-  heading: Vuex
+  id: pinia
+  heading: Pinia
   content: |-
-    > Vuex is a state management pattern + library for Vue.js applications. It serves as a centralized store for all the components in an application, with rules ensuring that the state can only be mutated in a predictable fashion.
+    > Pinia is a state management library for Vue.js. It provides stores as the central source of truth, with a simpler, more intuitive API compared to earlier solutions. It supports Vue 2 and Vue 3 with Composition API.
 
-    https://vuex.vuejs.org/
+    https://pinia.vuejs.org/
+
+    Key features include devtools integration, hot module replacement, type-safe stores, and seamless TypeScript support.
 - type: slide
   id: client-unit-tests
   heading: Client Unit Tests

@@ -197,8 +197,18 @@ def generate_slides(topic_name):
         # By default blocks render as slides (doc.render controls doc-only blocks)
         if block.type != ContentBlockType.PROSE:
             markdown = block.content or ""
+            # Add heading to markdown if present
+            if block.heading and block.heading.strip():
+                markdown = f"### {block.heading}\n\n{markdown}"
             if markdown.strip():
                 slides = markdown_to_slides(markdown)
+                # Apply block-level layout class to all slides from this block
+                # The class comes from the 'class:' shorthand in YAML, which gets propagated to slides.layout
+                if block.slides.layout:
+                    for slide in slides:
+                        # Only set class if the slide doesn't already have one from its markdown
+                        if not slide.get('class'):
+                            slide['class'] = f"class: {block.slides.layout}"
                 all_slides.extend(slides)
 
     # Convert slide dicts to strings for template
@@ -220,19 +230,27 @@ def generate_slides(topic_name):
         else:
             formatted_slides.append(slide_content)
 
+    # Note: Navigation footnotes are NOT added here - they should be added during
+    # the sync process to training-material only, not for local sphinx or standalone HTML
+
     # Generate GTN-compatible markdown format (slides.md)
     gtn_template_path = Path(__file__).parent / "template.html"
     gtn_template = Template(gtn_template_path.read_text())
 
+    # Format title as "Architecture NN - <title>" for proper lexicographic sorting
+    tutorial_num = metadata.training.tutorial_number
+    formatted_title = f"Architecture {tutorial_num:02d} - {metadata.title}"
+
     gtn_output = gtn_template.render(
-        title=metadata.title,
+        title=formatted_title,
+        subtitle=metadata.training.subtitle,
         questions=metadata.training.questions,
         objectives=metadata.training.objectives,
         key_points=metadata.training.key_points,
         time_estimation=metadata.training.time_estimation,
         slides=formatted_slides,
         topic_id=metadata.topic_id,
-        contributors=['jmchilton'],
+        contributors=metadata.contributors,
     )
 
     # Generate standalone HTML format (slides.html)
@@ -244,16 +262,29 @@ def generate_slides(topic_name):
     fixed_slides = [rewrite_image_paths_for_html(slide, topic_name) for slide in formatted_slides]
 
     # Join slides with --- separator (Remark.js requires this)
-    markdown_parts = [
-        f"# {metadata.title}",
-        "",
-        "*The architecture of connecting Galaxy components.*",
-    ]
+    # Title slide with subtitle
+    subtitle = metadata.training.subtitle or ""
+    title_slide = f"# {metadata.title}\n\n*{subtitle}.*"
+    markdown_parts = [title_slide]
+
+    # Add Learning Questions slide if questions exist
+    if metadata.training.questions:
+        questions_md = "### Learning Questions\n\n"
+        questions_md += "\n".join(f"- {q}" for q in metadata.training.questions)
+        markdown_parts.append(questions_md)
+
+    # Add Learning Objectives slide if objectives exist
+    if metadata.training.objectives:
+        objectives_md = "### Learning Objectives\n\n"
+        objectives_md += "\n".join(f"- {o}" for o in metadata.training.objectives)
+        markdown_parts.append(objectives_md)
+
     # Add all formatted slides with --- separator between them
     markdown_content = '\n\n---\n\n'.join(markdown_parts + fixed_slides)
 
     html_output = html_wrapper_template.render(
         title=metadata.title,
+        subtitle=metadata.training.subtitle,
         markdown_content=markdown_content,
     )
 

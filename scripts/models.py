@@ -21,6 +21,8 @@ class TrainingMetadata(BaseModel):
 
     Defines the learning objectives and structure for training materials.
     """
+    tutorial_number: Annotated[int, Field(description="Tutorial number in training-material (e.g., 1 for architecture-1-ecosystem)", ge=1, le=99)]
+    subtitle: Annotated[str, Field(description="Subtitle for title slide (e.g., 'The architecture of the ecosystem.')")]
     questions: Annotated[list[str], Field(min_length=1, description="Learning questions this topic addresses")]
     objectives: Annotated[list[str], Field(min_length=1, description="Learning objectives for trainees")]
     key_points: Annotated[list[str], Field(min_length=1, description="Key takeaways from the training")]
@@ -53,6 +55,12 @@ class TopicMetadata(BaseModel):
     # Output format metadata
     training: Annotated[TrainingMetadata, Field(description="Training slide configuration")]
     sphinx: Annotated[Optional[SphinxMetadata], Field(None, description="Sphinx documentation configuration")]
+
+    # Contributors
+    contributors: Annotated[
+        list[str],
+        Field(min_length=1, description="List of contributors (e.g., GitHub usernames)")
+    ]
 
     # Cross-references
     related_topics: Annotated[
@@ -167,6 +175,12 @@ class ContentBlock(BaseModel):
         Field("\n\n", description="Separator when combining fragments")
     ]
 
+    # Convenience field: layout class for slides (shorthand for slides.layout)
+    class_: Annotated[
+        Optional[str],
+        Field(None, alias='class', description="Layout class for slides (shorthand for slides.layout)")
+    ]
+
     # Rendering configuration with smart defaults
     doc: Annotated[
         DocRenderConfig,
@@ -180,6 +194,10 @@ class ContentBlock(BaseModel):
     @model_validator(mode='after')
     def apply_smart_defaults(self):
         """Apply smart defaults based on content type."""
+        # Propagate convenience field 'class_' to slides.layout
+        if self.class_ and not self.slides.layout:
+            self.slides.layout = self.class_
+
         if self.type == ContentBlockType.PROSE:
             # Prose: render in docs by default, NOT in slides
             if self.doc.render is True:  # Using default

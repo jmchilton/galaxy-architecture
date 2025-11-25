@@ -1,0 +1,24 @@
+label: /
+items:
+- label: README.rst
+  doc: how to install and start Galaxy
+- label: CONTRIBUTING.md
+  doc: how to contribute to Galaxy
+- label: CODE_OF_CONDUCT.md
+  doc: '"expectations for participants within the Galaxy community"'
+- label: LICENSE.txt
+  doc: MIT license
+- label: CITATION
+  doc: description of how to cite Galaxy
+- label: CONTRIBUTORS.md
+  doc: list of people who have contributed
+- label: doc/
+  items:
+  - label: source/
+    items:
+    - label: project/
+      items:
+      - label: issues.rst
+        doc: describes Github tags, etc
+      - label: organization.rst
+        doc: project governance document

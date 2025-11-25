@@ -1,6 +1,8 @@
 topic_id: client
-title: Client
+title: Galaxy Client Architecture
 training:
+  tutorial_number: 10
+  subtitle: The architecture of Galaxy's web user interface
   questions:
   - How is the Galaxy UI built?
   - What frontend technologies does Galaxy use?
@@ -23,5 +25,7 @@ training:
 sphinx:
   section: Architecture
   subsection: Client
+contributors:
+  - jmchilton
 related_topics: []
 related_code_paths: []

@@ -1,6 +1,8 @@
 topic_id: plugins
-title: Plugins
+title: Galaxy Plugin Architecture
 training:
+  tutorial_number: 9
+  subtitle: The architecture of pluggable Galaxy components
   questions:
   - How do I extend Galaxy?
   - What components can be plugged in?
@@ -21,5 +23,7 @@ training:
 sphinx:
   section: Architecture
   subsection: Plugins
+contributors:
+  - jmchilton
 related_topics: []
 related_code_paths: []

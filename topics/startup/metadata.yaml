@@ -1,6 +1,8 @@
 topic_id: startup
-title: Startup
+title: Galaxy Startup Process
 training:
+  tutorial_number: 12
+  subtitle: The architecture of Galaxy's initialization
   questions:
   - What happens when Galaxy starts?
   - What is the startup sequence?
@@ -21,5 +23,7 @@ training:
 sphinx:
   section: Architecture
   subsection: Startup
+contributors:
+  - jmchilton
 related_topics: []
 related_code_paths: []

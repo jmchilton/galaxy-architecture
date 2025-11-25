@@ -1,38 +1,34 @@
 - type: slide
-  id: galaxy-files-and-directory-structure
-  heading: Galaxy Files and Directory Structure
-  content: '*The physical architecture of the Galaxy code.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
-  id: files-and-directories
-  heading: Files and Directories
-  content: '*The physical architecture of the Galaxy code.*'
-- type: slide
   id: project-docs
   heading: Project Docs
-  content: '![Project Files](../../images/core_files_project_docs.plantuml.svg)'
+  class: center
+  content: '![Project Files](../../images/core_files_project_docs.mindmap.plantuml.svg)'
 - type: slide
   id: code
   heading: Code
-  content: '![Code](../../images/core_files_code.plantuml.svg)'
+  class: center
+  content: '![Code](../../images/core_files_code.mindmap.plantuml.svg)'
 - type: slide
   id: scripts
   heading: Scripts
-  content: '![Scripts](../../images/core_files_scripts.plantuml.svg)'
+  class: center
+  content: '![Scripts](../../images/core_files_scripts.mindmap.plantuml.svg)'
 - type: slide
   id: test-sources
   heading: Test Sources
-  content: '![Test Source Files](../../images/core_files_test.plantuml.svg)'
+  class: center
+  content: '![Test Source Files](../../images/core_files_test.mindmap.plantuml.svg)'
 - type: slide
   id: continuous-integration
   heading: Continuous Integration
-  content: '![Continuous Integration Files](../../images/core_files_ci.plantuml.svg)'
+  class: center
+  content: '![Continuous Integration Files](../../images/core_files_ci.mindmap.plantuml.svg)'
 - type: slide
   id: one-repository-two-views-of-a-project
   heading: One Repository, Two Views of a Project
+  class: center
   content: |-
-    ![Two Views of Galaxy Python Project](../../images/core_files_code_python_2_views.plantuml.svg)
+    ![Two Views of Galaxy Python Project](../../images/core_files_code_python_2_views.mindmap.plantuml.svg)
 
     `lib` contains a single monolithic view of the `galaxy` namespace.
 
@@ -45,15 +41,16 @@
 - type: slide
   id: package-structure
   heading: Package Structure
+  class: center
   content: '![package structure](../../images/core_packages.plantuml.svg)'
 - type: slide
   id: pypi
   heading: PyPI
+  class: center
   content: '![galaxy-tool-util on PyPI](../../images/core_tool_util_pypi.png)'
 - type: slide
   id: package-filesimagescore-files
   heading: ''
+  class: center
   content: |-
-    ![Package Files](../../images/core_files_code_package.plantuml.svg)
-
-    ({% link topics/dev/tutorials/architecture-5-frameworks/slides.html %})]
+    ![Package Files](../../images/core_files_code_package.mindmap.plantuml.svg)

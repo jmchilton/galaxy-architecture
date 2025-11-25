@@ -1,14 +1,4 @@
 - type: slide
-  id: galaxy-dependencies-management
-  heading: Galaxy Dependencies Management
-  content: "*Managing Galaxy's Python and JavaScript dependencies.*"
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
-  id: dependencies
-  heading: Dependencies
-  content: ''
-- type: slide
   id: dependencies-python
   heading: Dependencies - Python
   content: |-

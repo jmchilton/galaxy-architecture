@@ -1,0 +1,12 @@
+- type: prose
+  id: core_files_project_docs-files
+  content: |-
+    **Files:**
+    - [CITATION](https://github.com/galaxyproject/galaxy/blob/dev/CITATION) - description of how to cite Galaxy
+    - [CODE_OF_CONDUCT.md](https://github.com/galaxyproject/galaxy/blob/dev/CODE_OF_CONDUCT.md) - "expectations for participants within the Galaxy community"
+    - [CONTRIBUTING.md](https://github.com/galaxyproject/galaxy/blob/dev/CONTRIBUTING.md) - how to contribute to Galaxy
+    - [CONTRIBUTORS.md](https://github.com/galaxyproject/galaxy/blob/dev/CONTRIBUTORS.md) - list of people who have contributed
+    - [LICENSE.txt](https://github.com/galaxyproject/galaxy/blob/dev/LICENSE.txt) - MIT license
+    - [README.rst](https://github.com/galaxyproject/galaxy/blob/dev/README.rst) - how to install and start Galaxy
+    - [doc/source/project/issues.rst](https://github.com/galaxyproject/galaxy/blob/dev/doc/source/project/issues.rst) - describes Github tags, etc
+    - [doc/source/project/organization.rst](https://github.com/galaxyproject/galaxy/blob/dev/doc/source/project/organization.rst) - project governance document

@@ -1,6 +1,8 @@
 topic_id: production
-title: Production
+title: Galaxy Production Deployment
 training:
+  tutorial_number: 13
+  subtitle: The architecture of Galaxy's production deployment
   questions:
   - How is Galaxy deployed in production?
   - What is the difference between development and production setups?
@@ -20,5 +22,7 @@ training:
 sphinx:
   section: Architecture
   subsection: Production
+contributors:
+  - jmchilton
 related_topics: []
 related_code_paths: []

@@ -1,0 +1,10 @@
+- type: prose
+  id: core_files_plugin_example-files
+  content: |-
+    **Files:**
+    - [config/container_resolvers.yml.sample](https://github.com/galaxyproject/galaxy/blob/dev/config/container_resolvers.yml.sample) - Example configuration file for deployers
+    - [lib/galaxy/tool_util/deps/container_resolvers](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/tool_util/deps/container_resolvers) - Directory of plugin implementations.
+    - [lib/galaxy/tool_util/deps/container_resolvers/explicit.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/tool_util/deps/container_resolvers/explicit.py) - Module with multiple implementations of plugins.
+    - [lib/galaxy/tool_util/deps/container_resolvers/mulled.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/tool_util/deps/container_resolvers/mulled.py) - More implementations of plugins.
+    - [lib/galaxy/tool_util/deps/containers.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/tool_util/deps/containers.py) - Registry of configured container resolvers.
+    - [lib/galaxy/util/plugin_config.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/util/plugin_config.py) - Framework code for loading plugin classes and parsing configs.

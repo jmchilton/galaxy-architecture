@@ -1,4 +1,4 @@
-# Client
+# Galaxy Client Architecture
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-client/slides.html)
 
@@ -12,10 +12,6 @@
 - Learn about Vue.js and Vuex
 - Navigate the client source code
 - Run client tests and development servers
-
-## Galaxy Client Architecture
-
-*The architecture of Galaxy's web user interface.*
 
 ## Client Architecture
 
@@ -97,11 +93,11 @@ Lots of active development and complexity around Viz plugins and dependencies fo
 
 ## Package and Build Files
 
-![Client Build Files](../_images/core_files_client_build.plantuml.svg)
+![Client Build Files](../_images/core_files_client_build.mindmap.plantuml.svg)
 
 ## Source Files
 
-![Client Build Files](../_images/core_files_client_sources.plantuml.svg)
+![Client Build Files](../_images/core_files_client_sources.mindmap.plantuml.svg)
 
 ## ES6
 
@@ -120,11 +116,13 @@ We chose Vue.js over React initially because of its focus on allowing developers
 
 The idea behind Vue.js is fairly simple to pick up and there is a lot of great tutorials and videos available. [https://vuejs.org/v2/guide/](https://vuejs.org/v2/guide/) is a really good jumping off point.
 
-## Vuex
+## Pinia
 
-> Vuex is a state management pattern + library for Vue.js applications. It serves as a centralized store for all the components in an application, with rules ensuring that the state can only be mutated in a predictable fashion.
+> Pinia is a state management library for Vue.js. It provides stores as the central source of truth, with a simpler, more intuitive API compared to earlier solutions. It supports Vue 2 and Vue 3 with Composition API.
 
-[https://vuex.vuejs.org/](https://vuex.vuejs.org/)
+[https://pinia.vuejs.org/](https://pinia.vuejs.org/)
+
+Key features include devtools integration, hot module replacement, type-safe stores, and seamless TypeScript support.
 
 ## Client Unit Tests
 

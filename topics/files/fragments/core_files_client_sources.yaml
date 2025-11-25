@@ -1,0 +1,9 @@
+- type: prose
+  id: core_files_client_sources-files
+  content: |-
+    **Files:**
+    - [client/src/bundleEntries.js](https://github.com/galaxyproject/galaxy/blob/dev/client/src/bundleEntries.js) - globals hacked onto Window
+    - [client/src/components](https://github.com/galaxyproject/galaxy/blob/dev/client/src/components) - VueJS components and related code.
+    - [client/src/entry](https://github.com/galaxyproject/galaxy/blob/dev/client/src/entry) - Entrypoints for webpack bundles.
+    - [client/src/onload](https://github.com/galaxyproject/galaxy/blob/dev/client/src/onload) - Frontend initialization framework.
+    - [client/src/stores](https://github.com/galaxyproject/galaxy/blob/dev/client/src/stores) - Pinia stores for the project.

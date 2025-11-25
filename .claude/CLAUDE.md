@@ -61,6 +61,21 @@ make build-sphinx
 make validate
 ```
 
+### Sync to training-material
+```bash
+# Compare slides with training-material
+make compare-slides
+
+# Dry-run sync (shows what would change)
+make sync-to-training
+
+# Actually sync
+uv run python scripts/sync_to_training_material.py --all
+
+# Validate sync
+make validate-sync
+```
+
 ### Build everything
 ```bash
 make build
@@ -91,7 +106,7 @@ All content validated with Pydantic v2 models before build.
 - **outputs/training-slides/generated/** - GTN-compatible Remark.js slides
 - **outputs/sphinx-docs/generated/architecture/** - Markdown for Sphinx
 - **doc/source/architecture/** - Markdown copied for local Sphinx build
-- **doc/build/html/** - Built HTML documentation
+- **doc/build/html/** - Built HTML documentation (published to GitHub Pages)
 
 ## Current Topics
 
@@ -101,7 +116,16 @@ All content validated with Pydantic v2 models before build.
 
 1. **Training slides** - GTN-compatible Remark.js slides (outputs/training-slides/generated/)
 2. **Sphinx docs** - Markdown for Galaxy Sphinx documentation (outputs/sphinx-docs/generated/)
-3. **Hub articles** - Markdown for galaxyproject.org (planned)
+3. **GitHub Pages** - Published HTML documentation at https://jmchilton.github.io/galaxy-architecture/
+4. **Hub articles** - Markdown for galaxyproject.org (planned)
+
+## Publishing
+
+Documentation is automatically built and published to GitHub Pages on every push to main:
+- See **docs/GITHUB_PAGES_QUICKSTART.md** for initial setup
+- See **docs/GITHUB_PAGES_SETUP.md** for technical details
+- Workflow: `.github/workflows/deploy-docs.yml`
+- Published URL: https://jmchilton.github.io/galaxy-architecture/
 
 ## Implementation Status
 

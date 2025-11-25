@@ -1,4 +1,4 @@
-# Dependencies
+# Galaxy Dependencies Management
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-dependencies/slides.html)
 
@@ -11,10 +11,6 @@
 - Understand Python dependency management
 - Understand JavaScript dependency management
 - Learn about the wheels server
-
-## Galaxy Dependencies Management
-
-*Managing Galaxy's Python and JavaScript dependencies.*
 
 ## Dependencies
 

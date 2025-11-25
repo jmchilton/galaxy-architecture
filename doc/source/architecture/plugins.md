@@ -1,4 +1,4 @@
-# Plugins
+# Galaxy Plugin Architecture
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-plugins/slides.html)
 
@@ -13,23 +13,15 @@
 - Use `plugin_config.py` pattern
 - Create custom plugins
 
-## Galaxy Plugin Architecture
-
-*The architecture of pluggable Galaxy components.*
-
-## Application Components - Plugins
-
-*The architecture of pluggable Galaxy components.*
-
 ![Models and Managers](../_images/core_models_managers.plantuml.svg)
 
 ## Plugins All the Way Down
 
-![Plugins](../_images/core_plugins_overview.plantuml.svg)
+![Plugins](../_images/core_plugins_overview.mindmap.plantuml.svg)
 
 ## Datatypes
 
-![Datatype Files](../_images/core_files_datatypes.plantuml.svg)
+![Datatype Files](../_images/core_files_datatypes.mindmap.plantuml.svg)
 
 Developer docs on adding new datatypes can be found at [https://docs.galaxyproject.org/en/latest/dev/data_types.html.](https://docs.galaxyproject.org/en/latest/dev/data_types.html.)
 
@@ -157,7 +149,7 @@ description of configured plugins.
 
 ## `lib/galaxy/util/plugin_config.py` Example Files
 
-![Workflow Modules](../_images/core_files_plugin_example.plantuml.svg)
+![Workflow Modules](../_images/core_files_plugin_example.mindmap.plantuml.svg)
 
 ## `lib/galaxy/util/plugin_config.py` Plugin Implementations
 

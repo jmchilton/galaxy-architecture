@@ -1,14 +1,4 @@
 - type: slide
-  id: galaxy-startup-process
-  heading: Galaxy Startup Process
-  content: '*How Galaxy starts up.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
-  id: galaxy-startup-process-1
-  heading: Galaxy Startup Process
-  content: ''
-- type: slide
   id: cloning-galaxy
   heading: Cloning Galaxy
   content: |-

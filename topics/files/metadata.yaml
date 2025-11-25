@@ -1,6 +1,8 @@
 topic_id: files
-title: Files
+title: Galaxy Files and Directory Structure
 training:
+  tutorial_number: 4
+  subtitle: The physical architecture of the Galaxy code
   questions:
   - How is the Galaxy codebase organized?
   - Where do I find different components?
@@ -21,5 +23,7 @@ training:
 sphinx:
   section: Architecture
   subsection: Files
+contributors:
+  - jmchilton
 related_topics: []
 related_code_paths: []

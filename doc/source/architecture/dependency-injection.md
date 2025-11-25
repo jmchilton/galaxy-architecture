@@ -13,11 +13,6 @@
 - Use DI in controllers and tasks
 - Understand the benefits of typing
 
-## `app` and Dependency Injection
-
-*The architecture of connecting Galaxy components.*
-
-
 ![Big Interconnected App Python 2](../_images/app_py2.plantuml.svg)
 
 
@@ -28,24 +23,6 @@
 [https://en.wikipedia.org/wiki/God_object](https://en.wikipedia.org/wiki/God_object)
 
 Not only does `app` know and do too much, it is also used way too many places. Every interesting component, every controller, the web transaction, etc. has a reference to `app`.
-
-
-## A Typical Usage
-
-```python
-class DatasetCollectionManager:
-
-     def __init__(self, app):
-        self.type_registry = DATASET_COLLECTION_TYPES_REGISTRY
-        self.collection_type_descriptions = COLLECTION_TYPE_DESCRIPTION_FACTORY
-        self.model = app.model
-        self.security = app.security
-
-        self.hda_manager = hdas.HDAManager(app)
-        self.history_manager = histories.HistoryManager(app)
-        self.tag_handler = tags.GalaxyTagHandler(app.model.context)
-        self.ldda_manager = lddas.LDDAManager(app)
-```
 
 
 ![Big Interconnected App Python 3 - no right](../_images/app_types_no_interface.plantuml.svg)
@@ -349,15 +326,6 @@ Dependencies are automatically injected based on type annotations!
 
 
 ![Decomposed App](../_images/app_decomposed.plantuml.svg)
-
-
-## Key Takeaways
-
-1. **Type annotations** enable automatic dependency resolution
-2. **Interfaces** (like `StructuredApp`) break circular dependencies
-3. **Container-based construction** simplifies object creation
-4. **Uniform pattern** works across FastAPI, WSGI controllers, and Celery tasks
-5. **Dependencies form a DAG** - no circular dependencies
 
 
 ## Key Takeaways

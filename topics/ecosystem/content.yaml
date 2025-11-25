@@ -1,13 +1,9 @@
 - type: slide
-  id: galaxy-ecosystem-and-projects
-  heading: Galaxy Ecosystem and Projects
-  content: '*The architecture of the ecosystem.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
   id: please-interrupt
   heading: Please Interrupt!
   content: "We're here to answer your questions about Galaxy architecture!"
+  doc:
+    render: false
 - type: slide
   id: chat-galaxyproject-lobbyhttps
   heading: ''
@@ -16,7 +12,11 @@
 
     **GitHub:** [github.com/galaxyproject ](https://github.com/galaxyproject)
 
-    **Twitter:** #usegalaxy, @galaxyproject
+    **Bluesky:** [bsky.app/profile/galaxyproject.bsky.social](https://bsky.app/profile/galaxyproject.bsky.social)
+
+    **Mastodon:** [@galaxyproject](https://mstdn.science/@galaxyproject)
+
+    **LinkedIn:** [Galaxy Project](https://www.linkedin.com/groups/4907635/)
   class: enlarge200
 - type: slide
   id: the-galaxyproject-projects
@@ -39,6 +39,7 @@
 - type: slide
   id: more-links-well-mention-as-we-go-throug
   heading: ''
+  class: reduce70 center
   content: |-
     More links we'll mention as we go through the slides:
 
@@ -73,14 +74,10 @@
 
     Also includes other web applications including the **ToolShed**.
   class: enlarge150
-- type: slide
-  id: galaxyprojectcloudlaunch-https
-  heading: ''
+- type: prose
+  id: galaxyproject-galaxy-links
   content: |-
-    [galaxyproject/**cloudlaunch** ](https://github.com/galaxyproject/cloudlaunch)
-
-    CloudLaunch web application to make it easy to launch images on a cloud, drives *https://launch.usegalaxy.org*
-  class: enlarge150
+    **Resources:** [README](https://github.com/galaxyproject/galaxy#readme) | [Issues](https://github.com/galaxyproject/galaxy/issues)
 - type: slide
   id: galaxyprojecttraining-material-h
   heading: ''
@@ -91,6 +88,10 @@
 
     Galaxy training material for scientists, developers, and admins. Powers *https://training.galaxyproject.org/*.
   class: enlarge150
+- type: prose
+  id: galaxyproject-training-material-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/training-material#readme) | [Issues](https://github.com/galaxyproject/training-material/issues) | **License:** [MIT](https://github.com/galaxyproject/training-material/blob/main/LICENSE)
 - type: slide
   id: galaxyprojecthub-httpsgithub
   heading: ''
@@ -101,6 +102,34 @@
 
     Powers *https://galaxyproject.org/*.
   class: enlarge150
+- type: prose
+  id: galaxyproject-hub-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/galaxy-hub#readme) | [Issues](https://github.com/galaxyproject/galaxy-hub/issues)
+- type: slide
+  id: usegalaxy-eu-galaxy-social
+  heading: ''
+  content: |-
+    [**usegalaxy-eu/galaxy-social** ](https://github.com/usegalaxy-eu/galaxy-social)
+
+    Content distribution system for publishing to multiple social media platforms. Post once, share across Mastodon, Bluesky, Matrix, Slack, and LinkedIn with automatic formatting.
+  class: enlarge150
+- type: prose
+  id: usegalaxy-eu-galaxy-social-links
+  content: |-
+    **Resources:** [README](https://github.com/usegalaxy-eu/galaxy-social#readme) | [Issues](https://github.com/usegalaxy-eu/galaxy-social/issues) | **License:** [CC0-1.0](https://github.com/usegalaxy-eu/galaxy-social/blob/main/LICENSE)
+- type: slide
+  id: galaxyprojectgalaxy-codex
+  heading: ''
+  content: |-
+    [galaxyproject/**galaxy_codex** ](https://github.com/galaxyproject/galaxy_codex)
+
+    Community resource repository for Galaxy users and contributors. Provides access to the Galaxy Community Catalog featuring tools, training materials, and workflows. Galaxy Labs for creating customized community subdomain pages.
+  class: enlarge150
+- type: prose
+  id: galaxyproject-galaxy-codex-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/galaxy_codex#readme) | [Issues](https://github.com/galaxyproject/galaxy_codex/issues) | **License:** [MIT](https://github.com/galaxyproject/galaxy_codex/blob/main/LICENSE)
 - type: slide
   id: galaxyprojectbioblend-httpsgi
   heading: ''
@@ -111,19 +140,32 @@
 
     Best documented path to scripting the Galaxy API.
   class: enlarge150
+- type: prose
+  id: galaxyproject-bioblend-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/bioblend#readme) | [Issues](https://github.com/galaxyproject/bioblend/issues) | **License:** [MIT](https://github.com/galaxyproject/bioblend/blob/main/LICENSE)
+- type: slide
+  id: galaxyproject-node-api
+  content: |- 
+    A standalone client library for the Galaxy API, built using the type definitions from the main Galaxy client.
+
+    https://www.npmjs.com/package/@galaxyproject/galaxy-api-client
+
 - type: slide
   id: galaxy-api-bindings-for-other-languages
   heading: ''
-  content: Galaxy API bindings for other languages, less actively maintained.
-- type: slide
-  id: galaxyprojectcloudmanhttpsgit
-  heading: ''
   content: |-
-    [galaxyproject/**cloudman**](https://github.com/galaxyproject/cloudman)
+    - [galaxyproject/**blend4php**](https://github.com/galaxyproject/blend4php)
+    - [galaxyproject/**blend4j**](https://github.com/galaxyproject/blend4j)
+    - [**chapmanb/clj-blend**](https://github.com/chapmanb/clj-blend)
 
-    Galaxy CloudMan - a web application which manages a Galaxy Kubernetes cluster in
-    the cloud.
-  class: enlarge150
+    Galaxy API bindings for other languages, less actively maintained.
+- type: prose
+  id: galaxy-api-bindings-links
+  content: |-
+    **Resources:**
+    - blend4php: [README](https://github.com/galaxyproject/blend4php#readme) | [Issues](https://github.com/galaxyproject/blend4php/issues) | **License:** [LGPL-3.0](https://github.com/galaxyproject/blend4php/blob/main/LICENSE)
+    - blend4j: [README](https://github.com/galaxyproject/blend4j#readme) | [Issues](https://github.com/galaxyproject/blend4j/issues) | **License:** [EPL-1.0](https://github.com/galaxyproject/blend4j/blob/main/LICENSE)
 - type: slide
   id: bgrueningdocker-galaxy-stable-ht
   heading: ''
@@ -136,6 +178,10 @@
 
     Many flavors available.
   class: enlarge150
+- type: prose
+  id: bgruening-docker-galaxy-stable-links
+  content: |-
+    **Resources:** [README](https://github.com/bgruening/docker-galaxy-stable#readme) | [Issues](https://github.com/bgruening/docker-galaxy-stable/issues) | **License:** [MIT](https://github.com/bgruening/docker-galaxy-stable/blob/main/LICENSE)
 - type: slide
   id: dockerimagesdocker-chartpng
   heading: ''
@@ -149,6 +195,7 @@
 - type: slide
   id: galaxyprojecttools-iuc-httpsg
   heading: ''
+  class: reduce70 center
   content: |-
     [galaxyproject/**tools-iuc** ](https://github.com/galaxyproject/tools-iuc)
 
@@ -162,9 +209,16 @@
     [galaxyproject/**tools-devteam** ](https://github.com/galaxyproject/tools-devteam)
 
     Many older tools appearing on usegalaxy.org.
+- type: prose
+  id: galaxyproject-tools-iuc-links
+  content: |-
+    **Resources:**
+    - tools-iuc: [README](https://github.com/galaxyproject/tools-iuc#readme) | [Issues](https://github.com/galaxyproject/tools-iuc/issues) | **License:** [MIT](https://github.com/galaxyproject/tools-iuc/blob/main/LICENSE)
+    - tools-devteam: [README](https://github.com/galaxyproject/tools-devteam#readme) | [Issues](https://github.com/galaxyproject/tools-devteam/issues)
 - type: slide
   id: tools-aside-more-repositories
   heading: Tools Aside - More Repositories
+  class: center reduce70
   content: "Other repositories with high quality tools:\n\n * [Bj\xF6rn Gr\xFCning's\
     \ repo](https://github.com/bgruening/galaxytools)\n * Peter Cock's repos:\n  \
     \ * [blast repo](https://github.com/peterjc/galaxy_blast)\n   * [pico repo](https://github.com/peterjc/pico_galaxy)\n\
@@ -183,6 +237,10 @@
     Intergalactic Workflow Commission. Hosting workflows and defining best practices for publishing workflows.
 
     https://matrix.to/#/#galaxyproject_iwc:gitter.im
+- type: prose
+  id: galaxyproject-iwc-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/iwc#readme) | [Issues](https://github.com/galaxyproject/iwc/issues)
 - type: slide
   id: galaxyprojectplanemo-httpsgit
   heading: ''
@@ -199,6 +257,12 @@
     Builds Galaxy environments for Galaxy tool development including Docker
     container, virtual machines, Google compute images
   class: enlarge150
+- type: prose
+  id: galaxyproject-planemo-links
+  content: |-
+    **Resources:**
+    - planemo: [README](https://github.com/galaxyproject/planemo#readme) | [Issues](https://github.com/galaxyproject/planemo/issues) | **License:** [MIT](https://github.com/galaxyproject/planemo/blob/main/LICENSE)
+    - planemo-machine: [README](https://github.com/galaxyproject/planemo-machine#readme) | [Issues](https://github.com/galaxyproject/planemo-machine/issues) | **License:** [MIT](https://github.com/galaxyproject/planemo-machine/blob/main/LICENSE)
 - type: slide
   id: galaxyprojectgalaxy-language-server
   heading: ''
@@ -210,6 +274,10 @@
     Language server implementation for Galaxy tools. Visual Studio Code extension for tool development.
 
     Test execution, code completion, best practices, documentation tooltips, etc..
+- type: prose
+  id: galaxyproject-galaxy-language-server-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/galaxy-language-server#readme) | [Issues](https://github.com/galaxyproject/galaxy-language-server/issues) | **License:** [Apache 2.0](https://github.com/galaxyproject/galaxy-language-server/blob/main/LICENSE)
 - type: slide
   id: galaxyprojectstarforge-httpsg
   heading: ''
@@ -220,6 +288,10 @@
 
     Build Galaxy framework dependencies as Python wheels when needed.
   class: enlarge150
+- type: prose
+  id: galaxyproject-starforge-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/starforge#readme) | [Issues](https://github.com/galaxyproject/starforge/issues) | **License:** [MIT](https://github.com/galaxyproject/starforge/blob/main/LICENSE)
 - type: slide
   id: galaxyprojectcargo-port-https
   heading: ''
@@ -230,6 +302,10 @@
 
     Provides stable URLs and caching for application links, etc.. An important layer for reproducibility but largely transparent.
   class: enlarge150
+- type: prose
+  id: galaxyproject-cargo-port-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/cargo-port#readme) | [Issues](https://github.com/galaxyproject/cargo-port/issues) | **License:** [MIT](https://github.com/galaxyproject/cargo-port/blob/main/LICENSE)
 - type: slide
   id: for-deployers-and-admins
   heading: ''
@@ -260,6 +336,10 @@
 
     `galaxy` which can be used to run a Galaxy server in the foreground.
   class: enlarge150
+- type: prose
+  id: galaxyproject-gravity-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/gravity#readme) | [Issues](https://github.com/galaxyproject/gravity/issues) | **License:** [MIT](https://github.com/galaxyproject/gravity/blob/main/LICENSE)
 - type: slide
   id: galaxyprojectgalaxy-helm-https
   heading: ''
@@ -268,6 +348,10 @@
 
     Kubernetes helm chart for deploying Galaxy. Leveraged by cloudlaunch and CloudMan but usable standalone.
   class: enlarge150
+- type: prose
+  id: galaxyproject-galaxy-helm-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/galaxy-helm#readme) | [Issues](https://github.com/galaxyproject/galaxy-helm/issues) | **License:** [MIT](https://github.com/galaxyproject/galaxy-helm/blob/main/LICENSE)
 - type: slide
   id: galaxyprojectpulsar-httpsgith
   heading: ''
@@ -284,6 +368,10 @@
 
     Can act as its own queuing system or access an existing cluster DRM.
   class: enlarge150
+- type: prose
+  id: galaxyproject-pulsar-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/pulsar#readme) | [Issues](https://github.com/galaxyproject/pulsar/issues) | **License:** [Apache 2.0](https://github.com/galaxyproject/pulsar/blob/main/LICENSE)
 - type: slide
   id: galaxyprojectephemeris-httpsg
   heading: ''
@@ -294,6 +382,10 @@
 
     Layer on top of BioBlend building useful utilities for working with the Galaxy API from an administrator perspective.
   class: enlarge150
+- type: prose
+  id: galaxyproject-ephemeris-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/ephemeris#readme) | [Issues](https://github.com/galaxyproject/ephemeris/issues)
 - type: slide
   id: galaxyprojectgxadmin-httpsgit
   heading: ''
@@ -302,6 +394,10 @@
 
     Handy command-line utility for Galaxy administrators.
   class: enlarge150
+- type: prose
+  id: galaxyproject-gxadmin-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/gxadmin#readme) | [Issues](https://github.com/galaxyproject/gxadmin/issues) | **License:** [GPL-3.0](https://github.com/galaxyproject/gxadmin/blob/main/LICENSE)
 - type: slide
   id: ephemeris-vs-gxadmin
   heading: ephemeris vs gxadmin
@@ -317,6 +413,10 @@
     ![TPV Logo](https://raw.githubusercontent.com/galaxyproject/total-perspective-vortex/main/docs/images/tpv-logo-wide.png)
 
     TotalPerspectiveVortex (TPV) provides an installable set of dynamic rules for the Galaxy application that can route entities (Tools, Users, Roles) to appropriate job destinations based on a configurable yaml file.
+- type: prose
+  id: galaxyproject-total-perspective-vortex-links
+  content: |-
+    **Resources:** [README](https://github.com/galaxyproject/total-perspective-vortex#readme) | [Issues](https://github.com/galaxyproject/total-perspective-vortex/issues) | **License:** [MIT](https://github.com/galaxyproject/total-perspective-vortex/blob/main/LICENSE)
 - type: slide
   id: usegalaxy-eutiaas2-httpsgithu
   heading: ''
@@ -327,6 +427,10 @@
 
     Django-based infrastructure for creating pools of users, etc.. for training events and connecting them to Galaxy.
   class: enlarge150
+- type: prose
+  id: usegalaxy-eu-tiaas2-links
+  content: |-
+    **Resources:** [README](https://github.com/usegalaxy-eu/tiaas2#readme) | [Issues](https://github.com/usegalaxy-eu/tiaas2/issues) | **License:** [AGPL-3.0](https://github.com/usegalaxy-eu/tiaas2/blob/main/LICENSE)
 - type: slide
   id: some-out-of-many-friends-of-the-project
   heading: Some (out of many) friends of the project

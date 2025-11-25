@@ -1,6 +1,8 @@
 topic_id: principles
-title: Principles
+title: Galaxy Architecture Principles
 training:
+  tutorial_number: 3
+  subtitle: The guiding principles of the core code architecture
   questions:
   - What are the guiding principles of Galaxy architecture?
   - Why is the frontend opinionated but the backend plugin-driven?
@@ -20,5 +22,7 @@ training:
 sphinx:
   section: Architecture
   subsection: Principles
+contributors:
+  - jmchilton
 related_topics: []
 related_code_paths: []

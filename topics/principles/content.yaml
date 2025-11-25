@@ -1,14 +1,4 @@
 - type: slide
-  id: galaxy-architecture-principles
-  heading: Galaxy Architecture Principles
-  content: '*The guiding principles of the core code architecture.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
-  id: principles
-  heading: Principles
-  content: '*The guiding principles of the core code architecture.*'
-- type: slide
   id: aspirational-principles-of-galaxy-architecture
   heading: Aspirational Principles of Galaxy Architecture
   content: |-
@@ -33,7 +23,7 @@
     - Consistent colors, fonts, themes, etc...
     - Reusable components for presenting common widgets - from the generic (forms and grids) to the specific (tools and histories).
     - Tied to specific technologies:
-      - Implemented in JavaScript (ES6)
+      - Implemented in TypeScript
       - Built with [webpack](https://webpack.js.org/)
       - [Vue.js](https://vuejs.org/) for component definitions
 - type: slide
@@ -46,7 +36,7 @@
     - SQLAlchemy allows using SQLite, PostgreSQL, or MySQL (sort of) for your database.
     - Many different cluster backends or job managers are supported.
     - Different frontend proxies (e.g. nginx) are supported as well as web
-      application containers (e.g. uWSGI, gunicorn).
+      application containers (e.g. uvicorn, gunicorn).
     - Different storage strategies and technologies are supported (e.g. S3, iRODS).
     - Tool definitions, job metrics, stat middleware, tool dependency resolution, workflow modules,
       datatype definitions are all plugin driven.

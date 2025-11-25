@@ -1,4 +1,4 @@
-# Startup
+# Galaxy Startup Process
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-startup/slides.html)
 
@@ -12,10 +12,6 @@
 - Learn about configuration initialization
 - Understand dependency installation
 - Learn about database migrations and plugin loading
-
-## Galaxy Startup Process
-
-*How Galaxy starts up.*
 
 ## Galaxy Startup Process
 

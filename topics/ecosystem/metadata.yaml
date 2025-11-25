@@ -1,6 +1,8 @@
 topic_id: ecosystem
-title: Ecosystem
+title: Galaxy Ecosystem and Projects
 training:
+  tutorial_number: 1
+  subtitle: The architecture of the ecosystem
   questions:
   - What projects make up the Galaxy ecosystem?
   - How do different Galaxy projects interact?
@@ -10,7 +12,7 @@ training:
   - Understand the difference between user-facing and developer tools
   - Learn about Galaxy communication channels
   key_points:
-  - Multiple user-facing applications (Galaxy, CloudLaunch, Training Material)
+  - Multiple user-facing applications (Galaxy, Training Material)
   - Developer libraries for plugin developers
   - Admin tools for deployment
   - Active community on Matrix (via Element client)
@@ -19,5 +21,8 @@ training:
 sphinx:
   section: Architecture
   subsection: Ecosystem
+contributors:
+  - jmchilton
+  - bgruening
 related_topics: []
 related_code_paths: []

@@ -1,0 +1,6 @@
+- type: prose
+  id: core_files_managers_helpers-files
+  content: |-
+    **Files:**
+    - [lib/galaxy/managers/base.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/managers/base.py) - Useful mixins for building managers.
+    - [lib/galaxy/managers/context.py](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy/managers/context.py) - Provide context around history, user, and application state during for action.

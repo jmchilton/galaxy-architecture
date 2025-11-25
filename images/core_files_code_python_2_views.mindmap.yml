@@ -1,0 +1,26 @@
+label: /
+items:
+- label: lib/
+  items:
+  - label: galaxy/
+    items:
+    - label: util/
+      items:
+      - label: __init__.py
+    - label: model/
+      items:
+      - label: mapping.py
+    - label: web/
+      items:
+      - label: framework/
+- label: packages/
+  items:
+  - label: util/
+    items:
+    - label: galaxy/util/__init__.py
+  - label: data/
+    items:
+    - label: galaxy/model/mapping.py
+  - label: web_framework/
+    items:
+    - label: galaxy/web/framework/

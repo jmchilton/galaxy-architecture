@@ -1,15 +1,6 @@
-# Content sequence for dependency-injection topic
-# Each slide is a separate block in content.yaml
-# All content stored inline - no fragments yet
-
-- type: slide
-  id: intro
-  heading: "`app` and Dependency Injection"
-  content: |
-    *The architecture of connecting Galaxy components.*
-
 - type: slide
   id: app_interconnected
+  class: center
   content: |
     ![Big Interconnected App Python 2](../../images/app_py2.plantuml.svg)
 
@@ -46,12 +37,14 @@
 
 - type: slide
   id: app_types_no_interface
+  class: center
   content: |
     ![Big Interconnected App Python 3 - no right](../../images/app_types_no_interface.plantuml.svg)
 
 - type: slide
   id: problematic_dependency_graph
   heading: "Problematic Dependency Graph"
+  class: reduce70
   content: |
     When managers depend directly on `UniverseApplication`:
 
@@ -99,6 +92,7 @@
 
 - type: slide
   id: app_types
+  class: center
   content: |
     ![Big Interconnected App with Python 3 Types](../../images/app_types.plantuml.svg)
 
@@ -139,6 +133,7 @@
 - type: slide
   id: design_benefits_di
   heading: "Design Benefits of Injecting Dependencies"
+  class: reduce70
   content: |
     ```python
     class DatasetCollectionManager:
@@ -231,6 +226,7 @@
 - type: slide
   id: lagom
   heading: "Lagom"
+  class: center
   content: |
     ![Lagom Website](../../images/lagom_ss.png)
 
@@ -292,6 +288,7 @@
 - type: slide
   id: di_unified_approach
   heading: "DI and Controllers - Unified Approach"
+  class: reduce70
   content: |
     ```diff
     -def get_tags_manager() -> TagsManager:
@@ -346,6 +343,7 @@
 - type: slide
   id: di_celery_examples
   heading: "DI in Celery Tasks - Examples"
+  class: reduce70
   content: |
     ### Simple Task
 
@@ -379,16 +377,6 @@
 
 - type: slide
   id: app_decomposed
+  class: center
   content: |
     ![Decomposed App](../../images/app_decomposed.plantuml.svg)
-
-- type: slide
-  id: key_takeaways
-  heading: "Key Takeaways"
-  content: |
-    1. **Type annotations** enable automatic dependency resolution
-    2. **Interfaces** (like `StructuredApp`) break circular dependencies
-    3. **Container-based construction** simplifies object creation
-    4. **Uniform pattern** works across FastAPI, WSGI controllers, and Celery tasks
-    5. **Dependencies form a DAG** - no circular dependencies
-

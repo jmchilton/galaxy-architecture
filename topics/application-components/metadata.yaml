@@ -1,6 +1,8 @@
 topic_id: application-components
-title: Application Components
+title: "Galaxy Application Components: Models, Managers, and Services"
 training:
+  tutorial_number: 8
+  subtitle: The architecture surrounding Galaxy components
   questions:
   - How is business logic organized in Galaxy?
   - What are models, managers, and services?
@@ -22,5 +24,7 @@ training:
 sphinx:
   section: Architecture
   subsection: Application Components
+contributors:
+  - jmchilton
 related_topics: []
 related_code_paths: []

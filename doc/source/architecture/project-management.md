@@ -1,4 +1,4 @@
-# Project Management
+# Galaxy Project Management and Contribution
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-project-management/slides.html)
 
@@ -11,14 +11,6 @@
 - Understand the contribution workflow
 - Learn about Galaxy's open governance model
 - Understand the CI/CD pipeline
-
-## Galaxy Project Management and Contribution
-
-*The social architecture of the project.*
-
-## Project Management
-
-*The social architecture of the project.*
 
 ## Contributing Quick Start
 
@@ -40,7 +32,7 @@ Check out the full policy in [SECURITY_POLICY.md](https://github.com/galaxyproje
 
 ## Branches
 
-![Branches](../_images/core_branches.plantuml.svg)
+![Branches](../_images/core_branches.mindmap.plantuml.svg)
 
 ## Committers & Open Goverance
 
@@ -69,7 +61,7 @@ Check out the full policy in [CODE_OF_CONDUCT.md](https://github.com/galaxyproje
 New large releases are issued roughly every 4 months. The process is guided by an auto-created
 self documenting release issue.
 
-Check out the [21.05 release issue](https://github.com/galaxyproject/galaxy/issues/11770) as an example.
+Check out the [25.1 release issue](https://github.com/galaxyproject/galaxy/issues/20952) as an example.
 
 Working groups create roadmaps aligned with each release and coordinated with project leadership.
 
@@ -154,8 +146,6 @@ Video from Marius presenting Gitpod at the Galaxy Developer Roundtable ([https:/
 
 All these documents as well as versions code and deployment documentation and release notes
 can be found at [docs.galaxyproject.org](https://docs.galaxyproject.org).
-
-({% link topics/dev/tutorials/architecture-3-principles/slides.html %})]
 
 ## Key Takeaways
 - Open governance through pull requests and voting

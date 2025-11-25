@@ -1,0 +1,14 @@
+- type: prose
+  id: core_files_test-files
+  content: |-
+    **Files:**
+    - [client/src/components](https://github.com/galaxyproject/galaxy/blob/dev/client/src/components) - VueJS components define tests next to source file
+    - [client/tests/jest](https://github.com/galaxyproject/galaxy/blob/dev/client/tests/jest) - standalone JS mocha unit tests
+    - [lib/galaxy_test](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy_test) - properly packaged Python tests
+    - [lib/galaxy_test/api](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy_test/api) - tests against Galaxy API
+    - [lib/galaxy_test/base](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy_test/base) - base Python infrastructure for testing
+    - [lib/galaxy_test/selenium](https://github.com/galaxyproject/galaxy/blob/dev/lib/galaxy_test/selenium) - end-to-end tests with automated browser
+    - [test](https://github.com/galaxyproject/galaxy/blob/dev/test) - misc Python tests
+    - [test/integration](https://github.com/galaxyproject/galaxy/blob/dev/test/integration) - API tests against custom Galaxy configs
+    - [test/unit](https://github.com/galaxyproject/galaxy/blob/dev/test/unit) - Python unit tests
+    - [tox.ini](https://github.com/galaxyproject/galaxy/blob/dev/tox.ini) - Tox entry point for linting Python, etc..
