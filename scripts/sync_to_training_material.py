@@ -23,6 +23,39 @@ from models import load_metadata
 from sync_images import sync_topic_images
 
 
+def generate_navigation_footnote(metadata) -> str:
+    """Generate navigation footnote for training-material slides.
+
+    Format: .footnote[Previous: [Topic](link) | Next: [Topic](link)]
+    Only used for training-material sync, not for local sphinx or standalone HTML.
+    """
+    parts = []
+
+    # Previous link
+    if metadata.training.previous_to:
+        prev_topic = load_metadata(metadata.training.previous_to)
+        prev_num = prev_topic.training.tutorial_number
+        prev_title = prev_topic.title
+        # Remove "Architecture NN - " prefix for cleaner link text
+        prev_display_title = prev_title.replace(f"Architecture {prev_num:02d} - ", "")
+        prev_link = f"{{% link topics/dev/tutorials/architecture-{metadata.training.previous_to}/slides.html %}}"
+        parts.append(f"Previous: [{prev_display_title}]({prev_link})")
+
+    # Next link
+    if metadata.training.continues_to:
+        next_topic = load_metadata(metadata.training.continues_to)
+        next_num = next_topic.training.tutorial_number
+        next_title = next_topic.title
+        # Remove "Architecture NN - " prefix for cleaner link text
+        next_display_title = next_title.replace(f"Architecture {next_num:02d} - ", "")
+        next_link = f"{{% link topics/dev/tutorials/architecture-{metadata.training.continues_to}/slides.html %}}"
+        parts.append(f"Next: [{next_display_title}]({next_link})")
+
+    if parts:
+        return f".footnote[{' | '.join(parts)}]"
+    return ""
+
+
 def get_training_material_directory(metadata, tm_root: Path) -> Path:
     """Build path from topic_id: architecture-{topic_id}."""
     topic_id = metadata.topic_id
@@ -68,11 +101,28 @@ def sync_topic(
 
         # Copy Jekyll markdown slides to slides.html (training-material naming convention)
         target_slides = target_dir / "slides.html"
+
+        # Read slides and add navigation footnote
+        slides_content = our_slides.read_text()
+        footnote = generate_navigation_footnote(metadata)
+
+        # Add footnote to last slide (before final closing line if present)
+        if footnote:
+            # Find the last slide separator or end of file
+            lines = slides_content.split('\n')
+            # Insert footnote before the last line if it's empty, otherwise at end
+            if lines and not lines[-1].strip():
+                lines.insert(-1, footnote)
+            else:
+                lines.append(footnote)
+            slides_content = '\n'.join(lines)
+
         if dry_run:
             print(f"  Would copy: {our_slides} → {target_slides}")
+            print(f"  With footnote: {footnote if footnote else '(none)'}")
             result['slides_copied'] = True
         else:
-            shutil.copy2(our_slides, target_slides)
+            target_slides.write_text(slides_content)
             result['slides_copied'] = True
 
         # Sync images

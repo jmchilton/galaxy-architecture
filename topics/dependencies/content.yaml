@@ -1,8 +1,4 @@
 - type: slide
-  id: dependencies
-  heading: Dependencies
-  content: ''
-- type: slide
   id: dependencies-python
   heading: Dependencies - Python
   content: |-

@@ -17,7 +17,7 @@
 
 
 
-## Default
+#### Default
 
 SQLite
 
@@ -43,7 +43,7 @@ Multiple hosts
 
 Jobs across many clusters
 
-* [https://usegalaxy.org/production](https://usegalaxy.org/production) *
+[https://usegalaxy.org/production](https://usegalaxy.org/production)
 
 ## PostgreSQL
 
@@ -82,8 +82,6 @@ This used to be an important detail - but uWSGI makes things a lot easier.
 
 ![Cluster Support](../_images/cluster_support.svg)
 
-
-
 Galaxy can submit jobs to various cluster managers (Slurm, PBS, SGE, etc.)
 
 ## usegalaxy.org Web Architecture
@@ -93,8 +91,6 @@ Galaxy can submit jobs to various cluster managers (Slurm, PBS, SGE, etc.)
 ## Complete usegalaxy.org Infrastructure
 
 ![usegalaxy.org servers](../_images/usegalaxyorg.svg)
-
-
 
 Multiple web servers, job handlers, and compute clusters working together
 

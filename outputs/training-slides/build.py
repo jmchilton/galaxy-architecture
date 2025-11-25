@@ -182,34 +182,6 @@ def markdown_to_slides(markdown_text):
     return slides
 
 
-def generate_navigation_footnote(metadata) -> str:
-    """Generate navigation footnote for last slide.
-
-    Format: .footnote[Previous: [Topic](link) | Next: [Topic](link)]
-    """
-    parts = []
-
-    # Previous link
-    if metadata.training.previous_to:
-        prev_topic = load_metadata(metadata.training.previous_to)
-        prev_num = prev_topic.training.tutorial_number
-        prev_title = prev_topic.title
-        prev_link = f"{{% link topics/dev/tutorials/architecture-{prev_num}-{metadata.training.previous_to}/slides.html %}}"
-        parts.append(f"Previous: [{prev_title}]({prev_link})")
-
-    # Next link
-    if metadata.training.continues_to:
-        next_topic = load_metadata(metadata.training.continues_to)
-        next_num = next_topic.training.tutorial_number
-        next_title = next_topic.title
-        next_link = f"{{% link topics/dev/tutorials/architecture-{next_num}-{metadata.training.continues_to}/slides.html %}}"
-        parts.append(f"Next: [{next_title}]({next_link})")
-
-    if parts:
-        return f".footnote[{' | '.join(parts)}]"
-    return ""
-
-
 def generate_slides(topic_name):
     """Generate slides for a topic in two formats:
     1. slides.md - GTN-compatible Remark.js markdown format
@@ -258,12 +230,8 @@ def generate_slides(topic_name):
         else:
             formatted_slides.append(slide_content)
 
-    # Add navigation footnote to the last slide
-    if formatted_slides:
-        footnote = generate_navigation_footnote(metadata)
-        if footnote:
-            # Append footnote to last slide
-            formatted_slides[-1] = formatted_slides[-1] + f"\n\n{footnote}"
+    # Note: Navigation footnotes are NOT added here - they should be added during
+    # the sync process to training-material only, not for local sphinx or standalone HTML
 
     # Generate GTN-compatible markdown format (slides.md)
     gtn_template_path = Path(__file__).parent / "template.html"

@@ -1,13 +1,9 @@
 - type: slide
-  id: production-galaxy-usegalaxyorg
-  heading: Production Galaxy - usegalaxy.org
-  content: ''
-- type: slide
   id: default
-  heading: Default
+  heading:
   content: |-
     .pull-left[
-
+    #### Default
 
     SQLite
 
@@ -33,9 +29,10 @@
     Multiple hosts
 
     Jobs across many clusters
+
+    https://usegalaxy.org/production
     ]
 
-    * https://usegalaxy.org/production *
   class: centered
 - type: slide
   id: postgresql
@@ -72,23 +69,22 @@
 - type: slide
   id: cluster-support
   heading: Cluster Support
+  class: center
   content: |-
     ![Cluster Support](../../images/cluster_support.svg)
-
-
 
     Galaxy can submit jobs to various cluster managers (Slurm, PBS, SGE, etc.)
 - type: slide
   id: usegalaxyorg-web-architecture
   heading: usegalaxy.org Web Architecture
+  class: center
   content: '![usegalaxy.org web servers](../../images/usegalaxy_webservers.svg)'
 - type: slide
   id: complete-usegalaxyorg-infrastructure
   heading: Complete usegalaxy.org Infrastructure
+  class: center
   content: |-
     ![usegalaxy.org servers](../../images/usegalaxyorg.svg)
-
-
 
     Multiple web servers, job handlers, and compute clusters working together
 - type: slide

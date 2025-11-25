@@ -2,7 +2,7 @@ topic_id: dependencies
 title: Galaxy Dependencies Management
 training:
   tutorial_number: 11
-  subtitle: Managing Galaxy's Python and JavaScript dependencies
+  subtitle: The architecture of Galaxy's dependencies
   questions:
   - How does Galaxy manage dependencies?
   - What is the virtualenv used for?
