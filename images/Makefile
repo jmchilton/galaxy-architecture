@@ -9,7 +9,7 @@ OUTPUTS := $(ALL_INPUTS:.txt=.svg)
 all: plantuml.jar $(OUTPUTS)
 
 $(MINDMAP_INPUTS): $(MINDMAPS)
-	python mindmap_yaml_to_plantuml.py $(MINDMAPS)
+	uv run python mindmap_yaml_to_plantuml.py $(MINDMAPS)
 
 $(OUTPUTS): $(ALL_INPUTS)
 	java -jar plantuml.jar -c plantuml_options.txt -tsvg $(ALL_INPUTS)
