@@ -1,10 +1,4 @@
 - type: slide
-  id: galaxy-project-management-and-contribution
-  heading: Galaxy Project Management and Contribution
-  content: '*The social architecture of the project.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
   id: contributing-quick-start
   heading: Contributing Quick Start
   content: 'Contribution guidelines: https://bit.ly/gx-CONTRIBUTING-md'

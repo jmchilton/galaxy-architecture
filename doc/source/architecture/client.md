@@ -1,4 +1,4 @@
-# Client
+# Galaxy Client Architecture
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-client/slides.html)
 
@@ -12,10 +12,6 @@
 - Learn about Vue.js and Vuex
 - Navigate the client source code
 - Run client tests and development servers
-
-## Galaxy Client Architecture
-
-*The architecture of Galaxy's web user interface.*
 
 ## Client Architecture
 

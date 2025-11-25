@@ -1,10 +1,4 @@
 - type: slide
-  id: galaxy-client-architecture
-  heading: Galaxy Client Architecture
-  content: "*The architecture of Galaxy's web user interface.*"
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
   id: client-architecture
   heading: Client Architecture
   content: "*The architecture of Galaxy's web user interface.*"

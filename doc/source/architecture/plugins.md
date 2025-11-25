@@ -1,4 +1,4 @@
-# Plugins
+# Galaxy Plugin Architecture
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-plugins/slides.html)
 
@@ -12,14 +12,6 @@
 - Learn about major plugin types
 - Use `plugin_config.py` pattern
 - Create custom plugins
-
-## Galaxy Plugin Architecture
-
-*The architecture of pluggable Galaxy components.*
-
-## Application Components - Plugins
-
-*The architecture of pluggable Galaxy components.*
 
 ![Models and Managers](../_images/core_models_managers.plantuml.svg)
 

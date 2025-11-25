@@ -1,4 +1,4 @@
-# Tasks
+# Galaxy Task Management with Celery
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-tasks/slides.html)
 
@@ -12,10 +12,6 @@
 - Learn how to declare Celery tasks
 - Use Pydantic for task serialization
 - Understand best practices
-
-## Galaxy Task Management with Celery
-
-*The architecture surrounding Galaxy task management.*
 
 ![Processing requests on the server](../_images/asgi_app.plantuml.svg)
 

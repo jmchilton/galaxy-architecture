@@ -1,10 +1,4 @@
 - type: slide
-  id: galaxy-files-and-directory-structure
-  heading: Galaxy Files and Directory Structure
-  content: '*The physical architecture of the Galaxy code.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
   id: project-docs
   heading: Project Docs
   class: center

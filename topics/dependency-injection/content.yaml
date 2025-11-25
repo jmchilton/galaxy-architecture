@@ -1,10 +1,4 @@
 - type: slide
-  id: intro
-  heading: "`app` and Dependency Injection"
-  content: |
-    *The architecture of connecting Galaxy components.*
-
-- type: slide
   id: app_interconnected
   class: center
   content: |

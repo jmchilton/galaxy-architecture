@@ -1,4 +1,4 @@
-# Project Management
+# Galaxy Project Management and Contribution
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-project-management/slides.html)
 
@@ -11,10 +11,6 @@
 - Understand the contribution workflow
 - Learn about Galaxy's open governance model
 - Understand the CI/CD pipeline
-
-## Galaxy Project Management and Contribution
-
-*The social architecture of the project.*
 
 ## Contributing Quick Start
 

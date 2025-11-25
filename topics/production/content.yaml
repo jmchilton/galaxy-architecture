@@ -1,10 +1,4 @@
 - type: slide
-  id: galaxy-production-deployment
-  heading: Galaxy Production Deployment
-  content: '*How Galaxy runs in production.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
   id: production-galaxy-usegalaxyorg
   heading: Production Galaxy - usegalaxy.org
   content: ''

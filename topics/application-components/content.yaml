@@ -1,10 +1,4 @@
 - type: slide
-  id: galaxy-application-components-models-managers-and-services
-  heading: 'Galaxy Application Components: Models, Managers, and Services'
-  content: '*The architecture surrounding Galaxy components.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
   id: this-section-will-talk-about-that-mana
   heading: ''
   class: center
@@ -52,10 +46,12 @@
 - type: slide
   id: managers-some-key-files
   heading: Managers - Some Key Files
+  class: center
   content: '![Key Managers](../../images/core_files_managers.mindmap.plantuml.svg)'
 - type: slide
   id: managers-some-helpers
   heading: Managers - Some Helpers
+  class: center
   content: '![Manager Helpers](../../images/core_files_managers_helpers.mindmap.plantuml.svg)'
 - type: slide
   id: galaxy-models
@@ -109,7 +105,8 @@
   id: hdaimageshdasvg
   heading: ''
   class: center
-  content: '![HDA](../../images/hda.svg)'
+  content: |-
+    ![HDA foor bar...](../../images/hda.svg)
 - type: slide
   id: hda-datasetimageshda-dataset
   heading: ''
@@ -127,20 +124,25 @@
 - type: slide
   id: hdas-and-hdcasimageshda-hdca
   heading: ''
+  class: center
   content: '![HDAs and HDCAs](../../images/hda_hdca.plantuml.svg)'
 - type: slide
   id: workflowsimagesworkflow-defin
   heading: ''
+  class: center
   content: '![Workflows](../../images/workflow_definition.svg)'
 - type: slide
   id: workflow-runningimagesworkflo
   heading: ''
+  class: center
   content: '![Workflow Running](../../images/workflow_run.svg)'
 - type: slide
   id: librariesimageslibrariessvg
   heading: ''
+  class: center
   content: '![Libraries](../../images/libraries.svg)'
 - type: slide
   id: library-permissionsimageslibr
   heading: ''
+  class: center
   content: '![Library Permissions](../../images/library_permissions.svg)'

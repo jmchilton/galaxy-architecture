@@ -1,4 +1,4 @@
-.PHONY: help validate validate-files build-slides build-sphinx build clean view-sphinx lint-sphinx images watch watch-sphinx watch-images
+.PHONY: help validate validate-files build-slides build-sphinx build clean view-sphinx lint-sphinx images watch watch-sphinx watch-images sync-to-training compare-slides validate-sync
 
 help:
 	@echo "Galaxy Architecture Documentation - Build Targets"
@@ -21,10 +21,16 @@ help:
 	@echo "  make watch             Watch content.yaml files, rebuild sphinx on change"
 	@echo "  make watch-images      Watch image sources, rebuild on change"
 	@echo ""
+	@echo "Sync to training-material:"
+	@echo "  make compare-slides    Compare slides with training-material"
+	@echo "  make sync-to-training  Sync slides to training-material (dry-run)"
+	@echo "  make validate-sync     Validate synced content"
+	@echo ""
 	@echo "Examples:"
 	@echo "  make validate          # Validate all topics"
 	@echo "  make build             # Build everything"
 	@echo "  make view-sphinx       # Build and view HTML docs"
+	@echo "  make compare-slides    # Compare with training-material"
 
 validate:
 	@echo "Validating topics..."
@@ -94,3 +100,21 @@ watch-images:
 	@echo "Watching image sources for changes..."
 	@echo "Press Ctrl+C to stop"
 	find images -name '*.plantuml.txt' -o -name '*.mindmap.yml' | entr -c make images
+
+# Sync to training-material targets
+compare-slides:
+	@echo "Comparing slides with training-material..."
+	uv run python scripts/compare_slides.py --all
+
+sync-to-training:
+	@echo "Syncing to training-material (DRY RUN)..."
+	@echo "This will show what would be synced without making changes."
+	@echo ""
+	uv run python scripts/sync_to_training_material.py --all --dry-run
+	@echo ""
+	@echo "To actually sync, run:"
+	@echo "  uv run python scripts/sync_to_training_material.py --all"
+
+validate-sync:
+	@echo "Validating sync to training-material..."
+	uv run python scripts/validate_sync.py

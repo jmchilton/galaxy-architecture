@@ -1,4 +1,4 @@
-# Production
+# Galaxy Production Deployment
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-production/slides.html)
 
@@ -12,10 +12,6 @@
 - Learn about PostgreSQL, nginx, and uWSGI
 - Understand multi-process and multi-host setups
 - Learn about usegalaxy.org infrastructure
-
-## Galaxy Production Deployment
-
-*How Galaxy runs in production.*
 
 ## Production Galaxy - usegalaxy.org
 

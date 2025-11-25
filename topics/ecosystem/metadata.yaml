@@ -1,6 +1,8 @@
 topic_id: ecosystem
-title: Ecosystem
+title: Galaxy Ecosystem and Projects
 training:
+  tutorial_number: 1
+  subtitle: The architecture of the ecosystem
   questions:
   - What projects make up the Galaxy ecosystem?
   - How do different Galaxy projects interact?
@@ -19,5 +21,8 @@ training:
 sphinx:
   section: Architecture
   subsection: Ecosystem
+contributors:
+  - jmchilton
+  - bgruening
 related_topics: []
 related_code_paths: []

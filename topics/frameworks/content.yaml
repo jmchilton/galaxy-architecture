@@ -1,10 +1,4 @@
 - type: slide
-  id: galaxy-web-frameworks
-  heading: Web Frameworks
-  content: '*The architecture of an interaction.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
   id: client-server-communicationsim
   heading: ''
   class: center

@@ -1,10 +1,4 @@
 - type: slide
-  id: galaxy-architecture-principles
-  heading: Galaxy Architecture Principles
-  content: '*The guiding principles of the core code architecture.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
   id: aspirational-principles-of-galaxy-architecture
   heading: Aspirational Principles of Galaxy Architecture
   content: |-

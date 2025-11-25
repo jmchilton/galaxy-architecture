@@ -182,6 +182,34 @@ def markdown_to_slides(markdown_text):
     return slides
 
 
+def generate_navigation_footnote(metadata) -> str:
+    """Generate navigation footnote for last slide.
+
+    Format: .footnote[Previous: [Topic](link) | Next: [Topic](link)]
+    """
+    parts = []
+
+    # Previous link
+    if metadata.training.previous_to:
+        prev_topic = load_metadata(metadata.training.previous_to)
+        prev_num = prev_topic.training.tutorial_number
+        prev_title = prev_topic.title
+        prev_link = f"{{% link topics/dev/tutorials/architecture-{prev_num}-{metadata.training.previous_to}/slides.html %}}"
+        parts.append(f"Previous: [{prev_title}]({prev_link})")
+
+    # Next link
+    if metadata.training.continues_to:
+        next_topic = load_metadata(metadata.training.continues_to)
+        next_num = next_topic.training.tutorial_number
+        next_title = next_topic.title
+        next_link = f"{{% link topics/dev/tutorials/architecture-{next_num}-{metadata.training.continues_to}/slides.html %}}"
+        parts.append(f"Next: [{next_title}]({next_link})")
+
+    if parts:
+        return f".footnote[{' | '.join(parts)}]"
+    return ""
+
+
 def generate_slides(topic_name):
     """Generate slides for a topic in two formats:
     1. slides.md - GTN-compatible Remark.js markdown format
@@ -230,19 +258,27 @@ def generate_slides(topic_name):
         else:
             formatted_slides.append(slide_content)
 
+    # Add navigation footnote to the last slide
+    if formatted_slides:
+        footnote = generate_navigation_footnote(metadata)
+        if footnote:
+            # Append footnote to last slide
+            formatted_slides[-1] = formatted_slides[-1] + f"\n\n{footnote}"
+
     # Generate GTN-compatible markdown format (slides.md)
     gtn_template_path = Path(__file__).parent / "template.html"
     gtn_template = Template(gtn_template_path.read_text())
 
     gtn_output = gtn_template.render(
         title=metadata.title,
+        subtitle=metadata.training.subtitle,
         questions=metadata.training.questions,
         objectives=metadata.training.objectives,
         key_points=metadata.training.key_points,
         time_estimation=metadata.training.time_estimation,
         slides=formatted_slides,
         topic_id=metadata.topic_id,
-        contributors=['jmchilton'],
+        contributors=metadata.contributors,
     )
 
     # Generate standalone HTML format (slides.html)
@@ -254,9 +290,10 @@ def generate_slides(topic_name):
     fixed_slides = [rewrite_image_paths_for_html(slide, topic_name) for slide in formatted_slides]
 
     # Join slides with --- separator (Remark.js requires this)
-    markdown_parts = [
-        f"# {metadata.title}",
-    ]
+    # Title slide with subtitle
+    subtitle = metadata.training.subtitle or ""
+    title_slide = f"# {metadata.title}\n\n*{subtitle}.*"
+    markdown_parts = [title_slide]
 
     # Add Learning Questions slide if questions exist
     if metadata.training.questions:
@@ -275,6 +312,7 @@ def generate_slides(topic_name):
 
     html_output = html_wrapper_template.render(
         title=metadata.title,
+        subtitle=metadata.training.subtitle,
         markdown_content=markdown_content,
     )
 

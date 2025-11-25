@@ -1,4 +1,4 @@
-# Ecosystem
+# Galaxy Ecosystem and Projects
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-ecosystem/slides.html)
 
@@ -11,10 +11,6 @@
 - Identify the major projects in the Galaxy ecosystem
 - Understand the difference between user-facing and developer tools
 - Learn about Galaxy communication channels
-
-## Galaxy Ecosystem and Projects
-
-*The architecture of the ecosystem.*
 
 **Chat:** [galaxyproject Lobby](https://matrix.to/#/#galaxyproject_Lobby:gitter.im) (via Element)
 

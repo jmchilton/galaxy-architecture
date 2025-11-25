@@ -61,6 +61,21 @@ make build-sphinx
 make validate
 ```
 
+### Sync to training-material
+```bash
+# Compare slides with training-material
+make compare-slides
+
+# Dry-run sync (shows what would change)
+make sync-to-training
+
+# Actually sync
+uv run python scripts/sync_to_training_material.py --all
+
+# Validate sync
+make validate-sync
+```
+
 ### Build everything
 ```bash
 make build

@@ -1,4 +1,4 @@
-# Application Components
+# Galaxy Application Components: Models, Managers, and Services
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-application-components/slides.html)
 
@@ -12,10 +12,6 @@
 - Learn about SQLAlchemy and the ORM
 - Understand database migrations with Alembic
 - Navigate the Galaxy data model
-
-## Galaxy Application Components: Models, Managers, and Services
-
-*The architecture surrounding Galaxy components.*
 
 ![This section will talk about that manager layer and what lies below](../_images/asgi_app.plantuml.svg)
 
@@ -97,7 +93,7 @@ in a manager instead of in the model.
 
 [https://galaxyproject.org/admin/internals/data-model/](https://galaxyproject.org/admin/internals/data-model/)
 
-![HDA](../_images/hda.svg)
+![HDA foor bar...](../_images/hda.svg)
 
 ![HDA Dataset](../_images/hda_dataset.plantuml.svg)
 

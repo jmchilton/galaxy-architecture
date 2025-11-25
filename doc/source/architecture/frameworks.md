@@ -1,4 +1,4 @@
-# Frameworks
+# Galaxy Web Frameworks
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-frameworks/slides.html)
 
@@ -12,10 +12,6 @@
 - Learn about ASGI, Starlette, and FastAPI
 - Understand WSGI and legacy routing
 - Learn about middleware layers
-
-## Web Frameworks
-
-*The architecture of an interaction.*
 
 ![Client-Server Communications](../_images/server_client_vuejs.plantuml.svg)
 

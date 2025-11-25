@@ -1,24 +1,17 @@
 - type: slide
-  id: galaxy-plugin-architecture
-  heading: Galaxy Plugin Architecture
-  content: '*The architecture of pluggable Galaxy components.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
-  id: application-components-plugins
-  heading: Application Components - Plugins
-  content: '*The architecture of pluggable Galaxy components.*'
-- type: slide
   id: models-and-managersimagescore
   heading: ''
+  class: center
   content: '![Models and Managers](../../images/core_models_managers.plantuml.svg)'
 - type: slide
   id: plugins-all-the-way-down
   heading: Plugins All the Way Down
+  class: center
   content: '![Plugins](../../images/core_plugins_overview.mindmap.plantuml.svg)'
 - type: slide
   id: datatypes
   heading: Datatypes
+  class: center
   content: |-
     ![Datatype Files](../../images/core_files_datatypes.mindmap.plantuml.svg)
 
@@ -26,6 +19,7 @@
 - type: slide
   id: tools
   heading: Tools
+  class: center
   content: |-
     ![ToolBox Classes](../../images/core_toolbox_classes.plantuml.svg)
 
@@ -34,10 +28,12 @@
 - type: slide
   id: subclasses-of-tool
   heading: Subclasses of Tool
+  class: center
   content: '![Tool Classes](../../images/core_tool_classes.plantuml.svg)'
 - type: slide
   id: running-toolsimagescore-tool
   heading: ''
+  class: center
   content: '![Running Tools](../../images/core_tool_sequence.plantuml.svg)'
 - type: slide
   id: a-little-about-jobs
@@ -50,14 +46,17 @@
 - type: slide
   id: job-runners
   heading: Job Runners
+  class: center
   content: '![Job Runners](../../images/core_runner_classes.plantuml.svg)'
 - type: slide
   id: handling-jobsimagescore-jobs
   heading: ''
+  class: center
   content: '![Handling Jobs](../../images/core_jobs_sequence.plantuml.svg)'
 - type: slide
   id: data-managersimagesdata-manag
   heading: ''
+  class: center
   content: '![Data Managers](../../images/data_managers.svg)'
 - type: slide
   id: visualization-plugins
@@ -133,6 +132,7 @@
 - type: slide
   id: object-storeimagesobjectstore
   heading: ''
+  class: center
   content: |-
     ![Object Store](../../images/objectstore.plantuml.svg)
 
@@ -140,6 +140,7 @@
 - type: slide
   id: file-source-pluginsimagescore
   heading: ''
+  class: center
   content: '![File Source Plugins](../../images/core_file_sources.plantuml.svg)'
 - type: slide
   id: filesources-vs-objectstores
@@ -156,6 +157,7 @@
 - type: slide
   id: workflow-modules
   heading: Workflow Modules
+  class: center
   content: |-
     ![Workflow Modules](../../images/core_workflow_modules.plantuml.svg)
 
@@ -190,6 +192,7 @@
 - type: slide
   id: pieces-of-libgalaxytool-utildepscontainerspy
   heading: Pieces of `lib/galaxy/tool_util/deps/containers.py`
+  class: reduce70
   content: |-
     ```python
     class ContainerRegistry(object):

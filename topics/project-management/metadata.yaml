@@ -1,6 +1,8 @@
 topic_id: project-management
-title: Project Management
+title: Galaxy Project Management and Contribution
 training:
+  tutorial_number: 2
+  subtitle: The social architecture of the project
   questions:
   - How do I contribute to Galaxy?
   - What is Galaxy's governance model?
@@ -20,5 +22,7 @@ training:
 sphinx:
   section: Architecture
   subsection: Project Management
+contributors:
+  - jmchilton
 related_topics: []
 related_code_paths: []

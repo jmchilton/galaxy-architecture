@@ -13,11 +13,6 @@
 - Use DI in controllers and tasks
 - Understand the benefits of typing
 
-## `app` and Dependency Injection
-
-*The architecture of connecting Galaxy components.*
-
-
 ![Big Interconnected App Python 2](../_images/app_py2.plantuml.svg)
 
 

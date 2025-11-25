@@ -1,6 +1,8 @@
 topic_id: tasks
-title: Tasks
+title: Galaxy Task Management with Celery
 training:
+  tutorial_number: 7
+  subtitle: The architecture surrounding Galaxy task management
   questions:
   - How does Galaxy handle long-running tasks?
   - When should I use Celery?
@@ -22,5 +24,7 @@ training:
 sphinx:
   section: Architecture
   subsection: Tasks
+contributors:
+  - jmchilton
 related_topics: []
 related_code_paths: []

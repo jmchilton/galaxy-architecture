@@ -1,4 +1,4 @@
-# Files
+# Galaxy Files and Directory Structure
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-files/slides.html)
 
@@ -11,10 +11,6 @@
 - Navigate the Galaxy repository structure
 - Understand the `lib` vs `packages` organization
 - Locate key files and directories
-
-## Galaxy Files and Directory Structure
-
-*The physical architecture of the Galaxy code.*
 
 ## Project Docs
 

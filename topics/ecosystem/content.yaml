@@ -1,10 +1,4 @@
 - type: slide
-  id: galaxy-ecosystem-and-projects
-  heading: Galaxy Ecosystem and Projects
-  content: '*The architecture of the ecosystem.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
   id: please-interrupt
   heading: Please Interrupt!
   content: "We're here to answer your questions about Galaxy architecture!"

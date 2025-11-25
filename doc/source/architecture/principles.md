@@ -1,4 +1,4 @@
-# Principles
+# Galaxy Architecture Principles
 
 > 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-principles/slides.html)
 
@@ -11,10 +11,6 @@
 - Understand the contrasting philosophies of frontend vs backend
 - Learn why Galaxy is designed for flexibility
 - Identify the target users for each layer
-
-## Galaxy Architecture Principles
-
-*The guiding principles of the core code architecture.*
 
 ## Aspirational Principles of Galaxy Architecture
 

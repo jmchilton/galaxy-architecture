@@ -1,10 +1,4 @@
 - type: slide
-  id: galaxy-task-management-with-celery
-  heading: Galaxy Task Management with Celery
-  content: '*The architecture surrounding Galaxy task management.*'
-  layout: introduction_slides
-  topic_name: Galaxy Architecture
-- type: slide
   id: processing-requests-on-the-server
   heading: ''
   class: center

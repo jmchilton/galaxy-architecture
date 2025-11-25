@@ -1,6 +1,8 @@
 topic_id: frameworks
-title: Frameworks
+title: Galaxy Web Frameworks
 training:
+  tutorial_number: 5
+  subtitle: The architecture of an interaction
   questions:
   - How does Galaxy handle web requests?
   - What web frameworks does Galaxy use?
@@ -22,5 +24,7 @@ training:
 sphinx:
   section: Architecture
   subsection: Frameworks
+contributors:
+  - jmchilton
 related_topics: []
 related_code_paths: []
