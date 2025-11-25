@@ -1,6 +1,6 @@
 # Galaxy Web Frameworks
 
-> 📊 <a href="slides.html">View as training slides</a>
+> 📊 <a href="frameworks/slides.html">View as slides</a>
 
 ## Learning Questions
 - How does Galaxy handle web requests?

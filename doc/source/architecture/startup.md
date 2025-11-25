@@ -1,6 +1,6 @@
 # Galaxy Startup Process
 
-> 📊 <a href="slides.html">View as training slides</a>
+> 📊 <a href="startup/slides.html">View as slides</a>
 
 ## Learning Questions
 - What happens when Galaxy starts?

@@ -1,6 +1,6 @@
 # Galaxy Plugin Architecture
 
-> 📊 <a href="slides.html">View as training slides</a>
+> 📊 <a href="plugins/slides.html">View as slides</a>
 
 ## Learning Questions
 - How do I extend Galaxy?

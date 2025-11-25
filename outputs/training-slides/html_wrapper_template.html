@@ -323,10 +323,15 @@
     // Detect viewing context
     let workingPath = '../../../../images/';  // Default for direct viewing
 
-    // If viewing from Sphinx downloads directory, use shorter path
+    // Check if viewing from Sphinx downloads directory or GitHub Pages
     if (window.location.href.includes('_downloads')) {
+        // Sphinx downloads: /doc/build/html/_downloads/{hash}/slides.html
         workingPath = '../../images/';
-        // Rewrite paths: ../../../../images/ -> ../../images/
+        markdown = markdown.replace(/\.\.\/\.\.\/\.\.\/\.\.\/images\//g, workingPath);
+        source.textContent = markdown;
+    } else if (window.location.href.includes('/architecture/') && window.location.href.includes('/slides.html')) {
+        // GitHub Pages or published docs: /architecture/{topic}/slides.html
+        workingPath = '../../images/';
         markdown = markdown.replace(/\.\.\/\.\.\/\.\.\/\.\.\/images\//g, workingPath);
         source.textContent = markdown;
     }
