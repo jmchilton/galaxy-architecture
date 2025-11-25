@@ -13,10 +13,6 @@
 - Understand multi-process and multi-host setups
 - Learn about usegalaxy.org infrastructure
 
-## Production Galaxy - usegalaxy.org
-
-
-
 #### Default
 
 SQLite

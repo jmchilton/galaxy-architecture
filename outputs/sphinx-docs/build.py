@@ -485,21 +485,11 @@ Core documentation about Galaxy's internal architecture and design.
 
 ```{{toctree}}
 :maxdepth: 1
+:caption: Architecture Topics
 
 {toctree_items}
 ```
-
-## Available Topics
-
-This section documents Galaxy's key architectural patterns:
-
 """
-
-    # Add links for each topic in order
-    for topic_id in ordered_topics:
-        if topic_id in topic_metadata:
-            metadata = topic_metadata[topic_id]
-            content += f"- **[{metadata.title}]({topic_id}.md)**\n"
 
     index_file.write_text(content)
     print(f"✓ Updated: {index_file}")
