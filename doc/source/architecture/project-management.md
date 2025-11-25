@@ -1,6 +1,6 @@
 # Galaxy Project Management and Contribution
 
-> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-project-management/slides.html)
+> 📊 <a href="slides.html">View as training slides</a>
 
 ## Learning Questions
 - How do I contribute to Galaxy?

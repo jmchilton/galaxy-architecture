@@ -1,6 +1,6 @@
 # Galaxy Client Architecture
 
-> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-client/slides.html)
+> 📊 <a href="slides.html">View as training slides</a>
 
 ## Learning Questions
 - How is the Galaxy UI built?

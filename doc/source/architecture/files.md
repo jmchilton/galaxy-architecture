@@ -1,6 +1,6 @@
 # Galaxy Files and Directory Structure
 
-> 📊 [View as training slides](../../../outputs/training-slides/generated/architecture-files/slides.html)
+> 📊 <a href="slides.html">View as training slides</a>
 
 ## Learning Questions
 - How is the Galaxy codebase organized?
