@@ -50,6 +50,12 @@ jobs:
         run: |
           uv sync --all-extras
 
+      - name: Cache PlantUML jar
+        uses: actions/cache@v4
+        with:
+          path: images/plantuml.jar
+          key: plantuml-jar-v1
+
       - name: Validate topics
         run: make validate
 
