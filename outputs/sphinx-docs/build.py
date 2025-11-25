@@ -33,8 +33,7 @@ def create_slides_link(topic_id: str) -> str:
     Returns:
         Markdown formatted link string
     """
-    path = f"../../../outputs/training-slides/generated/architecture-{topic_id}/slides.html"
-    return f"> 📊 [View as training slides]({path})"
+    return '> 📊 <a href="slides.html">View as training slides</a>'
 
 
 def _extract_directive_content(content: str, start_pos: int, directive_name: str) -> tuple[str, int]:
