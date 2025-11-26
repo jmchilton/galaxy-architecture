@@ -60,6 +60,8 @@ build-sphinx: images
 	@echo "Copying images for slide support..."
 	@mkdir -p doc/build/html/images
 	@cp images/*.png images/*.svg doc/build/html/images/ 2>/dev/null || true
+	@echo "Copying fonts..."
+	@cp outputs/training-slides/assets/fonts/DIN1451/*.woff2 doc/build/html/images/ 2>/dev/null || true
 	@echo "Copying slides HTML..."
 	@for topic in $$(ls -d outputs/training-slides/generated/architecture-*/); do \
 		topic_name=$$(basename "$$topic"); \
