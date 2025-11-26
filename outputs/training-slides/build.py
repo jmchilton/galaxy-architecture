@@ -289,7 +289,7 @@ class: center, middle
     # Rewrite image paths for HTML context (different depth than GTN markdown)
     fixed_slides = [rewrite_image_paths_for_html(slide, topic_name) for slide in formatted_slides]
 
-    # Add layout definitions for HTML slides
+    # Add layout definitions for HTML slides (these are Remark.js templates, not visible slides)
     html_layout_definitions_str = """---
 layout: true
 name: left-aligned

@@ -39,7 +39,7 @@
 - type: slide
   id: more-links-well-mention-as-we-go-throug
   heading: ''
-  class: reduce70 center
+  class: center
   content: |-
     More links we'll mention as we go through the slides:
 
@@ -406,9 +406,8 @@
   class: enlarge150
 - type: slide
   id: total-perspective-vortex
-  heading: Total Perspective Vortex
   content: |-
-    [galaxyproject/total-perspective-vortex **](https://github.com/galaxyproject/total-perspective-vortex)
+    [galaxyproject/**total-perspective-vortex** ](https://github.com/galaxyproject/total-perspective-vortex)
 
     ![TPV Logo](https://raw.githubusercontent.com/galaxyproject/total-perspective-vortex/main/docs/images/tpv-logo-wide.png)
 
