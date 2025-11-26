@@ -249,13 +249,9 @@ def generate_slides(topic_name):
 layout: true
 name: left-aligned
 class: left, middle
-
----
-
 ---
 layout: true
 class: center, middle
-
 ---"""
 
     # Prepend layout definitions to formatted slides
@@ -294,13 +290,9 @@ class: center, middle
 layout: true
 name: left-aligned
 class: left, middle
-
----
-
 ---
 layout: true
 class: center, middle
-
 ---"""
 
     # Join slides with --- separator (Remark.js requires this)
