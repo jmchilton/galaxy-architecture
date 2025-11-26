@@ -116,13 +116,10 @@ compare-slides:
 	uv run python scripts/compare_slides.py --all
 
 sync-to-training:
-	@echo "Syncing to training-material (DRY RUN)..."
-	@echo "This will show what would be synced without making changes."
+	@echo "Syncing to training-material..."
+	uv run python scripts/sync_to_training_material.py --all
 	@echo ""
-	uv run python scripts/sync_to_training_material.py --all --dry-run
-	@echo ""
-	@echo "To actually sync, run:"
-	@echo "  uv run python scripts/sync_to_training_material.py --all"
+	@echo "✓ Sync complete"
 
 validate-sync:
 	@echo "Validating sync to training-material..."
