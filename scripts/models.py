@@ -135,9 +135,13 @@ class SlideRenderConfig(BaseModel):
     Controls how content appears in slide presentation format.
     """
     render: Annotated[bool, Field(True, description="Whether to include in slides")]
-    layout: Annotated[
+    class_: Annotated[
         Optional[str],
-        Field(None, description="Slide layout class (e.g., 'left', 'reduce90', 'enlarge150')")
+        Field(None, description="CSS classes to apply to slides (e.g., 'center', 'reduce90', 'enlarge150')")
+    ]
+    layout_name: Annotated[
+        Optional[str],
+        Field(None, description="Named layout to reference (e.g., 'left-aligned')")
     ]
 
 
@@ -175,10 +179,10 @@ class ContentBlock(BaseModel):
         Field("\n\n", description="Separator when combining fragments")
     ]
 
-    # Convenience field: layout class for slides (shorthand for slides.layout)
+    # Convenience field: CSS classes for slides (shorthand for slides.class_)
     class_: Annotated[
         Optional[str],
-        Field(None, alias='class', description="Layout class for slides (shorthand for slides.layout)")
+        Field(None, alias='class', description="CSS classes for slides (shorthand for slides.class_)")
     ]
 
     # Rendering configuration with smart defaults
@@ -194,9 +198,9 @@ class ContentBlock(BaseModel):
     @model_validator(mode='after')
     def apply_smart_defaults(self):
         """Apply smart defaults based on content type."""
-        # Propagate convenience field 'class_' to slides.layout
-        if self.class_ and not self.slides.layout:
-            self.slides.layout = self.class_
+        # Propagate convenience field 'class_' to slides.class_
+        if self.class_ and not self.slides.class_:
+            self.slides.class_ = self.class_
 
         if self.type == ContentBlockType.PROSE:
             # Prose: render in docs by default, NOT in slides

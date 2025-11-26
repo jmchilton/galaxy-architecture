@@ -57,6 +57,15 @@ Training slide configuration
 Sphinx documentation configuration
 
 
+### `contributors`
+
+**Type:** `list of string`
+
+**Required**
+
+List of contributors (e.g., GitHub usernames)
+
+
 ### `related_topics`
 
 **Type:** `list of string`
@@ -83,6 +92,24 @@ Galaxy code paths relevant to this topic
 Training slide metadata.
 
 Defines the learning objectives and structure for training materials.
+
+### `tutorial_number`
+
+**Type:** `integer`
+
+**Required**
+
+Tutorial number in training-material (e.g., 1 for architecture-1-ecosystem)
+
+
+### `subtitle`
+
+**Type:** `string`
+
+**Required**
+
+Subtitle for title slide (e.g., 'The architecture of the ecosystem.')
+
 
 ### `questions`
 
@@ -127,6 +154,24 @@ Estimated time to complete (e.g., '30m', '1h')
 **Default:** `PydanticUndefined`
 
 Topic IDs that should be learned first
+
+
+### `previous_to`
+
+**Type:** `Optional`
+
+**Optional**
+
+Topic ID that precedes this topic in sequence
+
+
+### `continues_to`
+
+**Type:** `Optional`
+
+**Optional**
+
+Topic ID that follows this topic in sequence
 
 
 ### SphinxMetadata
@@ -239,6 +284,15 @@ Heading text (optional for slides)
 Separator when combining fragments
 
 
+### `class_`
+
+**Type:** `Optional`
+
+**Optional**
+
+CSS classes for slides (shorthand for slides.class_)
+
+
 ### `doc`
 
 **Type:** `DocRenderConfig`
@@ -299,13 +353,22 @@ Controls how content appears in slide presentation format.
 Whether to include in slides
 
 
-### `layout`
+### `class_`
 
 **Type:** `Optional`
 
 **Optional**
 
-Slide layout class (e.g., 'left', 'reduce90', 'enlarge150')
+CSS classes to apply to slides (e.g., 'center', 'reduce90', 'enlarge150')
+
+
+### `layout_name`
+
+**Type:** `Optional`
+
+**Optional**
+
+Named layout to reference (e.g., 'left-aligned')
 
 
 
