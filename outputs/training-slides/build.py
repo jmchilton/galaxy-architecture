@@ -252,7 +252,7 @@ class: left, middle
 ---
 layout: true
 class: center, middle
----"""
+"""
 
     # Prepend layout definitions to formatted slides
     formatted_slides_with_layouts = [layout_definitions_str] + formatted_slides
