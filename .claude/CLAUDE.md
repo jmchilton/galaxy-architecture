@@ -31,6 +31,7 @@ Experimental POC to prove that maintaining architecture content as structured ma
 - **scripts/generate_schema_docs.py** - Auto-generates docs/SCHEMA.md from models
 - **outputs/training-slides/build.py** - Generates GTN-compatible slides
 - **outputs/sphinx-docs/build.py** - Generates Sphinx markdown with URL conversion
+- **images/MERMAID.md** - Mermaid diagram support documentation (PlantUML vs Mermaid usage guide)
 
 ## Common Tasks
 
@@ -80,6 +81,17 @@ make validate-sync
 ```bash
 make build
 ```
+
+### Build diagrams
+```bash
+# Build all PlantUML and Mermaid diagrams
+make images
+
+# Watch for diagram source changes
+make watch-images
+```
+
+See **images/MERMAID.md** for details on PlantUML vs Mermaid diagram types and usage.
 
 ## Content Model
 

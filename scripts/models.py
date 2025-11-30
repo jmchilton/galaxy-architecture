@@ -2,7 +2,7 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal, Optional, Union
 
 from pydantic import (
     BaseModel,
@@ -41,6 +41,17 @@ class SphinxMetadata(BaseModel):
     subsection: Annotated[Optional[str], Field(None, description="Subsection within the section")]
 
 
+class CodePathReference(BaseModel):
+    """Detailed code path reference with contextual note."""
+    path: Annotated[str, Field(description="Galaxy code path (relative)")]
+    note: Annotated[str, Field(description="How this code path relates to the topic")]
+
+
+class PullRequestReference(BaseModel):
+    """Pull request reference with contextual note."""
+    pull_request: Annotated[str, Field(description="GitHub PR URL or number")]
+    note: Annotated[str, Field(description="How this PR relates to the topic")]
+
 
 class TopicMetadata(BaseModel):
     """Complete topic metadata from metadata.yaml.
@@ -68,8 +79,12 @@ class TopicMetadata(BaseModel):
         Field(default_factory=list, description="Related topic IDs for cross-referencing")
     ]
     related_code_paths: Annotated[
-        list[str],
-        Field(default_factory=list, description="Galaxy code paths relevant to this topic")
+        list[Union[str, CodePathReference]],
+        Field(default_factory=list, description="Galaxy code paths relevant to this topic (string or {path, note})")
+    ]
+    related_pull_requests: Annotated[
+        list[Union[str, PullRequestReference]],
+        Field(default_factory=list, description="GitHub PRs relevant to this topic (string or {pull_request, note})")
     ]
 
     @field_validator('topic_id')
@@ -99,11 +114,23 @@ class TopicMetadata(BaseModel):
 
     @field_validator('related_code_paths')
     @classmethod
-    def validate_code_paths(cls, v: list[str]) -> list[str]:
+    def validate_code_paths(cls, v: list[Union[str, CodePathReference]]) -> list[Union[str, CodePathReference]]:
         """Validate code path format."""
-        for path in v:
+        for item in v:
+            path = item if isinstance(item, str) else item.path
             if path.startswith('/'):
                 raise ValueError(f"Code path should be relative: {path}")
+        return v
+
+    @field_validator('related_pull_requests')
+    @classmethod
+    def validate_pull_requests(cls, v: list[Union[str, PullRequestReference]]) -> list[Union[str, PullRequestReference]]:
+        """Validate pull request format."""
+        for item in v:
+            pr = item if isinstance(item, str) else item.pull_request
+            # Basic validation - could be a number like "12345" or URL like "https://github.com/..."
+            if not pr:
+                raise ValueError("Pull request cannot be empty")
         return v
 
 

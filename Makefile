@@ -1,7 +1,10 @@
-.PHONY: help validate validate-files build-slides build-sphinx build clean view-sphinx lint-sphinx images watch watch-sphinx watch-images sync-to-training compare-slides validate-sync
+.PHONY: help validate validate-files build-slides build-sphinx build clean view-sphinx lint-sphinx images watch watch-sphinx watch-images sync-to-training compare-slides validate-sync setup
 
 help:
 	@echo "Galaxy Architecture Documentation - Build Targets"
+	@echo ""
+	@echo "Setup:"
+	@echo "  make setup             Install dependencies (npm packages for Mermaid)"
 	@echo ""
 	@echo "Verification:"
 	@echo "  make validate          Validate all topics (metadata.yaml, content.yaml)"
@@ -27,10 +30,18 @@ help:
 	@echo "  make validate-sync     Validate synced content"
 	@echo ""
 	@echo "Examples:"
+	@echo "  make setup             # First-time setup"
 	@echo "  make validate          # Validate all topics"
 	@echo "  make build             # Build everything"
 	@echo "  make view-sphinx       # Build and view HTML docs"
 	@echo "  make compare-slides    # Compare with training-material"
+
+setup:
+	@echo "Installing npm dependencies..."
+	npm install
+	@echo "Installing Puppeteer Chrome browser for Mermaid..."
+	npx puppeteer browsers install chrome-headless-shell
+	@echo "✓ Setup complete"
 
 validate:
 	@echo "Validating topics..."
@@ -108,7 +119,7 @@ watch-sphinx:
 watch-images:
 	@echo "Watching image sources for changes..."
 	@echo "Press Ctrl+C to stop"
-	find images -name '*.plantuml.txt' -o -name '*.mindmap.yml' | entr -c make images
+	find images -name '*.plantuml.txt' -o -name '*.mindmap.yml' -o -name '*.mermaid.txt' | entr -c make images
 
 # Sync to training-material targets
 compare-slides:

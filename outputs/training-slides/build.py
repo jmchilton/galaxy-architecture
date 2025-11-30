@@ -245,7 +245,7 @@ def generate_slides(topic_name):
     # the sync process to training-material only, not for local sphinx or standalone HTML
 
     # Add standard Remark.js layout definitions at top of slides
-    layout_definitions_str = """---
+    layout_definitions_str = """
 layout: true
 name: left-aligned
 class: left, middle
@@ -286,19 +286,19 @@ class: center, middle
     fixed_slides = [rewrite_image_paths_for_html(slide, topic_name) for slide in formatted_slides]
 
     # Add layout definitions for HTML slides (these are Remark.js templates, not visible slides)
-    html_layout_definitions_str = """---
+    html_layout_definitions_str = """
 layout: true
 name: left-aligned
 class: left, middle
 ---
 layout: true
 class: center, middle
----"""
+"""
 
     # Join slides with --- separator (Remark.js requires this)
     # Title slide with subtitle
     subtitle = metadata.training.subtitle or ""
-    title_slide = f"# {metadata.title}\n\n*{subtitle}.*"
+    title_slide = f"class: enlarge200\n# {metadata.title}\n\n*{subtitle}.*"
     markdown_parts = [html_layout_definitions_str, title_slide]
 
     # Add Learning Questions slide if questions exist

@@ -17,7 +17,7 @@
 
 SQLite
 
-Paste#http
+gunicorn all-in-one
 
 Single process
 
@@ -31,7 +31,7 @@ Local jobs
 
 PostgreSQL
 
-uWSGI / nginx
+gunicorn for web process + webless workers + nginx proxy
 
 Multiple processes
 
@@ -55,15 +55,15 @@ Jobs across many clusters
 - Reverse proxy to Galaxy application servers
 - Load balancing across multiple Galaxy processes
 - [https://www.nginx.com/resources/wiki/](https://www.nginx.com/resources/wiki/)
-- Configuration: `github.com/galaxyproject/usegalaxy-playbook` → `templates/nginx/usegalaxy.j2`
+- [https://docs.galaxyproject.org/en/master/admin/nginx.html#proxying-galaxy-with-nginx](https://docs.galaxyproject.org/en/master/admin/nginx.html#proxying-galaxy-with-nginx)
+- Configuration: `github.com/galaxyproject/usegalaxy-playbook` -> `templates/nginx/usegalaxy.j2`
 
-## uWSGI
+## Webless
 
-- Production-grade WSGI server
-- Handles multiple Galaxy worker processes
-- Better performance than development server
-- Integrates well with nginx
-- [https://uwsgi-docs.readthedocs.io/](https://uwsgi-docs.readthedocs.io/)
+- Galaxy typically runs in Gunicorn - a production-grade ASGI server
+- This is a great tool for both development and production but in production typically job running and workflow scheduling should happen outside a webserver
+- [https://docs.galaxyproject.org/en/master/admin/scaling.html#gunicorn-for-web-serving-and-webless-galaxy-applications-as-job-handlers](https://docs.galaxyproject.org/en/master/admin/scaling.html#gunicorn-for-web-serving-and-webless-galaxy-applications-as-job-handlers)
+- [https://training.galaxyproject.org/training-material/topics/admin/tutorials/ansible-galaxy/tutorial.html](https://training.galaxyproject.org/training-material/topics/admin/tutorials/ansible-galaxy/tutorial.html)
 
 ## Multi-processes
 
@@ -72,13 +72,17 @@ Threads in Python are limited by the [GIL](https://wiki.python.org/moin/GlobalIn
 Running multiple processes of Galaxy and separate processes for web handling
 and job processing works around this.
 
-This used to be an important detail - but uWSGI makes things a lot easier.
+This used to be an important detail - but gravity + gunicorn make things a lot easier.
 
 ## Cluster Support
 
 ![Cluster Support](../_images/cluster_support.svg)
 
 Galaxy can submit jobs to various cluster managers (Slurm, PBS, SGE, etc.)
+
+[https://docs.galaxyproject.org/en/master/admin/cluster.html](https://docs.galaxyproject.org/en/master/admin/cluster.html)
+
+[https://training.galaxyproject.org/training-material/topics/admin/tutorials/connect-to-compute-cluster/tutorial.html](https://training.galaxyproject.org/training-material/topics/admin/tutorials/connect-to-compute-cluster/tutorial.html)
 
 ## usegalaxy.org Web Architecture
 
@@ -94,7 +98,6 @@ Multiple web servers, job handlers, and compute clusters working together
 
 - **Database**: Use PostgreSQL for production
 - **Web Server**: Use nginx or Apache as reverse proxy
-- **Application Server**: Use uWSGI or gunicorn
 - **Processes**: Run multiple Galaxy processes
 - **Job Handling**: Separate job handlers from web workers
 - **Storage**: Use scalable object storage solutions
