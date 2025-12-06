@@ -53,6 +53,40 @@ class PullRequestReference(BaseModel):
     note: Annotated[str, Field(description="How this PR relates to the topic")]
 
 
+class AgenticOperationType(str, Enum):
+    """Type of agentic operation artifact."""
+    SLASH_COMMAND = "claude-slash-command"
+    SKILL = "claude-skill"
+
+
+class AgenticOperation(BaseModel):
+    """Agentic operation that can be generated from topic content.
+
+    Represents a development action (e.g., implement-migration, refactor-for-di)
+    that can be turned into a Claude slash command or skill with embedded
+    architectural context from the topic.
+    """
+    name: Annotated[str, Field(description="Operation identifier (kebab-case, e.g., 'implement-di-refactor')")]
+    prompt: Annotated[str, Field(description="Development action to perform (e.g., 'Refactor component to use DI')")]
+    type: Annotated[AgenticOperationType, Field(description="Type of artifact to generate")]
+
+    @field_validator('name')
+    @classmethod
+    def validate_name_format(cls, v: str) -> str:
+        """Validate operation name is kebab-case."""
+        if not v:
+            raise ValueError("Operation name cannot be empty")
+        if not v.islower():
+            raise ValueError(f"Operation name must be lowercase: {v}")
+        if ' ' in v:
+            raise ValueError(f"Operation name cannot contain spaces (use hyphens): {v}")
+        if v.startswith('-') or v.endswith('-'):
+            raise ValueError(f"Operation name cannot start or end with hyphen: {v}")
+        if '--' in v:
+            raise ValueError(f"Operation name cannot contain consecutive hyphens: {v}")
+        return v
+
+
 class TopicMetadata(BaseModel):
     """Complete topic metadata from metadata.yaml.
 
@@ -85,6 +119,12 @@ class TopicMetadata(BaseModel):
     related_pull_requests: Annotated[
         list[Union[str, PullRequestReference]],
         Field(default_factory=list, description="GitHub PRs relevant to this topic (string or {pull_request, note})")
+    ]
+
+    # Agentic operations
+    agentic_operations: Annotated[
+        list[AgenticOperation],
+        Field(default_factory=list, description="Development operations that can be generated from this topic")
     ]
 
     @field_validator('topic_id')
@@ -131,6 +171,16 @@ class TopicMetadata(BaseModel):
             # Basic validation - could be a number like "12345" or URL like "https://github.com/..."
             if not pr:
                 raise ValueError("Pull request cannot be empty")
+        return v
+
+    @field_validator('agentic_operations')
+    @classmethod
+    def validate_unique_operation_names(cls, v: list[AgenticOperation]) -> list[AgenticOperation]:
+        """Ensure operation names are unique within topic."""
+        names = [op.name for op in v]
+        duplicates = [n for n in names if names.count(n) > 1]
+        if duplicates:
+            raise ValueError(f"Duplicate operation names found: {set(duplicates)}")
         return v
 
 

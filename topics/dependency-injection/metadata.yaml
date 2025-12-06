@@ -52,6 +52,12 @@ related_code_paths:
 contributors:
   - jmchilton
 
+# Agentic operations
+agentic_operations:
+  - name: refactor-to-di
+    prompt: "Refactor a Galaxy component to use dependency injection instead of the app god object"
+    type: claude-slash-command
+
 # Claude context
 claude:
   priority: high  # How important for dev questions

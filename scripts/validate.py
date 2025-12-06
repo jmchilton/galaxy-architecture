@@ -44,6 +44,28 @@ def validate_topic(topic_dir: Path) -> tuple[list[str], list[str]]:
         errors.append(str(e))
         return errors, warnings
 
+    # Validate agentic operations
+    if metadata.agentic_operations:
+        # Check for suggestions directory
+        suggestions_dir = topic_dir / "suggestions"
+        if not suggestions_dir.exists():
+            warnings.append(
+                "Consider creating suggestions/ directory for operation feedback"
+            )
+
+        # Check operation quality
+        for op in metadata.agentic_operations:
+            if len(op.prompt) < 20:
+                warnings.append(
+                    f"Operation '{op.name}': prompt is very short (< 20 chars)"
+                )
+
+            # Operations should have related_code_paths for context
+            if not metadata.related_code_paths:
+                warnings.append(
+                    f"Operation '{op.name}': consider adding related_code_paths for context"
+                )
+
     return errors, warnings
 
 
