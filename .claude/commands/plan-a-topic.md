@@ -2,6 +2,22 @@
 
 Generate a structured slide plan for a topic by analyzing code paths and pull request history from research notes.
 
+**IMPORTANT**: Before planning, read these guides:
+- `docs/SLIDE_GUIDE.md` - Slide design principles
+- `docs/DIAGRAM_GUIDE.md` - Diagram types and when to use each
+
+Key slide principles:
+- Visual-first: diagrams > bullets
+- Problem → Solution narrative flow
+- One concept per slide
+- Use diffs for code evolution
+- Real Galaxy code examples with file paths
+
+Key diagram guidance:
+- See existing examples in `images/` for patterns
+- Choose diagram type that best communicates the point
+- File mindmaps (YAML) can be validated against filesystem
+
 ## Usage
 
 ```
@@ -32,23 +48,30 @@ Generate a structured slide plan for a topic by analyzing code paths and pull re
 
 ### 2. Spawn Two Parallel Subagents (Distinct Perspectives)
 
+**Both agents MUST first read `docs/SLIDE_GUIDE.md` and `docs/DIAGRAM_GUIDE.md`** to understand effective slide and diagram design.
+
 **Agent A: Code-Based Slide Plan**
+- Reads `docs/SLIDE_GUIDE.md` and `docs/DIAGRAM_GUIDE.md` first
 - Reads all `path_*.md` files from `topics/<topic-id>/notes/`
 - Proposes slides based on code architecture and current implementation
-- Flexible slide count based on topic complexity
+- Follows slide design principles: visual-first, one concept per slide
+- Proposes diagrams that best communicate each point (see DIAGRAM_GUIDE.md for examples)
 - For each slide:
+  - Type (diagram/code-pattern/concept/quote)
   - Title
-  - Key points (3-5 bullets)
-  - Proposed diagrams (descriptions of what diagram would show, not full implementations)
-  - Code references if relevant
+  - Content idea (one sentence)
+  - Proposed diagram with type justification
+  - Suggested class (center/reduce70/enlarge150)
 - Writes to: `topics/<topic-id>/plan/code_based_plan.md`
 - Creates diagram TODO list at end of plan
 
 **Agent B: PR-Based Slide Plan**
+- Reads `docs/SLIDE_GUIDE.md` and `docs/DIAGRAM_GUIDE.md` first
 - Reads all `pr_*.md` files from `topics/<topic-id>/notes/`
-- Proposes slides based on evolution, history, and why decisions were made
-- Flexible slide count based on topic complexity
-- Same format as Agent A (simpler slide format: title + bullets + diagram ideas)
+- Proposes slides showing problem → solution evolution
+- Uses diffs for code migration slides
+- Proposes diagrams that show evolution/change
+- Same format as Agent A
 - Writes to: `topics/<topic-id>/plan/pr_based_plan.md`
 - Creates diagram TODO list at end of plan
 
@@ -115,30 +138,49 @@ topics/<topic-id>/plan/
 
 ## Slide Format (Simplified for Planning)
 
+**Read `docs/SLIDE_GUIDE.md` first!** Effective slides are:
+- Diagram-centric (centered visual, minimal text)
+- Code-pattern slides (real code from Galaxy with file path)
+- Concept slides (3-4 bullets max, use enlarge classes)
+
 ```markdown
 ## Slide Title
 
-- Key point 1
-- Key point 2
-- Key point 3
+**Type:** diagram | code-pattern | concept | quote
+
+**Content idea:** [One sentence describing the slide]
 
 **Proposed Diagram:** Activity diagram showing X process
-**Code References:** file.py:function(), component.vue
+**Code References:** lib/galaxy/path/file.py:function()
+**Class:** center | reduce70 | enlarge150
 ```
+
+### Slide Type Guidelines (from SLIDE_GUIDE.md)
+
+1. **Diagram slides**: `class: center`, no heading, let visual speak
+2. **Code slides**: Show real file path, use reduce70/90 for long code
+3. **Concept slides**: 3-4 bullets max, use enlarge120/150/200
+4. **Quote slides**: Blockquote for definitions, cite source
 
 ## Diagram Proposals
 
-Agents should propose diagrams when helpful:
-- **Activity diagrams** - Process flows, pipelines
-- **Mindmaps** - Concept relationships, component organization
-- **Class diagrams** - Object models, inheritance
-- **Sequence diagrams** - API interactions, event flows
-- **File tree diagrams** - Directory structure (using mindmap format)
+**See `docs/DIAGRAM_GUIDE.md` for examples and patterns.**
 
-Diagrams can be:
-- Inline PlantUML code (if simple and agent has enough info)
-- Descriptive text (e.g., "Sequence diagram showing API call from client → backend → database")
-- TODO items for later creation
+Available diagram types:
+- **PlantUML**: Sequence, Class, Component, Object, Activity, Mindmap
+- **Mermaid**: Timeline, Flowchart, State, Gantt, User Journey
+- **File Mindmaps** (YAML): Validated directory structures
+
+Choose based on what communicates best. See `images/` for existing examples.
+
+Diagram TODO format:
+```markdown
+**Diagram TODO:** Sequence diagram showing tool execution
+- Participants: client, ToolsController, app.toolbox, tool
+- Phases: "Render Form", "Submit Form"
+- Show loop for parameter combinations
+- Reference: images/core_tool_sequence.plantuml.txt
+```
 
 ## Next Steps After Planning
 

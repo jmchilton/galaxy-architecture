@@ -143,6 +143,34 @@ Documentation is automatically built and published to GitHub Pages on every push
 
 See PLAN.md for detailed phases.
 
+## Slash Commands
+
+### /research-topic <topic-id>
+Research a topic using its metadata to prepare for content generation.
+- Loads metadata.yaml, creates `notes/` directory
+- For each `related_code_paths`: examines code, writes summary to `notes/path_<path>.md`
+- For each `related_pull_requests`: fetches PR via gh CLI, writes summary + diff to `notes/pr_<org>_<repo>_<num>.md`
+- Supports string and object formats for paths/PRs
+
+### /research-find-code-paths <topic-id>
+Extract relevant code paths from PR diffs and add to metadata.
+- Reads `.diff` files from `notes/`
+- Identifies 8-12 architecturally significant paths (managers, APIs, core components)
+- Verifies paths exist in `~/workspace/galaxy`
+- Appends to `related_code_paths` in metadata.yaml
+- Requires: run `/research-topic` first
+
+### /plan-a-topic <topic-id>
+Generate structured slide plan by analyzing research notes.
+1. Validates prerequisites (metadata.yaml, notes/ with path_*.md and pr_*.md)
+2. Spawns two parallel agents:
+   - **Code-based plan**: slides from architecture/implementation → `plan/code_based_plan.md`
+   - **PR-based plan**: slides from evolution/history → `plan/pr_based_plan.md`
+3. Merges into 3 flow options (Architecture-First, Evolution-First, Hybrid) → `plan/merged_plan.md`
+4. Prompts user for flow choice, duration, audience level
+5. Creates `plan/final_plan.md` with chosen flow and next steps
+- Requires: run `/research-topic` first
+
 ## When helping with this repo
 
 - Follow the PLAN.md phases
