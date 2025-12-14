@@ -1,0 +1,57 @@
+@startuml
+!include plantuml_options.txt
+
+title Markdown Directive Handler Pattern
+
+package "galaxy.managers.markdown_util" {
+
+abstract class GalaxyInternalMarkdownDirectiveHandler {
+    + trans
+    + export_markdown_directive()
+    --
+    {abstract} handle_dataset_display()
+    {abstract} handle_dataset_as_image()
+    {abstract} handle_dataset_as_table()
+    {abstract} handle_workflow_display()
+    {abstract} handle_job_metrics()
+    ...
+}
+
+class ReadyForExportMarkdownDirectiveHandler {
+    + extra_rendering_data: dict
+    --
+    Lazy expansion:
+    Collects metadata
+    Preserves directives
+    For frontend rendering
+}
+
+class ToBasicMarkdownDirectiveHandler {
+    --
+    Eager expansion:
+    Fully expands directives
+    Tables, images, text
+    For PDF export
+}
+
+}
+
+note top of GalaxyInternalMarkdownDirectiveHandler
+  Abstract base defines
+  directive handling interface
+end note
+
+note bottom of ReadyForExportMarkdownDirectiveHandler
+  Used by: Frontend UI
+  Returns: JSON metadata
+end note
+
+note bottom of ToBasicMarkdownDirectiveHandler
+  Used by: PDF export
+  Returns: Standard markdown
+end note
+
+GalaxyInternalMarkdownDirectiveHandler <|-- ReadyForExportMarkdownDirectiveHandler
+GalaxyInternalMarkdownDirectiveHandler <|-- ToBasicMarkdownDirectiveHandler
+
+@enduml

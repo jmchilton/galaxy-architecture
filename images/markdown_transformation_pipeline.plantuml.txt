@@ -1,0 +1,86 @@
+@startuml
+!include plantuml_options.txt
+
+title Galaxy Markdown Transformation Pipeline
+
+participant "Raw\nMarkdown" as raw
+participant "Import" as import
+participant "Validate" as validate
+participant "Resolve" as resolve
+participant "Export" as export
+participant "Render" as render
+
+note over raw
+  Context-specific format
+  (workflow labels, encoded IDs, etc.)
+end note
+
+== Stage 1: Import ==
+
+raw -> import : markdown text
+activate import
+note right of import
+  Decode external IDs → internal
+  a1b2c3d4 → 12345
+end note
+import --> validate : internal IDs
+deactivate import
+
+== Stage 2: Validate ==
+
+activate validate
+note right of validate
+  Syntax validation
+  (markdown_parse.py)
+  - Fence tracking
+  - Directive syntax
+  - Argument validation
+end note
+validate --> resolve : validated markdown
+deactivate validate
+
+== Stage 3: Resolve ==
+
+activate resolve
+note right of resolve
+  Expand context references
+  output="results" → history_dataset_id=98765
+  step="bwa" → job_id=54321
+end note
+resolve --> export : resolved markdown
+deactivate resolve
+
+== Stage 4: Export ==
+
+activate export
+
+alt Lazy (ReadyForExport)
+    note right of export
+      Collect metadata only
+      Preserve directives
+      (for frontend rendering)
+    end note
+    export --> render : metadata + directives
+else Eager (ToBasicMarkdown)
+    note right of export
+      Fully expand directives
+      Tables, images, text
+      (for PDF export)
+    end note
+    export --> render : standard markdown
+end
+deactivate export
+
+== Stage 5: Render ==
+
+activate render
+note right of render
+  Output format:
+  - HTML (markdown lib)
+  - PDF (WeasyPrint)
+  - Interactive UI (Vue)
+end note
+render --> raw : rendered document
+deactivate render
+
+@enduml

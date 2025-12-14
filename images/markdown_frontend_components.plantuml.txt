@@ -1,0 +1,61 @@
+@startuml
+!include plantuml_options.txt
+
+left to right direction
+
+title Frontend Markdown Component Tree
+
+package "Markdown.vue" {
+    component [parseMarkdown()] as parse
+    component [SectionWrapper] as wrapper
+    parse --> wrapper : Section[]
+}
+
+package "Section Renderers" {
+    component [MarkdownDefault\n(standard + KaTeX)] as md_default
+    component [MarkdownGalaxy\n(Galaxy directives)] as md_galaxy
+    component [MarkdownVega\n(Vega-Lite)] as md_vega
+    component [MarkdownVisualization\n(Galaxy viz)] as md_viz
+    component [MarkdownVitessce\n(spatial data)] as md_vitessce
+}
+
+package "Galaxy Elements (21+)" {
+    component [HistoryDatasetAsTable] as el_table
+    component [HistoryDatasetAsImage] as el_image
+    component [WorkflowImage] as el_workflow
+    component [JobMetrics] as el_metrics
+    component [ToolStdout] as el_stdout
+}
+
+package "Stores (Pinia)" as stores {
+    component [invocationStore] as store_inv
+    component [workflowStore] as store_wf
+}
+
+wrapper --> md_default
+wrapper --> md_galaxy
+wrapper --> md_vega
+wrapper --> md_viz
+wrapper --> md_vitessce
+
+md_galaxy --> el_table
+md_galaxy --> el_image
+md_galaxy --> el_workflow
+md_galaxy --> el_metrics
+md_galaxy --> el_stdout
+
+el_table --> store_inv
+el_workflow --> store_wf
+el_metrics --> store_inv
+
+note bottom of wrapper
+  Dispatches by
+  section type
+end note
+
+note bottom of stores
+  Caches data,
+  prevents redundant fetches
+end note
+
+@enduml

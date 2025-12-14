@@ -1,0 +1,53 @@
+@startuml
+!include plantuml_options.txt
+
+title Frontend Galaxy Directive Processing
+
+participant "MarkdownGalaxy.vue" as galaxy
+participant "Validation" as validate
+participant "Pinia Stores" as stores
+participant "API" as api
+participant "Element\nComponent" as element
+
+-> galaxy : directive block
+activate galaxy
+
+galaxy -> galaxy : parse directive\nname + args
+
+galaxy -> validate : check directive
+activate validate
+note right of validate
+  Mode-aware:
+  - Available in page/report?
+  - Valid object reference?
+end note
+validate --> galaxy : valid / error
+deactivate validate
+
+alt validation passed
+    galaxy -> stores : fetch data
+    activate stores
+
+    alt cache hit
+        stores --> galaxy : cached data
+    else cache miss
+        stores -> api : request
+        activate api
+        api --> stores : response
+        deactivate api
+        stores --> galaxy : fresh data
+    end
+    deactivate stores
+
+    galaxy -> element : render with data
+    activate element
+    element --> galaxy : rendered UI
+    deactivate element
+else validation failed
+    galaxy -> galaxy : show error alert
+end
+
+<-- galaxy : rendered output
+deactivate galaxy
+
+@enduml

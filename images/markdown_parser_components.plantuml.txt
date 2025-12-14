@@ -1,0 +1,38 @@
+@startuml
+!include plantuml_options.txt
+
+title Backend Parser Architecture
+
+package "galaxy.managers" {
+    component [markdown_parse.py] as parse
+    component [markdown_util.py] as util
+    component [pages.py] as pages
+    component [workflows.py] as workflows
+}
+
+package "External" {
+    component [gxformat2] as gxformat
+}
+
+note right of parse
+  **Pure Parsing**
+  - No Galaxy dependencies
+  - Syntax validation
+  - Directive recognition
+  - Reusable externally
+end note
+
+note right of util
+  **Galaxy Integration**
+  - ID resolution
+  - Object loading
+  - Handler pattern
+  - PDF/HTML export
+end note
+
+parse <-- util : validates syntax
+util <-- pages : renders pages
+util <-- workflows : renders reports
+parse <-- gxformat : reuses parser
+
+@enduml

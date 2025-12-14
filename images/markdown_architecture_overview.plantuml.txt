@@ -1,0 +1,66 @@
+@startuml
+!include plantuml_options.txt
+
+title Galaxy Markdown Architecture Overview
+
+participant "Context Sources" as sources
+participant "markdown_parse.py" as parse
+participant "markdown_util.py" as util
+box "Handlers" #FFEFD5
+    participant "ReadyForExport" as ready
+    participant "ToBasicMarkdown" as basic
+end box
+participant "Frontend" as frontend
+participant "Output" as output
+
+== Input Layer ==
+
+note over sources
+  Workflow Markdown
+  Tool Output Markdown
+  Page API (encoded)
+  History Markdown (future)
+end note
+
+sources -> parse : context-specific format
+
+== Validation Layer ==
+
+activate parse
+parse -> parse : syntax validation\n(no Galaxy deps)
+parse --> util : valid markdown
+deactivate parse
+
+== Resolution Layer ==
+
+activate util
+util -> util : decode IDs\nresolve references
+note right of util
+  output="results" → id=12345
+  step="bwa" → job_id=67890
+end note
+
+== Export Layer ==
+
+alt Frontend Rendering
+    util -> ready : lazy export
+    activate ready
+    ready --> frontend : metadata + directives
+    deactivate ready
+else PDF Export
+    util -> basic : eager export
+    activate basic
+    basic --> output : standard markdown\n→ HTML → PDF
+    deactivate basic
+end
+deactivate util
+
+== Render Layer ==
+
+activate frontend
+frontend -> frontend : Markdown.vue\nSectionWrapper\nMarkdownGalaxy
+frontend -> frontend : Element components\n+ Pinia stores
+frontend --> output : Interactive UI
+deactivate frontend
+
+@enduml

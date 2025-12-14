@@ -1,0 +1,44 @@
+@startuml
+!include plantuml_options.txt
+
+left to right direction
+
+title Store-Centric Data Flow
+
+package "Element Components" as elements {
+    component [HistoryDatasetAsTable] as el_table
+    component [WorkflowImage] as el_workflow
+    component [JobMetrics] as el_metrics
+    component [InvocationOutputs] as el_outputs
+}
+
+package "Pinia Stores" as stores {
+    component [invocationStore] as store_inv
+    component [workflowStore] as store_wf
+    component [datasetStore] as store_ds
+}
+
+package "API Endpoints" as api {
+    component [/api/invocations] as api_inv
+    component [/api/workflows] as api_wf
+    component [/api/datasets] as api_ds
+}
+
+el_table --> store_ds
+el_table --> store_inv
+el_workflow --> store_wf
+el_metrics --> store_inv
+el_outputs --> store_inv
+
+store_inv --> api_inv
+store_wf --> api_wf
+store_ds --> api_ds
+
+note bottom of stores
+  **Caching benefits:**
+  - Multiple elements share data
+  - Single fetch per resource
+  - Reactive updates
+end note
+
+@enduml

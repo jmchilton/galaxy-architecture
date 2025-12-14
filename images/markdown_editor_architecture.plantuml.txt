@@ -1,0 +1,58 @@
+@startuml
+!include plantuml_options.txt
+
+title Editor Architecture (Dual Mode)
+
+package "MarkdownEditor.vue" as editor {
+    component [Mode Switcher] as switcher
+}
+
+package "Text Mode" as text_mode {
+    component [TextEditor] as text_ed
+}
+
+package "Cell Mode (Jupyter-like)" as cell_mode {
+    component [CellEditor] as cell_ed
+    component [Markdown Cell] as md_cell
+    component [Galaxy Cell] as gal_cell
+}
+
+package "Shared Resources" {
+    component [directives.yml\n(metadata)] as directives
+    component [templates.yml\n(insertion)] as templates
+    component [Directive Palette] as palette
+}
+
+component [Live Preview] as preview
+
+switcher --> text_ed : raw mode
+switcher --> cell_ed : structured mode
+
+cell_ed --> md_cell : prose content
+cell_ed --> gal_cell : Galaxy directives
+
+palette --> directives : reads metadata
+palette --> templates : reads templates
+palette --> gal_cell : inserts directive
+
+text_ed --> preview
+cell_ed --> preview
+
+note bottom of text_ed
+  Full markdown control
+  Power users
+end note
+
+note bottom of cell_ed
+  Add/remove/reorder cells
+  Guided editing
+end note
+
+note right of palette
+  Mode-aware:
+  Shows available
+  directives for
+  page vs report
+end note
+
+@enduml
