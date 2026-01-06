@@ -1,0 +1,515 @@
+diff --git a/client/src/bundleEntries.js b/client/src/bundleEntries.js
+index d41038e5f21a..73fc7b57d2d9 100644
+--- a/client/src/bundleEntries.js
++++ b/client/src/bundleEntries.js
+@@ -96,7 +96,6 @@ export { mountWorkflowEditor } from "components/Workflow/Editor/mount";
+ export { mountPageEditor } from "components/PageEditor/mount";
+ export { mountPageDisplay } from "components/PageDisplay";
+ export { mountDestinationParams } from "components/JobDestinationParams";
+-export { mountInvocationReport } from "components/Workflow/mount";
+ 
+ // Used in common.mako
+ export { default as store } from "storemodern";
+diff --git a/client/src/components/Workflow/InvocationReport.vue b/client/src/components/Workflow/InvocationReport.vue
+index 0beb92cc0cca..2ac5160fe917 100644
+--- a/client/src/components/Workflow/InvocationReport.vue
++++ b/client/src/components/Workflow/InvocationReport.vue
+@@ -1,11 +1,5 @@
+ <template>
+-    <div id="columns">
+-        <div id="center">
+-            <div class="h-100 overflow-auto p-3">
+-                <markdown :markdown-config="markdownConfig" :read-only="true" />
+-            </div>
+-        </div>
+-    </div>
++    <markdown class="p-3" :markdown-config="markdownConfig" @onEdit="onEdit" />
+ </template>
+ 
+ <script>
+@@ -46,9 +40,12 @@ export default {
+             });
+     },
+     methods: {
++        onEdit() {
++            window.location = `${getAppRoot()}pages/create?invocation_id=${this.invocationId}`;
++        },
+         /** Markdown data request helper **/
+         async getMarkdown(id) {
+-            const url = getAppRoot() + `api/invocations/${id}/report`;
++            const url = `${getAppRoot()}api/invocations/${id}/report`;
+             try {
+                 const { data } = await axios.get(url);
+                 return data;
+diff --git a/client/src/components/Workflow/mount.js b/client/src/components/Workflow/mount.js
+deleted file mode 100644
+index e8b4d1bbf9d5..000000000000
+--- a/client/src/components/Workflow/mount.js
++++ /dev/null
+@@ -1,13 +0,0 @@
+-/**
+- * Endpoint for mounting WorkflowEditor from non-Vue environment (editor.mako).
+- */
+-import Vue from "vue";
+-import InvocationReport from "./InvocationReport";
+-
+-export const mountInvocationReport = (propsData) => {
+-    const component = Vue.extend(InvocationReport);
+-    return new component({
+-        propsData: propsData,
+-        el: "#columns",
+-    });
+-};
+diff --git a/client/src/components/WorkflowInvocationState/WorkflowInvocationState.vue b/client/src/components/WorkflowInvocationState/WorkflowInvocationState.vue
+index 12d2d3949e7c..75289ed061e2 100644
+--- a/client/src/components/WorkflowInvocationState/WorkflowInvocationState.vue
++++ b/client/src/components/WorkflowInvocationState/WorkflowInvocationState.vue
+@@ -125,7 +125,7 @@ export default {
+             return this.invocationSchedulingTerminal && this.jobStatesTerminal;
+         },
+         invocationLink: function () {
+-            return getUrl(`page/edit_report?id=${this.invocationId}`);
++            return getUrl(`workflows/invocations/report?id=${this.invocationId}`);
+         },
+         bcoJSON: function () {
+             return getUrl(`api/invocations/${this.invocationId}/biocompute/download`);
+diff --git a/client/src/entry/analysis/AnalysisRouter.js b/client/src/entry/analysis/AnalysisRouter.js
+index 857209a58f5c..9a11a5779fba 100644
+--- a/client/src/entry/analysis/AnalysisRouter.js
++++ b/client/src/entry/analysis/AnalysisRouter.js
+@@ -32,6 +32,7 @@ import InteractiveTools from "components/InteractiveTools/InteractiveTools.vue";
+ import WorkflowList from "components/Workflow/WorkflowList.vue";
+ import HistoryImport from "components/HistoryImport.vue";
+ import HistoryView from "components/HistoryView.vue";
++import WorkflowInvocationReport from "components/Workflow/InvocationReport.vue";
+ import WorkflowRun from "components/Workflow/Run/WorkflowRun.vue";
+ import RecentInvocations from "components/User/RecentInvocations.vue";
+ import ToolsView from "components/ToolsView/ToolsView.vue";
+@@ -75,6 +76,7 @@ export const getAnalysisRouter = (Galaxy) =>
+             "(/)workflows/run(/)": "show_workflows_run",
+             "(/)workflows(/)list": "show_workflows",
+             "(/)workflows/invocations": "show_workflow_invocations",
++            "(/)workflows/invocations/report": "show_workflow_invocation_report",
+             // "(/)workflows/invocations/view_bco": "show_invocation_bco",
+             "(/)workflows/list_published(/)": "show_workflows_published",
+             "(/)workflows/create(/)": "show_workflows_create",
+@@ -192,6 +194,11 @@ export const getAnalysisRouter = (Galaxy) =>
+             this._display_vue_helper(HistoryView, { id: QueryStringParsing.get("id") });
+         },
+ 
++        show_workflow_invocation_report: function () {
++            const invocationId = QueryStringParsing.get("id");
++            this._display_vue_helper(WorkflowInvocationReport, { invocationId: invocationId }, null, true);
++        },
++
+         show_workflow_invocations: function () {
+             this._display_vue_helper(RecentInvocations, {});
+         },
+@@ -266,9 +273,14 @@ export const getAnalysisRouter = (Galaxy) =>
+         },
+ 
+         show_pages_create: function () {
++            let url = "page/create";
++            const invocation_id = QueryStringParsing.get("invocation_id");
++            if (invocation_id) {
++                url += `?invocation_id=${invocation_id}`;
++            }
+             this.page.display(
+                 new FormWrapper.View({
+-                    url: "page/create",
++                    url: url,
+                     redirect: "pages/list",
+                     active_tab: "user",
+                 })
+diff --git a/lib/galaxy/managers/pages.py b/lib/galaxy/managers/pages.py
+index fb7302427c42..dd8fb30aba0a 100644
+--- a/lib/galaxy/managers/pages.py
++++ b/lib/galaxy/managers/pages.py
+@@ -18,6 +18,7 @@
+     ready_galaxy_markdown_for_export,
+     ready_galaxy_markdown_for_import,
+ )
++from galaxy.managers.workflows import WorkflowsManager
+ from galaxy.model.item_attrs import UsesAnnotations
+ from galaxy.util import unicodify
+ from galaxy.util.sanitize_html import sanitize_html
+@@ -72,6 +73,7 @@ def __init__(self, app, *args, **kwargs):
+         """
+         """
+         super().__init__(app, *args, **kwargs)
++        self.workflow_manager = WorkflowsManager(app)
+ 
+     def copy(self, trans, page, user, **kwargs):
+         """
+@@ -80,17 +82,23 @@ def copy(self, trans, page, user, **kwargs):
+     def create(self, trans, payload):
+         user = trans.get_user()
+ 
+-        if not payload.get("title", None):
++        if not payload.get("title"):
+             raise exceptions.ObjectAttributeMissingException("Page name is required")
+-        elif not payload.get("slug", None):
++        elif not payload.get("slug"):
+             raise exceptions.ObjectAttributeMissingException("Page id is required")
+         elif not base.is_valid_slug(payload["slug"]):
+             raise exceptions.ObjectAttributeInvalidException("Page identifier must consist of only lowercase letters, numbers, and the '-' character")
+         elif trans.sa_session.query(trans.app.model.Page).filter_by(user=user, slug=payload["slug"], deleted=False).first():
+             raise exceptions.DuplicatedSlugException("Page identifier must be unique")
+ 
+-        content = payload.get("content", "")
+-        content_format = payload.get("content_format", "html")
++        if payload.get("invocation_id"):
++            invocation_id = payload.get("invocation_id")
++            invocation_report = self.workflow_manager.get_invocation_report(trans, invocation_id)
++            content = invocation_report.get("markdown")
++            content_format = "markdown"
++        else:
++            content = payload.get("content", "")
++            content_format = payload.get("content_format", "html")
+         content = self.rewrite_content_for_import(trans, content, content_format)
+ 
+         # Create the new stored page
+diff --git a/lib/galaxy/managers/workflows.py b/lib/galaxy/managers/workflows.py
+index 2313e3ce5cc9..1c15d30d911e 100644
+--- a/lib/galaxy/managers/workflows.py
++++ b/lib/galaxy/managers/workflows.py
+@@ -39,6 +39,7 @@
+     ToolModule,
+     WorkflowModuleInjector
+ )
++from galaxy.workflow.reports import generate_report
+ from galaxy.workflow.resources import get_resource_mapper_function
+ from galaxy.workflow.steps import attach_ordered_steps
+ from .base import decode_id
+@@ -168,6 +169,22 @@ def get_invocation(self, trans, decoded_invocation_id):
+         self.check_security(trans, workflow_invocation, check_ownership=True, check_accessible=False)
+         return workflow_invocation
+ 
++    def get_invocation_report(self, trans, invocation_id, **kwd):
++        decoded_workflow_invocation_id = trans.security.decode_id(invocation_id)
++        workflow_invocation = self.get_invocation(trans, decoded_workflow_invocation_id)
++        generator_plugin_type = kwd.get("generator_plugin_type")
++        runtime_report_config_json = kwd.get("runtime_report_config_json")
++        invocation_markdown = kwd.get("invocation_markdown", None)
++        target_format = kwd.get("format", "json")
++        if invocation_markdown:
++            runtime_report_config_json = {"markdown": invocation_markdown}
++        return generate_report(
++            trans, workflow_invocation,
++            runtime_report_config_json=runtime_report_config_json,
++            plugin_type=generator_plugin_type,
++            target_format=target_format,
++        )
++
+     def cancel_invocation(self, trans, decoded_invocation_id):
+         workflow_invocation = self.get_invocation(trans, decoded_invocation_id)
+         cancelled = workflow_invocation.cancel()
+diff --git a/lib/galaxy/selenium/navigates_galaxy.py b/lib/galaxy/selenium/navigates_galaxy.py
+index bb751b79acce..e6322b8d1b63 100644
+--- a/lib/galaxy/selenium/navigates_galaxy.py
++++ b/lib/galaxy/selenium/navigates_galaxy.py
+@@ -1100,7 +1100,7 @@ def tool_parameter_edit_rules(self, expanded_parameter_id="rules"):
+     def tool_set_value(self, expanded_parameter_id, value, expected_type=None, test_data_resolver=None):
+         div_element = self.tool_parameter_div(expanded_parameter_id)
+         assert div_element
+-        if expected_type in ["data", "data_collection"]:
++        if expected_type in ["select", "data", "data_collection"]:
+             div_selector = "div.ui-form-element[tour_id$='%s']" % expanded_parameter_id
+             self.select2_set_value(div_selector, value)
+         else:
+diff --git a/lib/galaxy/webapps/galaxy/api/pages.py b/lib/galaxy/webapps/galaxy/api/pages.py
+index 79c9f6d360c2..8cf165886d3d 100644
+--- a/lib/galaxy/webapps/galaxy/api/pages.py
++++ b/lib/galaxy/webapps/galaxy/api/pages.py
+@@ -95,10 +95,6 @@ def create(self, trans, payload, **kwd):
+         self.manager.rewrite_content_for_export(trans, rval)
+         return rval
+ 
+-    @expose_api
+-    def create_report(self, trans, payload, **kwd):
+-        pass
+-
+     @expose_api
+     def delete(self, trans, id, **kwd):
+         """
+diff --git a/lib/galaxy/webapps/galaxy/api/workflows.py b/lib/galaxy/webapps/galaxy/api/workflows.py
+index 5f8a7e695bc1..40451932d3bd 100644
+--- a/lib/galaxy/webapps/galaxy/api/workflows.py
++++ b/lib/galaxy/webapps/galaxy/api/workflows.py
+@@ -44,7 +44,6 @@
+ )
+ from galaxy.workflow.extract import extract_workflow
+ from galaxy.workflow.modules import module_factory
+-from galaxy.workflow.reports import generate_report
+ from galaxy.workflow.run import invoke, queue_invoke
+ from galaxy.workflow.run_request import build_workflow_run_configs
+ 
+@@ -964,7 +963,7 @@ def show_invocation_report(self, trans, invocation_id, **kwd):
+         Get JSON summarizing invocation for reporting.
+         """
+         kwd["format"] = "json"
+-        return self._generate_report(trans, invocation_id, **kwd)
++        return self.workflow_manager.get_invocation_report(trans, invocation_id, **kwd)
+ 
+     @expose_api_raw
+     def show_invocation_report_pdf(self, trans, invocation_id, **kwd):
+@@ -976,23 +975,7 @@ def show_invocation_report_pdf(self, trans, invocation_id, **kwd):
+         """
+         kwd["format"] = "pdf"
+         trans.response.set_content_type("application/pdf")
+-        return self._generate_report(trans, invocation_id, **kwd)
+-
+-    def _generate_report(self, trans, invocation_id, **kwd):
+-        decoded_workflow_invocation_id = self.decode_id(invocation_id)
+-        workflow_invocation = self.workflow_manager.get_invocation(trans, decoded_workflow_invocation_id)
+-        generator_plugin_type = kwd.get("generator_plugin_type")
+-        runtime_report_config_json = kwd.get("runtime_report_config_json")
+-        invocation_markdown = kwd.get("invocation_markdown", None)
+-        target_format = kwd.get("format", "json")
+-        if invocation_markdown:
+-            runtime_report_config_json = {"markdown": invocation_markdown}
+-        return generate_report(
+-            trans, workflow_invocation,
+-            runtime_report_config_json=runtime_report_config_json,
+-            plugin_type=generator_plugin_type,
+-            target_format=target_format,
+-        )
++        return self.workflow_manager.get_invocation_report(trans, invocation_id, **kwd)
+ 
+     def _generate_invocation_bco(self, trans, invocation_id, **kwd):
+         decoded_workflow_invocation_id = self.decode_id(invocation_id)
+diff --git a/lib/galaxy/webapps/galaxy/buildapp.py b/lib/galaxy/webapps/galaxy/buildapp.py
+index b237fe1f028d..7702674ed2ef 100644
+--- a/lib/galaxy/webapps/galaxy/buildapp.py
++++ b/lib/galaxy/webapps/galaxy/buildapp.py
+@@ -161,6 +161,7 @@ def app_factory(global_conf, load_app_kwds={}, **kwargs):
+     webapp.add_client_route('/workflows/trs_import')
+     webapp.add_client_route('/workflows/trs_search')
+     webapp.add_client_route('/workflows/invocations')
++    webapp.add_client_route('/workflows/invocations/report')
+     # webapp.add_client_route('/workflows/invocations/view_bco')
+     webapp.add_client_route('/custom_builds')
+     webapp.add_client_route('/interactivetool_entry_points/list')
+diff --git a/lib/galaxy/webapps/galaxy/controllers/page.py b/lib/galaxy/webapps/galaxy/controllers/page.py
+index 339047f4a629..18072400f30a 100644
+--- a/lib/galaxy/webapps/galaxy/controllers/page.py
++++ b/lib/galaxy/webapps/galaxy/controllers/page.py
+@@ -23,6 +23,7 @@
+     PageContentProcessor,
+     PageManager,
+ )
++from galaxy.managers.workflows import WorkflowsManager
+ from galaxy.model.item_attrs import UsesItemRatings
+ from galaxy.util import unicodify
+ from galaxy.util.sanitize_html import sanitize_html
+@@ -275,6 +276,7 @@ def __init__(self, app):
+         self.history_manager = HistoryManager(app)
+         self.history_serializer = HistorySerializer(self.app)
+         self.hda_manager = HDAManager(app)
++        self.workflow_manager = WorkflowsManager(app)
+ 
+     @web.expose
+     @web.json
+@@ -324,15 +326,32 @@ def create(self, trans, payload=None, **kwd):
+         Create a new page.
+         """
+         if trans.request.method == 'GET':
++            form_title = "Create new Page"
++            title = ""
++            slug = ""
++            content = ""
++            content_format_hide = False
++            content_hide = True
++            if "invocation_id" in kwd:
++                invocation_id = kwd.get("invocation_id")
++                form_title = form_title + " from Invocation Report"
++                slug = "invocation-report-" + invocation_id
++                invocation_report = self.workflow_manager.get_invocation_report(trans, invocation_id)
++                title = invocation_report.get("title")
++                content = invocation_report.get("markdown")
++                content_format_hide = True
++                content_hide = False
+             return {
+-                'title'  : 'Create a new page',
++                'title'  : form_title,
+                 'inputs' : [{
+                     'name'      : 'title',
+-                    'label'     : 'Name'
++                    'label'     : 'Name',
++                    'value'     : title,
+                 }, {
+                     'name'      : 'slug',
+                     'label'     : 'Identifier',
+-                    'help'      : 'A unique identifier that will be used for public links to this page. This field can only contain lowercase letters, numbers, and dashes (-).'
++                    'help'      : 'A unique identifier that will be used for public links to this page. This field can only contain lowercase letters, numbers, and dashes (-).',
++                    'value'     : slug,
+                 }, {
+                     'name'      : 'annotation',
+                     'label'     : 'Annotation',
+@@ -341,8 +360,15 @@ def create(self, trans, payload=None, **kwd):
+                     'name'      : 'content_format',
+                     'label'     : 'Content Format',
+                     'type'      : 'select',
+-                    'options'   : [('HTML', 'html'), ('Markdown', 'markdown')],
++                    'hidden'    : content_format_hide,
++                    'options'   : [('Markdown', 'markdown'), ('HTML', 'html')],
+                     'help'      : 'Use the traditional rich HTML editor or the newer experimental Markdown editor to create the page content. The HTML editor has several known bugs, is unmaintained and pages created with it will be read-only in future releases of Galaxy.'
++                }, {
++                    'name'      : 'content',
++                    'label'     : 'Content',
++                    'area'      : True,
++                    'value'     : content,
++                    'hidden'    : content_hide,
+                 }]
+             }
+         else:
+@@ -415,14 +441,6 @@ def edit_content(self, trans, id):
+         """
+         return trans.fill_template("page/editor.mako", id=id)
+ 
+-    @web.expose
+-    @web.require_login("edit workflow invocation report")
+-    def edit_report(self, trans, id):
+-        """
+-        Render the report page interface.
+-        """
+-        return trans.fill_template("page/report.mako", id=id)
+-
+     @web.expose
+     @web.require_login("use Galaxy pages")
+     def share(self, trans, id, email="", use_panels=False):
+diff --git a/lib/galaxy_test/api/test_pages.py b/lib/galaxy_test/api/test_pages.py
+index 4de64b2750d3..b918511db565 100644
+--- a/lib/galaxy_test/api/test_pages.py
++++ b/lib/galaxy_test/api/test_pages.py
+@@ -1,7 +1,7 @@
+ from requests import delete
+ 
+ from galaxy.exceptions import error_codes
+-from galaxy_test.base.populators import DatasetPopulator
++from galaxy_test.base.populators import DatasetPopulator, skip_without_tool, WorkflowPopulator
+ from ._framework import ApiTestCase
+ 
+ 
+@@ -43,6 +43,57 @@ def test_create(self):
+         response_json = self._create_valid_page_with_slug("mypage")
+         self._assert_has_keys(response_json, "slug", "title", "id")
+ 
++    @skip_without_tool("cat")
++    def test_create_from_report(self):
++        dataset_populator = DatasetPopulator(self.galaxy_interactor)
++        workflow_populator = WorkflowPopulator(self.galaxy_interactor)
++        test_data = """
++input_1:
++  value: 1.bed
++  type: File
++"""
++        with dataset_populator.test_history() as history_id:
++            summary = workflow_populator.run_workflow("""
++class: GalaxyWorkflow
++inputs:
++  input_1: data
++outputs:
++  output_1:
++    outputSource: first_cat/out_file1
++steps:
++  first_cat:
++    tool_id: cat
++    in:
++      input1: input_1
++""", test_data=test_data, history_id=history_id)
++
++            workflow_id = summary.workflow_id
++            invocation_id = summary.invocation_id
++            report_json = workflow_populator.workflow_report_json(workflow_id, invocation_id)
++            assert "markdown" in report_json
++            self._assert_has_keys(report_json , "markdown", "render_format")
++            assert report_json["render_format"] == "markdown"
++            markdown_content = report_json["markdown"]
++            page_request = dict(
++                slug="invocation-report",
++                title="Invocation Report",
++                invocation_id=invocation_id,
++            )
++            page_response = self._post("pages", page_request)
++            self._assert_status_code_is(page_response, 200)
++            page_response = page_response.json()
++            show_response = self._get("pages/%s" % page_response['id'])
++            self._assert_status_code_is(show_response, 200)
++            show_json = show_response.json()
++            self._assert_has_keys(show_json, "slug", "title", "id")
++            self.assertEqual(show_json["slug"], "invocation-report")
++            self.assertEqual(show_json["title"], "Invocation Report")
++            self.assertEqual(show_json["content_format"], "markdown")
++            markdown_content = show_json["content"]
++            assert "## Workflow Outputs" in markdown_content
++            assert "## Workflow Inputs" in markdown_content
++            assert "## About This Report" not in markdown_content
++
+     def test_index(self):
+         create_response_json = self._create_valid_page_with_slug("indexpage")
+         assert self._users_index_has_page_with_id(create_response_json["id"])
+diff --git a/lib/galaxy_test/selenium/test_pages.py b/lib/galaxy_test/selenium/test_pages.py
+index 922ed4ce3517..261171a19de5 100644
+--- a/lib/galaxy_test/selenium/test_pages.py
++++ b/lib/galaxy_test/selenium/test_pages.py
+@@ -24,6 +24,7 @@ def test_simple_page_creation_edit_and_view(self):
+         slug = self._get_random_name(prefix="pageslug")
+         self.tool_set_value("title", name)
+         self.tool_set_value("slug", slug)
++        self.tool_set_value("content_format", "HTML", expected_type="select")
+         self.screenshot("pages_create_form")
+ 
+         # Sometimes 'submit' button not yet hooked up?
+diff --git a/lib/galaxy_test/selenium/test_workflow_run.py b/lib/galaxy_test/selenium/test_workflow_run.py
+index 103074e4b14e..cb4b22d8cec0 100644
+--- a/lib/galaxy_test/selenium/test_workflow_run.py
++++ b/lib/galaxy_test/selenium/test_workflow_run.py
+@@ -195,7 +195,7 @@ def test_execution_with_custom_invocation_report(self):
+         self.workflow_populator.wait_for_history_workflows(history_id, expected_invocation_count=1)
+ 
+         invocation_0 = self.workflow_populator.history_invocations(history_id)[0]
+-        self.get("page/edit_report?id=%s" % invocation_0["id"])
++        self.get("workflows/invocations/report?id=%s" % invocation_0["id"])
+         self.wait_for_selector_visible(".embedded-dataset")
+         self.screenshot("workflow_report_custom_1")
+ 
+diff --git a/templates/webapps/galaxy/page/report.mako b/templates/webapps/galaxy/page/report.mako
+deleted file mode 100644
+index 294abbc7e483..000000000000
+--- a/templates/webapps/galaxy/page/report.mako
++++ /dev/null
+@@ -1,33 +0,0 @@
+-<%inherit file="/webapps/galaxy/base_panels.mako"/>
+-
+-<%def name="title()">
+-    Invocation Reports
+-</%def>
+-
+-<%def name="init()">
+-<%
+-    self.active_view="user"
+-%>
+-</%def>
+-
+-<%def name="javascript_app()">
+-    ${parent.javascript_app()}
+-    <script type="text/javascript">
+-        config.addInitialization(function(){
+-            console.log("editor.mako, javascript_app", "define variables needed by galaxy.pages script");
+-            window.bundleEntries.mountInvocationReport({
+-                invocationId: "${id}",
+-            });
+-        });
+-    </script>
+-</%def>
+-
+-<%def name="left_panel()">
+-</%def>
+-
+-<%def name="center_panel()">
+-</%def>
+-
+-<%def name="right_panel()">
+-</%def>
+-

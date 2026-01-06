@@ -1,0 +1,76 @@
+@startuml
+!include plantuml_options.txt
+
+title User Instance Creation Sequence (Accurate)
+
+participant "User" as user
+participant "File Sources API" as api
+participant "InstancesManager" as manager
+participant "TemplateCatalog" as catalog
+participant "Jinja2" as jinja
+participant "Plugin" as plugin
+database "user_file_source" as db
+participant "Vault" as vault
+
+== Pre-flight Validation ==
+
+user -> api : POST /file_source_instances/test
+activate api
+
+api -> manager : plugin_status(payload)
+activate manager
+
+manager -> catalog : get_template(id, version)
+activate catalog
+catalog --> manager : template
+deactivate catalog
+
+manager -> jinja : expand(template, variables, secrets)
+activate jinja
+jinja --> manager : resolved config
+deactivate jinja
+
+manager -> plugin : test connection (list root)
+activate plugin
+plugin --> manager : OK
+deactivate plugin
+
+manager --> api : status: OK
+deactivate manager
+
+api --> user : 200 OK
+deactivate api
+
+== Instance Creation ==
+
+user -> api : POST /file_source_instances
+activate api
+
+api -> manager : create_instance(payload)
+activate manager
+
+manager -> catalog : get_template(id, version)
+catalog --> manager : template
+
+manager -> db : persist instance
+activate db
+db --> manager : OK
+deactivate db
+
+manager -> vault : store secrets
+activate vault
+vault --> manager : OK
+deactivate vault
+
+manager -> db : update (record secret names)
+activate db
+db --> manager : OK
+deactivate db
+
+manager --> api : instance UUID
+deactivate manager
+
+api --> user : 201 Created
+deactivate api
+
+@enduml

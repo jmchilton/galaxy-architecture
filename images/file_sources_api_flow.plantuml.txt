@@ -1,0 +1,49 @@
+@startuml
+!include plantuml_options.txt
+
+title Remote Files API Request Flow
+
+participant "Client" as client
+participant "RemoteFilesController" as controller
+participant "RemoteFilesManager" as manager
+participant "ConfiguredFileSources" as configured
+participant "FilesSource Plugin" as plugin
+
+== Browse Directory ==
+
+client -> controller : GET /api/remote_files\n?target=my_s3&path=/data
+activate controller
+
+controller -> manager : index(target, path, opts)
+activate manager
+
+manager -> configured : get_file_source(target)
+activate configured
+configured --> manager : FilesSource
+deactivate configured
+
+manager -> plugin : list(path, user_context)
+activate plugin
+plugin --> manager : entries[]
+deactivate plugin
+
+manager --> controller : RemoteEntry[]
+deactivate manager
+
+controller --> client : JSON response
+deactivate controller
+
+== List Plugins ==
+
+client -> controller : GET /api/remote_files/plugins
+activate controller
+
+controller -> configured : get_file_source_plugins()
+activate configured
+configured --> controller : plugin metadata[]
+deactivate configured
+
+controller --> client : JSON response
+deactivate controller
+
+@enduml

@@ -208,10 +208,10 @@ End with where things are going.
 | Class | When to Use |
 |-------|-------------|
 | `center` | Diagram-only slides |
-| `reduce70` | Long code blocks (8+ lines) |
-| `reduce90` | Medium code blocks (5-8 lines) |
-| `enlarge120` | Important points, less text |
-| `enlarge150` | Key concepts, 3-4 bullets max |
+| `reduce70` | Very long code blocks (10+ lines) or wide code |
+| `reduce90` | Medium-long code blocks (5-10 lines) |
+| `enlarge120` | 4-5 bullets, or tables with 5+ rows |
+| `enlarge150` | 3-4 bullets, small tables (3-4 rows) |
 | `enlarge200` | Critical takeaways, 2-3 bullets |
 
 ## Extended Explanations

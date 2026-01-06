@@ -1,0 +1,1304 @@
+diff --git a/lib/galaxy/files/sources/__init__.py b/lib/galaxy/files/sources/__init__.py
+index b72e1dc5161c..42fc8cad1589 100644
+--- a/lib/galaxy/files/sources/__init__.py
++++ b/lib/galaxy/files/sources/__init__.py
+@@ -244,7 +244,7 @@ def file_source_type_is_browsable(target_type: type["BaseFilesSource"]) -> bool:
+ class BaseFilesSource(FilesSource, Generic[TTemplateConfig, TResolvedConfig]):
+     """A base class for file sources that can resolve a template configuration to a specific configuration.
+ 
+-    Implementations of this class should define 2 configuration models and assing them to the
++    Implementations of this class should define 2 configuration models and assign them to the
+     `template_config_class` and `resolved_config_class` class variables.
+ 
+     The `template_config_class` should be a subclass of `BaseFileSourceTemplateConfiguration` and
+diff --git a/lib/galaxy/files/sources/_fsspec.py b/lib/galaxy/files/sources/_fsspec.py
+new file mode 100644
+index 000000000000..13d0ff0a9ad1
+--- /dev/null
++++ b/lib/galaxy/files/sources/_fsspec.py
+@@ -0,0 +1,282 @@
++import abc
++import functools
++import logging
++import os
++from typing import (
++    Annotated,
++    Any,
++    ClassVar,
++    Optional,
++    TypeVar,
++)
++
++from fsspec import AbstractFileSystem
++from pydantic import Field
++from typing_extensions import cast
++
++from galaxy.exceptions import (
++    AuthenticationRequired,
++    MessageException,
++)
++from galaxy.files.models import (
++    AnyRemoteEntry,
++    BaseFileSourceConfiguration,
++    BaseFileSourceTemplateConfiguration,
++    FilesSourceRuntimeContext,
++    RemoteDirectory,
++    RemoteFile,
++    StrictModel,
++)
++from galaxy.files.sources import BaseFilesSource
++
++log = logging.getLogger(__name__)
++
++PACKAGE_MESSAGE = "FilesSource plugin is missing required Python fsspec plugin package [%s]"
++
++
++# Maximum number of items to return in a single listing.
++# This is a safeguard to prevent excessive memory usage and performance issues
++# since is a huge number of items is not practical for browsing in most use cases.
++MAX_ITEMS_LIMIT = 1000
++
++
++class FsspecCommonCacheOptions(StrictModel):
++    """Common cache options for fsspec-based file sources.
++
++    These options are not user-configurable so they don't need TemplateExpansion.
++    """
++
++    use_listings_cache: Annotated[
++        bool,
++        Field(
++            description="If False, the cache never returns items, but always reports KeyError, and setting items has no effect.",
++        ),
++    ] = True
++
++    listings_expiry_time: Annotated[
++        Optional[int],
++        Field(description="Time in seconds that a listing is considered valid. If None, listings do not expire."),
++    ] = None
++
++    max_paths: Annotated[
++        Optional[int],
++        Field(
++            description="The number of most recent listings that are considered valid; 'recent' refers to when the entry was set.",
++        ),
++    ] = None
++
++
++CacheOptionsDictType = dict[str, Any]
++
++
++class FsspecBaseFileSourceTemplateConfiguration(BaseFileSourceTemplateConfiguration, FsspecCommonCacheOptions):
++    """Base template configuration for fsspec-based file sources.
++
++    Fsspec-based file sources template configurations should inherit from this class to define their template configurations.
++    """
++
++
++class FsspecBaseFileSourceConfiguration(BaseFileSourceConfiguration, FsspecCommonCacheOptions):
++    """Base resolved configuration for fsspec-based file sources.
++
++    Fsspec-based file sources configurations should inherit from this class to define their resolved configurations.
++    """
++
++
++FsspecTemplateConfigType = TypeVar("FsspecTemplateConfigType", bound=FsspecBaseFileSourceTemplateConfiguration)
++FsspecResolvedConfigurationType = TypeVar("FsspecResolvedConfigurationType", bound=FsspecBaseFileSourceConfiguration)
++
++
++class FsspecFilesSource(BaseFilesSource[FsspecTemplateConfigType, FsspecResolvedConfigurationType]):
++    required_module: ClassVar[Optional[type[AbstractFileSystem]]]
++    required_package: ClassVar[str]
++    supports_pagination = True
++    supports_search = True
++    supports_sorting = False
++
++    def __init__(self, template_config: FsspecTemplateConfigType):
++        self.ensure_required_dependency()
++        super().__init__(template_config)
++        self._initialize_listings_expiry()
++
++    @property
++    def required_package_exception(self) -> Exception:
++        return Exception(PACKAGE_MESSAGE % self.required_package)
++
++    def ensure_required_dependency(self):
++        if self.required_module is None:
++            raise self.required_package_exception
++
++    def _initialize_listings_expiry(self):
++        """Fallback to general config listings expiry time if not explicitly set in the template config."""
++        self.template_config.listings_expiry_time = (
++            self.template_config.listings_expiry_time or self.template_config.file_sources_config.listings_expiry_time
++        )
++
++    @abc.abstractmethod
++    def _open_fs(
++        self,
++        context: FilesSourceRuntimeContext[FsspecResolvedConfigurationType],
++        cache_options: CacheOptionsDictType,
++    ) -> AbstractFileSystem:
++        """Subclasses must instantiate an fsspec AbstractFileSystem handle for this file system."""
++
++    def _list(
++        self,
++        context: FilesSourceRuntimeContext[FsspecResolvedConfigurationType],
++        path="/",
++        recursive=False,
++        write_intent: bool = False,
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> tuple[list[AnyRemoteEntry], int]:
++        """Return the list of 'Directory's and 'File's under the given path.
++
++        If `recursive` is True, it will recursively list all files and directories under the given path with a maximum limit of `MAX_ITEMS_PER_LISTING`.
++        If `query` is provided, it will filter the results based on the query using glob patterns.
++        Pagination is supported with `limit` and `offset` but please note it is not applied until after the full listing is retrieved from the filesystem.
++        """
++        try:
++            cache_options = self._get_cache_options(context.config)
++            fs = self._open_fs(context, cache_options)
++
++            if recursive:
++                return self._list_recursive(fs, path)
++
++            if query:
++                entries_list = self._list_with_query(fs, path, query)
++            else:
++                entries_list = self._list_directory(fs, path)
++
++            total_count = len(entries_list)
++
++            # We apply pagination after getting all entries.
++            # This is not ideal but necessary due to how fsspec handles listings.
++            # At least we reduce the traffic to the client produced by a large listing ¯\_(ツ)_/¯
++            paginated_entries = self._apply_pagination(entries_list, limit, offset)
++
++            return paginated_entries, total_count
++
++        except PermissionError as e:
++            raise AuthenticationRequired(
++                f"Permission Denied. Reason: {e}. Please check your credentials in your preferences for {self.label}."
++            )
++        except Exception as e:
++            raise MessageException(f"Problem listing file source path {path}. Reason: {e}") from e
++
++    def _build_glob_pattern(self, path: str, query: str) -> str:
++        """Build a glob pattern for server-side filtering."""
++        # Escape special glob characters in the query except * and ?
++        escaped_query = query.replace("[", r"\[").replace("]", r"\]").replace("{", r"\{").replace("}", r"\}")
++        path_prefix = path.rstrip("/") if path != "/" else ""
++        return f"{path_prefix}/*{escaped_query}*"
++
++    def _realize_to(
++        self,
++        source_path: str,
++        native_path: str,
++        context: FilesSourceRuntimeContext[FsspecResolvedConfigurationType],
++    ):
++        """Download a file from the fsspec filesystem to a local path."""
++        cache_options = self._get_cache_options(context.config)
++        fs = self._open_fs(context, cache_options)
++        fs.get_file(source_path, native_path)
++
++    def _write_from(
++        self,
++        target_path: str,
++        native_path: str,
++        context: FilesSourceRuntimeContext[FsspecResolvedConfigurationType],
++    ):
++        """Upload a file from a local path to the fsspec filesystem."""
++        cache_options = self._get_cache_options(context.config)
++        fs = self._open_fs(context, cache_options)
++        fs.put_file(native_path, target_path)
++
++    def _file_info_to_entry(self, dir_path: str, info: dict) -> AnyRemoteEntry:
++        """Convert fsspec file info to Galaxy's remote entry format."""
++        name = os.path.basename(info["name"])
++        path = os.path.join(dir_path, name)
++        uri = self.uri_from_path(dir_path)
++
++        if info.get("type") == "directory":
++            return RemoteDirectory(name=name, uri=uri, path=dir_path)
++        else:
++            size = int(info.get("size", 0))
++            # Handle timestamp fields more robustly - check for None explicitly
++            mtime = info.get("mtime")
++            if mtime is None:
++                mtime = info.get("modified")
++            if mtime is None:
++                mtime = info.get("LastModified")
++
++            ctime_result = self.to_dict_time(mtime) if mtime is not None else ""
++            ctime = ctime_result if ctime_result is not None else ""
++            return RemoteFile(name=name, size=size, ctime=ctime, uri=uri, path=path)
++
++    def _list_recursive(self, fs: AbstractFileSystem, path: str) -> tuple[list[AnyRemoteEntry], int]:
++        """Handle recursive directory listing with item limit."""
++        # TODO: this is potentially inefficient for large directories.
++        # We should consider dropping this option.
++        # Limiting the number of items returned for now.
++        res: list[AnyRemoteEntry] = []
++        count = 0
++        for p, dirs, files in fs.walk(path, detail=True):
++            # We are using detail=True to get file info as dicts,
++            # so we can safely cast the result.
++            dirs = cast(dict[str, dict], dirs)
++            files = cast(dict[str, dict], files)
++            to_entry = functools.partial(self._file_info_to_entry, str(p))
++            res.extend(map(to_entry, dirs.values()))
++            res.extend(map(to_entry, files.values()))
++            count += len(dirs) + len(files)
++            if count >= MAX_ITEMS_LIMIT:
++                self._on_listing_exceeded()
++                break
++        return res, len(res)
++
++    def _on_listing_exceeded(self):
++        log.warning(
++            "Listing for file source %s with root %s exceeded maximum items (%d).",
++            self.label,
++            self.get_uri_root(),
++            MAX_ITEMS_LIMIT,
++        )
++
++    def _list_with_query(self, fs: AbstractFileSystem, path: str, query: str) -> list[AnyRemoteEntry]:
++        """Handle directory listing with query filtering using glob patterns."""
++        entries_list = []
++        glob_pattern = self._build_glob_pattern(path, query)
++        # Using detail=True returns a dict with file paths as keys and their info as
++        # values so we can safely cast the result.
++        matched_paths = cast(dict[str, dict], fs.glob(glob_pattern, detail=True))
++        for file_path, info in matched_paths.items():
++            entries_list.append(self._file_info_to_entry(str(file_path), info))
++        return entries_list
++
++    def _list_directory(self, fs: AbstractFileSystem, path: str) -> list[AnyRemoteEntry]:
++        """Handle standard directory listing without query filtering."""
++        entries_list = []
++        entries: list[dict] = fs.ls(path, detail=True)
++        for entry in entries:
++            entry_path = entry.get("name", entry.get("path", ""))
++            if entry_path:  # Only process entries with valid paths
++                entries_list.append(self._file_info_to_entry(entry_path, entry))
++        return entries_list
++
++    def _apply_pagination(
++        self, entries_list: list[AnyRemoteEntry], limit: Optional[int], offset: Optional[int]
++    ) -> list[AnyRemoteEntry]:
++        """Apply pagination to the entries list."""
++        if offset is not None and limit is not None:
++            return entries_list[offset : offset + limit]
++        elif limit is not None:
++            return entries_list[:limit]
++        return entries_list
++
++    def _get_cache_options(self, config: FsspecResolvedConfigurationType) -> dict[str, Any]:
++        return config.model_dump(
++            include=set(FsspecCommonCacheOptions.model_fields.keys()),
++        )
+diff --git a/lib/galaxy/files/sources/memory.py b/lib/galaxy/files/sources/memory.py
+new file mode 100644
+index 000000000000..beb3f810682c
+--- /dev/null
++++ b/lib/galaxy/files/sources/memory.py
+@@ -0,0 +1,53 @@
++"""In-memory filesystem implementation for Galaxy files sources."""
++
++import logging
++
++from fsspec import AbstractFileSystem
++from fsspec.implementations.memory import MemoryFileSystem
++
++from galaxy.files.models import FilesSourceRuntimeContext
++from galaxy.files.sources._fsspec import (
++    CacheOptionsDictType,
++    FsspecBaseFileSourceConfiguration,
++    FsspecBaseFileSourceTemplateConfiguration,
++    FsspecFilesSource,
++)
++
++log = logging.getLogger(__name__)
++
++
++class MemoryFilesSource(
++    FsspecFilesSource[FsspecBaseFileSourceTemplateConfiguration, FsspecBaseFileSourceConfiguration]
++):
++    """A FilesSource plugin for in-memory filesystem operations.
++
++    This implementation uses fsspec's MemoryFileSystem to provide
++    a transient, in-memory file storage backend. This is primarily
++    useful for testing, do not use in production environments.
++
++    Note: All data stored in this filesystem is volatile and will
++    be lost when the instance is destroyed. Due to MemoryFileSystem's
++    implementation, all instances share the same memory store,
++    so operations on one instance will affect all others.
++    """
++
++    plugin_type = "memory"
++    required_module = MemoryFileSystem
++    required_package = "fsspec"
++
++    template_config_class = FsspecBaseFileSourceTemplateConfiguration
++    resolved_config_class = FsspecBaseFileSourceConfiguration
++
++    def _open_fs(
++        self,
++        context: FilesSourceRuntimeContext[FsspecBaseFileSourceConfiguration],
++        cache_options: CacheOptionsDictType,
++    ) -> AbstractFileSystem:
++        fs = MemoryFileSystem(**cache_options)
++        return fs
++
++    def get_scheme(self) -> str:
++        return "memory"
++
++
++__all__ = ("MemoryFilesSource",)
+diff --git a/lib/galaxy/files/sources/temp.py b/lib/galaxy/files/sources/temp.py
+index ca7d6693a445..88f8b70c5988 100644
+--- a/lib/galaxy/files/sources/temp.py
++++ b/lib/galaxy/files/sources/temp.py
+@@ -1,44 +1,139 @@
+-from typing import Union
++import os
++from typing import (
++    Annotated,
++    Optional,
++    Union,
++)
+ 
+-from fs.osfs import OSFS
++from fsspec.implementations.local import LocalFileSystem
++from pydantic import Field
+ 
+ from galaxy.files.models import (
+-    BaseFileSourceConfiguration,
+-    BaseFileSourceTemplateConfiguration,
++    AnyRemoteEntry,
+     FilesSourceRuntimeContext,
++    StrictModel,
+ )
+ from galaxy.util.config_templates import TemplateExpansion
+-from ._pyfilesystem2 import PyFilesystem2FilesSource
++from ._fsspec import (
++    CacheOptionsDictType,
++    FsspecBaseFileSourceConfiguration,
++    FsspecBaseFileSourceTemplateConfiguration,
++    FsspecFilesSource,
++)
++
+ 
++class TempFileSourceCommonProperties(StrictModel):
++    auto_mkdir: Annotated[
++        bool, Field(description="Whether to automatically create directories when writing files.")
++    ] = True
+ 
+-class TempFileSourceTemplateConfiguration(BaseFileSourceTemplateConfiguration):
++
++class TempFileSourceTemplateConfiguration(FsspecBaseFileSourceTemplateConfiguration, TempFileSourceCommonProperties):
+     root_path: Union[str, TemplateExpansion]
+ 
+ 
+-class TempFileSourceConfiguration(BaseFileSourceConfiguration):
++class TempFileSourceConfiguration(FsspecBaseFileSourceConfiguration, TempFileSourceCommonProperties):
+     root_path: str
+ 
+ 
+-class TempFilesSource(PyFilesystem2FilesSource[TempFileSourceTemplateConfiguration, TempFileSourceConfiguration]):
++class TempFilesSource(FsspecFilesSource[TempFileSourceTemplateConfiguration, TempFileSourceConfiguration]):
+     """A FilesSource plugin for temporary file systems.
+ 
+-    Used for testing and other temporary file system needs.
++    Since fsspec does not have temporary file system implementation, this plugin
++    uses a local file system with a specified root path (ideally a temporary directory)
++    to simulate a temporary file system. Files created in this source are not
++    guaranteed to be deleted automatically, so users should manage cleanup as needed.
+ 
+-    Note: This plugin is not intended for production use.
++    **Note: This plugin is not intended for production use. It is primarily for testing and development purposes.**
+     """
+ 
+     plugin_type = "temp"
+-    required_module = OSFS
+-    required_package = "fs.osfs"
++    required_module = LocalFileSystem
++    required_package = "fsspec"
+ 
+     template_config_class = TempFileSourceTemplateConfiguration
+     resolved_config_class = TempFileSourceConfiguration
+ 
+-    def _open_fs(self, context: FilesSourceRuntimeContext[TempFileSourceConfiguration]):
+-        if OSFS is None:
+-            raise self.required_package_exception
+-
+-        return OSFS(root_path=context.config.root_path)
++    def __init__(self, template_config: TempFileSourceTemplateConfiguration):
++        super().__init__(template_config)
++        self._root_path = self.template_config.root_path
++
++    def _open_fs(
++        self,
++        context: FilesSourceRuntimeContext[TempFileSourceConfiguration],
++        cache_options: CacheOptionsDictType,
++    ):
++        self._root_path = context.config.root_path
++        return LocalFileSystem(
++            auto_mkdir=context.config.auto_mkdir,
++            **cache_options,
++        )
++
++    def _to_temp_path(self, path: str) -> str:
++        """Convert a virtual temp path to an actual filesystem path.
++
++        i.e. /a/b/c -> /{root_path}/a/b/c
++        """
++        relative_path = path.lstrip(os.sep)
++        if not relative_path:
++            return self._root_path
++        return os.path.join(self._root_path, relative_path)
++
++    def _from_temp_path(self, native_path: str) -> str:
++        """Convert an actual filesystem path back to virtual temp path.
++
++        i.e. /{root_path}/a/b/c -> /a/b/c
++        """
++        native_path = native_path.replace(self._root_path, os.sep, 1)
++        return native_path
++
++    def _list(
++        self,
++        context: FilesSourceRuntimeContext[TempFileSourceConfiguration],
++        path="/",
++        recursive=False,
++        write_intent: bool = False,
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> tuple[list[AnyRemoteEntry], int]:
++        native_path = self._to_temp_path(path)
++        entries, total = super()._list(
++            context=context,
++            path=native_path,
++            recursive=recursive,
++            write_intent=write_intent,
++            limit=limit,
++            offset=offset,
++            query=query,
++            sort_by=sort_by,
++        )
++
++        # Transform the paths in the results back to virtual paths
++        for entry in entries:
++            entry.path = self._from_temp_path(entry.path)
++            entry.uri = self._from_temp_path(entry.uri)
++
++        return entries, total
++
++    def _realize_to(
++        self,
++        source_path: str,
++        native_path: str,
++        context: FilesSourceRuntimeContext[TempFileSourceConfiguration],
++    ):
++        temp_path = self._to_temp_path(source_path)
++        return super()._realize_to(temp_path, native_path, context)
++
++    def _write_from(
++        self,
++        target_path: str,
++        native_path: str,
++        context: FilesSourceRuntimeContext[TempFileSourceConfiguration],
++    ):
++        temp_path = self._to_temp_path(target_path)
++        return super()._write_from(temp_path, native_path, context)
+ 
+     def get_scheme(self) -> str:
+         return "temp"
+diff --git a/packages/files/setup.cfg b/packages/files/setup.cfg
+index 98325cefc088..3acd66a2e5a8 100644
+--- a/packages/files/setup.cfg
++++ b/packages/files/setup.cfg
+@@ -35,6 +35,7 @@ install_requires =
+     galaxy-util[config-template]
+     fs
+     typing-extensions
++    fsspec
+ packages = find:
+ python_requires = >=3.9
+ 
+diff --git a/pyproject.toml b/pyproject.toml
+index b4c6dd4be357..b1d5f3fd27c2 100644
+--- a/pyproject.toml
++++ b/pyproject.toml
+@@ -107,6 +107,7 @@ dependencies = [
+     "WebOb>=1.8.9",  # Python 3.13 support
+     "Whoosh",
+     "zipstream-new",
++    "fsspec>=2025.7.0",
+ ]
+ 
+ [project.urls]
+diff --git a/test/unit/files/_base.py b/test/unit/files/_base.py
+new file mode 100644
+index 000000000000..616ddb7dfd98
+--- /dev/null
++++ b/test/unit/files/_base.py
+@@ -0,0 +1,414 @@
++"""
++Generic test suite for BaseFilesSource implementations.
++
++This module provides a reusable test suite that can validate the basic behavior of any
++BaseFilesSource implementation. It includes tests for basic file operations,
++directory listing, pagination, search, and error handling.
++
++The test suite uses a decorator-based approach to automatically generate individual
++test functions, eliminating code duplication while maintaining pytest compatibility.
++"""
++
++import tempfile
++from abc import (
++    ABC,
++    abstractmethod,
++)
++from typing import (
++    Any,
++    Callable,
++    Optional,
++)
++
++import pytest
++
++from galaxy.exceptions import RequestParameterInvalidException
++from galaxy.files.sources import BaseFilesSource
++from galaxy.files.unittest_utils import TestConfiguredFileSources
++from ._util import (
++    assert_realizes_contains,
++    user_context_fixture,
++)
++
++
++def generate_file_source_tests(test_suite_class: type["BaseFileSourceTestSuite"]) -> type:
++    """
++    Class decorator that automatically generates individual test functions for each test method
++    in the BaseFileSourceTestSuite.
++
++    Usage:
++        @generate_file_source_tests
++        class TestMyFileSource(BaseFileSourceTestSuite):
++            # Only implement abstract methods
++            pass
++    """
++    # Get all test methods from the base class
++    test_methods = [
++        method_name
++        for method_name in dir(BaseFileSourceTestSuite)
++        if method_name.startswith("test_") and callable(getattr(BaseFileSourceTestSuite, method_name))
++    ]
++
++    # Generate wrapper functions for each test method
++    for method_name in test_methods:
++        test_method = getattr(BaseFileSourceTestSuite, method_name)
++
++        def create_test_wrapper(method: Callable) -> Callable:
++            def test_wrapper(self) -> None:
++                """Generated test wrapper function."""
++                method(self)
++
++            # Preserve original method metadata
++            test_wrapper.__name__ = method.__name__
++            test_wrapper.__doc__ = method.__doc__ or f"Test {method.__name__.replace('_', ' ')}"
++            test_wrapper.__qualname__ = f"{test_suite_class.__name__}.{method.__name__}"
++
++            return test_wrapper
++
++        # Add the wrapper function to the class
++        setattr(test_suite_class, method_name, create_test_wrapper(test_method))
++
++    return test_suite_class
++
++
++class BaseFileSourceTestSuite(ABC):
++    """
++    Abstract base class for testing BaseFilesSource implementations.
++
++    This class provides a comprehensive test suite that can be inherited by
++    specific file source test classes. Subclasses need to implement the
++    abstract methods to provide the file source configuration and setup.
++    """
++
++    @property
++    @abstractmethod
++    def root_uri(self) -> str:
++        """Return the root URI for the file source (e.g., 'temp://test1')."""
++        pass
++
++    @property
++    @abstractmethod
++    def plugin_config(self) -> dict[str, Any]:
++        """Return the plugin configuration dictionary."""
++        pass
++
++    @abstractmethod
++    def get_configured_file_sources(self) -> TestConfiguredFileSources:
++        """Return a configured file sources instance with test data populated."""
++        pass
++
++    @abstractmethod
++    def get_file_source_instance(self, file_sources: TestConfiguredFileSources) -> BaseFilesSource:
++        """Return the specific file source instance from the configured file sources."""
++        pass
++
++    def populate_test_scenario(self, file_source: BaseFilesSource) -> None:
++        """
++        Create a standard directory structure for testing.
++
++        Creates the following structure:
++        /a (file with content "a")
++        /b (file with content "b")
++        /c (file with content "c")
++        /dir1/d (file with content "d")
++        /dir1/e (file with content "e")
++        /dir1/sub1/f (file with content "f")
++        """
++        user_context = user_context_fixture()
++
++        test_files = [
++            ("/a", "a"),
++            ("/b", "b"),
++            ("/c", "c"),
++            ("/dir1/d", "d"),
++            ("/dir1/e", "e"),
++            ("/dir1/sub1/f", "f"),
++        ]
++
++        for path, content in test_files:
++            self._upload_content_to_path(file_source, path, content, user_context)
++
++    def _upload_content_to_path(
++        self, file_source: BaseFilesSource, target_path: str, content: str, user_context: Optional[Any] = None
++    ) -> None:
++        """Helper method to upload content to a specific path in the file source."""
++        with tempfile.NamedTemporaryFile(mode="w") as temp_file:
++            temp_file.write(content)
++            temp_file.flush()
++            file_source.write_from(target_path, temp_file.name, user_context=user_context)
++
++    def assert_list_contains_names(
++        self, file_source: BaseFilesSource, path: str, recursive: bool, expected_names: list[str]
++    ) -> list[Any]:
++        """Assert that listing a path returns entries with the expected names."""
++        result, count = file_source.list(path, recursive=recursive)
++        assert count == len(expected_names), f"Expected {len(expected_names)} items, got {count}"
++        actual_names = sorted([entry.name for entry in result])
++        expected_names_sorted = sorted(expected_names)
++        assert actual_names == expected_names_sorted, f"Expected {expected_names_sorted}, got {actual_names}"
++        return result
++
++    # Test methods that can be used directly or called from specific test classes
++
++    def test_basic_file_access(self) -> None:
++        """Test basic file access and content verification."""
++        file_sources = self.get_configured_file_sources()
++
++        test_cases = [
++            ("a", "a"),
++            ("b", "b"),
++            ("c", "c"),
++            ("dir1/d", "d"),
++            ("dir1/e", "e"),
++            ("dir1/sub1/f", "f"),
++        ]
++
++        for file_path, expected_content in test_cases:
++            full_uri = f"{self.root_uri}/{file_path}"
++            assert_realizes_contains(file_sources, full_uri, expected_content)
++
++    def test_non_recursive_listing(self) -> None:
++        """Test non-recursive directory listing."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        # Test root directory
++        self.assert_list_contains_names(file_source, "/", recursive=False, expected_names=["a", "b", "c", "dir1"])
++
++        # Test subdirectory
++        self.assert_list_contains_names(file_source, "/dir1", recursive=False, expected_names=["d", "e", "sub1"])
++
++    def test_recursive_listing(self) -> None:
++        """Test recursive directory listing."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        expected_names = ["a", "b", "c", "dir1", "d", "e", "sub1", "f"]
++        result, count = file_source.list("/", recursive=True)
++
++        # For recursive listings, the exact behavior may vary between implementations
++        # We verify that we get at least the expected number of items
++        assert count == len(expected_names), f"Expected {len(expected_names)} items, got {count}"
++        assert len(result) == len(expected_names), f"Expected {len(expected_names)} results, got {len(result)}"
++
++    def test_pagination_functionality(self) -> None:
++        """Test pagination when supported by the file source."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        if not file_source.supports_pagination:
++            pytest.skip("File source does not support pagination")
++
++        # Get all entries for comparison
++        all_entries, total_count = file_source.list("/", recursive=False)
++        assert total_count == 4  # a, b, c, dir1
++        assert len(all_entries) == 4
++
++        # Test first entry
++        result, count = file_source.list("/", recursive=False, limit=1, offset=0)
++        assert count == 4
++        assert len(result) == 1
++        assert result[0] == all_entries[0]
++
++        # Test second entry
++        result, count = file_source.list("/", recursive=False, limit=1, offset=1)
++        assert count == 4
++        assert len(result) == 1
++        assert result[0] == all_entries[1]
++
++        # Test multiple entries
++        result, count = file_source.list("/", recursive=False, limit=2, offset=1)
++        assert count == 4
++        assert len(result) == 2
++        assert result[0] == all_entries[1]
++        assert result[1] == all_entries[2]
++
++    def test_pagination_with_limit_exceeding_total(self) -> None:
++        """Test pagination when limit exceeds total number of entries."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        if not file_source.supports_pagination:
++            pytest.skip("File source does not support pagination")
++
++        # Test with limit larger than total entries
++        result, count = file_source.list("/", recursive=False, limit=10, offset=0)
++        assert count == 4  # Total entries: a, b, c, dir1
++        assert len(result) == 4  # Should return all available entries
++
++        # Test with offset at the end
++        result, count = file_source.list("/", recursive=False, limit=5, offset=3)
++        assert count == 4
++        assert len(result) == 1  # Only one entry left after offset=3
++
++    def test_search_functionality(self) -> None:
++        """Test search functionality when supported by the file source."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        if not file_source.supports_search:
++            pytest.skip("File source does not support search")
++
++        # Test searching for specific files
++        test_cases = [
++            ("a", ["a"]),
++            ("b", ["b"]),
++            ("c", ["c"]),
++        ]
++
++        for query, expected_names in test_cases:
++            result, count = file_source.list("/", recursive=False, query=query)
++            assert count == len(expected_names)
++            assert len(result) == len(expected_names)
++            if expected_names:
++                assert result[0].name == expected_names[0]
++
++        # Test searching for directory content (should return parent directory)
++        result, count = file_source.list("/", recursive=False, query="d")
++        assert count == 1
++        assert len(result) == 1
++        assert result[0].name == "dir1"
++
++        # Test searching in subdirectory
++        result, count = file_source.list("/dir1", recursive=False, query="e")
++        assert count == 1
++        assert len(result) == 1
++        assert result[0].name == "e"
++
++    def test_search_no_results(self) -> None:
++        """Test search functionality when no results are found."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        if not file_source.supports_search:
++            pytest.skip("File source does not support search")
++
++        # Search for non-existent file
++        result, count = file_source.list("/", recursive=False, query="nonexistent")
++        assert count == 0
++        assert len(result) == 0
++
++        # Search in subdirectory for file that exists elsewhere
++        result, count = file_source.list("/dir1", recursive=False, query="a")
++        assert count == 0
++        assert len(result) == 0
++
++    def test_search_case_sensitivity(self) -> None:
++        """Test search functionality case sensitivity behavior."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        if not file_source.supports_search:
++            pytest.skip("File source does not support search")
++
++        # Test case sensitivity (behavior may vary by implementation)
++        result_lower, count_lower = file_source.list("/", recursive=False, query="a")
++        result_upper, count_upper = file_source.list("/", recursive=False, query="A")
++
++        # At minimum, lowercase should work (since our test files use lowercase)
++        assert count_lower >= 1
++        assert len(result_lower) >= 1
++
++    def test_empty_search_query(self) -> None:
++        """Test that empty search query returns all entries."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        if not file_source.supports_search:
++            pytest.skip("File source does not support search")
++
++        all_entries, all_count = file_source.list("/", recursive=False)
++        empty_query_result, empty_query_count = file_source.list("/", recursive=False, query="")
++
++        assert empty_query_count == all_count
++        assert len(empty_query_result) == len(all_entries)
++        assert empty_query_result == all_entries
++
++    def test_pagination_not_supported_error(self) -> None:
++        """Test that pagination raises error when not supported."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        if file_source.supports_pagination:
++            pytest.skip("File source supports pagination - this test is for file sources without pagination support")
++
++        with pytest.raises(RequestParameterInvalidException) as exc_info:
++            file_source.list("/", recursive=False, limit=1, offset=0)
++        assert "Pagination is not supported" in str(exc_info.value)
++
++    def test_search_not_supported_error(self) -> None:
++        """Test that search raises error when not supported."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        if file_source.supports_search:
++            pytest.skip("File source supports search - this test is for file sources without search support")
++
++        with pytest.raises(RequestParameterInvalidException) as exc_info:
++            file_source.list("/", recursive=False, query="test")
++        assert "Server-side search is not supported by this file source" in str(exc_info.value)
++
++    def test_sorting_not_supported_error(self) -> None:
++        """Test that sorting raises error when not supported (default behavior)."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        if file_source.supports_sorting:
++            pytest.skip("File source supports sorting - this test is for file sources without sorting support")
++
++        with pytest.raises(RequestParameterInvalidException) as exc_info:
++            file_source.list("/", recursive=False, sort_by="name")
++        assert "Server-side sorting is not supported by this file source" in str(exc_info.value)
++
++    def test_pagination_parameter_validation(self) -> None:
++        """Test validation of pagination parameters."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        if not file_source.supports_pagination:
++            pytest.skip("File source does not support pagination")
++
++        # Test negative limit
++        with pytest.raises(RequestParameterInvalidException) as exc_info:
++            file_source.list("/", recursive=False, limit=-1, offset=0)
++        assert "Limit must be greater than 0" in str(exc_info.value)
++
++        # Test zero limit
++        with pytest.raises(RequestParameterInvalidException) as exc_info:
++            file_source.list("/", recursive=False, limit=0, offset=0)
++        assert "Limit must be greater than 0" in str(exc_info.value)
++
++        # Test negative offset
++        with pytest.raises(RequestParameterInvalidException) as exc_info:
++            file_source.list("/", recursive=False, limit=1, offset=-1)
++        assert "Offset must be greater than or equal to 0" in str(exc_info.value)
++
++    def test_file_source_properties(self) -> None:
++        """Test basic file source properties and metadata."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        # Test that the file source has required properties
++        assert hasattr(file_source, "id")
++        assert hasattr(file_source, "label")
++        assert hasattr(file_source, "plugin_type")
++
++        # Test browsable capability
++        assert file_source.get_browsable() is True
++
++        # Test URI generation
++        uri_root = file_source.get_uri_root()
++        assert uri_root is not None
++        assert isinstance(uri_root, str)
++        assert len(uri_root) > 0
++
++    def test_to_dict_serialization(self) -> None:
++        """Test file source serialization to dictionary."""
++        file_source = self.get_file_source_instance(self.get_configured_file_sources())
++
++        # Test basic serialization
++        result = file_source.to_dict()
++        assert isinstance(result, dict)
++
++        required_keys = ["id", "type", "label", "writable", "browsable", "scheme", "supports"]
++        for key in required_keys:
++            assert key in result, f"Missing required key: {key}"
++
++        # Test supports section
++        supports = result["supports"]
++        assert isinstance(supports, dict)
++        assert "pagination" in supports
++        assert "search" in supports
++        assert "sorting" in supports
++
++        # Test serialization with user context
++        user_context = user_context_fixture()
++        result_with_context = file_source.to_dict(user_context=user_context)
++        assert isinstance(result_with_context, dict)
+diff --git a/test/unit/files/test_memory.py b/test/unit/files/test_memory.py
+new file mode 100644
+index 000000000000..44e17f1c496c
+--- /dev/null
++++ b/test/unit/files/test_memory.py
+@@ -0,0 +1,64 @@
++"""
++Improved test for MemoryFilesSource using the decorator-based generic test suite.
++
++This demonstrates the new approach that eliminates code duplication while
++maintaining individual test execution and proper pytest reporting.
++"""
++
++from typing import Any
++
++from galaxy.files.plugins import FileSourcePluginsConfig
++from galaxy.files.sources import BaseFilesSource
++from galaxy.files.sources.memory import MemoryFilesSource
++from galaxy.files.unittest_utils import TestConfiguredFileSources
++from ._base import (
++    BaseFileSourceTestSuite,
++    generate_file_source_tests,
++)
++
++ROOT_URI = "memory://test1"
++MEMORY_PLUGIN = {
++    "type": "memory",
++    "id": "test1",
++    "doc": "Test memory file source",
++    "writable": True,
++}
++
++
++@generate_file_source_tests
++class TestMemoryFilesSource(BaseFileSourceTestSuite):
++    """
++    Test suite for MemoryFilesSource using the decorator-based generic test framework.
++
++    The @generate_file_source_tests decorator automatically creates individual
++    test functions for each test method in BaseFileSourceTestSuite.
++    """
++
++    @property
++    def root_uri(self) -> str:
++        return ROOT_URI
++
++    @property
++    def plugin_config(self) -> dict[str, Any]:
++        return MEMORY_PLUGIN
++
++    def get_configured_file_sources(self) -> TestConfiguredFileSources:
++        """Create and return configured file sources with test data."""
++        file_sources_config = FileSourcePluginsConfig()
++        plugin = self.plugin_config.copy()
++        file_sources = TestConfiguredFileSources(
++            file_sources_config, conf_dict={self.plugin_config["id"]: plugin}, test_root=None
++        )
++
++        # Populate with test data
++        file_source = self.get_file_source_instance(file_sources)
++        self.populate_test_scenario(file_source)
++
++        return file_sources
++
++    def get_file_source_instance(self, file_sources: TestConfiguredFileSources) -> BaseFilesSource:
++        """Return the MemoryFilesSource instance."""
++        file_source_pair = file_sources.get_file_source_path(self.root_uri)
++        file_source = file_source_pair.file_source
++        assert isinstance(file_source, MemoryFilesSource)
++        return file_source
+diff --git a/test/unit/files/test_temp.py b/test/unit/files/test_temp.py
+index 5a42142bb008..edb1f08b7d87 100644
+--- a/test/unit/files/test_temp.py
++++ b/test/unit/files/test_temp.py
+@@ -1,8 +1,12 @@
+-import tempfile
++"""
++Improved test for TempFilesSource using the decorator-based generic test suite.
+ 
+-import pytest
++This demonstrates the new approach that eliminates code duplication while
++maintaining individual test execution and proper pytest reporting.
++"""
++
++from typing import Any
+ 
+-from galaxy.exceptions import RequestParameterInvalidException
+ from galaxy.files.plugins import FileSourcePluginsConfig
+ from galaxy.files.sources import BaseFilesSource
+ from galaxy.files.sources.temp import TempFilesSource
+@@ -10,9 +14,9 @@
+     setup_root,
+     TestConfiguredFileSources,
+ )
+-from ._util import (
+-    assert_realizes_contains,
+-    user_context_fixture,
++from ._base import (
++    BaseFileSourceTestSuite,
++    generate_file_source_tests,
+ )
+ 
+ ROOT_URI = "temp://test1"
+@@ -24,196 +28,42 @@
+ }
+ 
+ 
+-@pytest.fixture(scope="session")
+-def file_sources() -> TestConfiguredFileSources:
+-    file_sources = _configured_file_sources()
+-    return file_sources
+-
+-
+-@pytest.fixture(scope="session")
+-def temp_file_source(file_sources: TestConfiguredFileSources) -> BaseFilesSource:
+-    file_source_pair = file_sources.get_file_source_path(ROOT_URI)
+-    file_source = file_source_pair.file_source
+-    return file_source
+-
+-
+-def test_file_source(file_sources: TestConfiguredFileSources):
+-    assert_realizes_contains(file_sources, f"{ROOT_URI}/a", "a")
+-    assert_realizes_contains(file_sources, f"{ROOT_URI}/b", "b")
+-    assert_realizes_contains(file_sources, f"{ROOT_URI}/c", "c")
+-    assert_realizes_contains(file_sources, f"{ROOT_URI}/dir1/d", "d")
+-    assert_realizes_contains(file_sources, f"{ROOT_URI}/dir1/e", "e")
+-    assert_realizes_contains(file_sources, f"{ROOT_URI}/dir1/sub1/f", "f")
+-
+-
+-def test_list(temp_file_source: BaseFilesSource):
+-    assert_list_names(temp_file_source, "/", recursive=False, expected_names=["a", "b", "c", "dir1"])
+-    assert_list_names(temp_file_source, "/dir1", recursive=False, expected_names=["d", "e", "sub1"])
+-
+-
+-def test_list_recursive(temp_file_source: BaseFilesSource):
+-    expected_names = ["a", "b", "c", "dir1", "d", "e", "sub1", "f"]
+-    assert_list_names(temp_file_source, "/", recursive=True, expected_names=expected_names)
+-
+-
+-def test_pagination(temp_file_source: BaseFilesSource):
+-    # Pagination is only supported for non-recursive listings.
+-    recursive = False
+-    root_lvl_entries, count = temp_file_source.list("/", recursive=recursive)
+-    assert count == 4
+-    assert len(root_lvl_entries) == 4
+-
+-    # Get first entry
+-    result, count = temp_file_source.list("/", recursive=recursive, limit=1, offset=0)
+-    assert count == 4
+-    assert len(result) == 1
+-    assert result[0] == root_lvl_entries[0]
+-
+-    # Get second entry
+-    result, count = temp_file_source.list("/", recursive=recursive, limit=1, offset=1)
+-    assert count == 4
+-    assert len(result) == 1
+-    assert result[0] == root_lvl_entries[1]
+-
+-    # Get second and third entry
+-    result, count = temp_file_source.list("/", recursive=recursive, limit=2, offset=1)
+-    assert count == 4
+-    assert len(result) == 2
+-    assert result[0] == root_lvl_entries[1]
+-    assert result[1] == root_lvl_entries[2]
+-
+-    # Get last three entries
+-    result, count = temp_file_source.list("/", recursive=recursive, limit=3, offset=1)
+-    assert count == 4
+-    assert len(result) == 3
+-    assert result[0] == root_lvl_entries[1]
+-    assert result[1] == root_lvl_entries[2]
+-    assert result[2] == root_lvl_entries[3]
+-
+-
+-def test_search(temp_file_source: BaseFilesSource):
+-    # Search is only supported for non-recursive listings.
+-    recursive = False
+-    root_lvl_entries, count = temp_file_source.list("/", recursive=recursive)
+-    assert count == 4
+-    assert len(root_lvl_entries) == 4
+-
+-    result, count = temp_file_source.list("/", recursive=recursive, query="a")
+-    assert count == 1
+-    assert len(result) == 1
+-    assert result[0].name == "a"
+-
+-    result, count = temp_file_source.list("/", recursive=recursive, query="b")
+-    assert count == 1
+-    assert len(result) == 1
+-    assert result[0].name == "b"
+-
+-    result, count = temp_file_source.list("/", recursive=recursive, query="c")
+-    assert count == 1
+-    assert len(result) == 1
+-    assert result[0].name == "c"
+-
+-    # Searching for 'd' at root level should return the directory 'dir1' but not the file 'd'
+-    # as it is not a direct child of the root.
+-    result, count = temp_file_source.list("/", recursive=recursive, query="d")
+-    assert count == 1
+-    assert len(result) == 1
+-    assert result[0].name == "dir1"
+-
+-    # Searching for 'e' at root level should not return anything.
+-    result, count = temp_file_source.list("/", recursive=recursive, query="e")
+-    assert count == 0
+-    assert len(result) == 0
+-
+-    result, count = temp_file_source.list("/dir1", recursive=recursive, query="e")
+-    assert count == 1
+-    assert len(result) == 1
+-    assert result[0].name == "e"
+-
+-
+-def test_query_with_empty_string(temp_file_source: BaseFilesSource):
+-    recursive = False
+-    root_lvl_entries, count = temp_file_source.list("/", recursive=recursive)
+-    assert count == 4
+-    assert len(root_lvl_entries) == 4
+-
+-    result, count = temp_file_source.list("/", recursive=recursive, query="")
+-    assert count == 4
+-    assert len(result) == 4
+-    assert result == root_lvl_entries
+-
+-
+-def test_pagination_not_supported_raises(temp_file_source: BaseFilesSource):
+-    TempFilesSource.supports_pagination = False
+-    recursive = False
+-    with pytest.raises(RequestParameterInvalidException) as exc_info:
+-        temp_file_source.list("/", recursive=recursive, limit=1, offset=0)
+-    assert "Pagination is not supported" in str(exc_info.value)
+-    TempFilesSource.supports_pagination = True
+-
+-
+-def test_pagination_parameters_non_negative(temp_file_source: BaseFilesSource):
+-    recursive = False
+-    with pytest.raises(RequestParameterInvalidException) as exc_info:
+-        temp_file_source.list("/", recursive=recursive, limit=-1, offset=0)
+-    assert "Limit must be greater than 0" in str(exc_info.value)
+-
+-    with pytest.raises(RequestParameterInvalidException) as exc_info:
+-        temp_file_source.list("/", recursive=recursive, limit=0, offset=0)
+-    assert "Limit must be greater than 0" in str(exc_info.value)
+-
+-    with pytest.raises(RequestParameterInvalidException) as exc_info:
+-        temp_file_source.list("/", recursive=recursive, limit=1, offset=-1)
+-    assert "Offset must be greater than or equal to 0" in str(exc_info.value)
+-
+-
+-def test_search_not_supported_raises(temp_file_source: BaseFilesSource):
+-    TempFilesSource.supports_search = False
+-    recursive = False
+-    with pytest.raises(RequestParameterInvalidException) as exc_info:
+-        temp_file_source.list("/", recursive=recursive, query="a")
+-    assert "Server-side search is not supported by this file source" in str(exc_info.value)
+-    TempFilesSource.supports_search = True
+-
+-
+-def test_sorting_not_supported_raises(temp_file_source: BaseFilesSource):
+-    recursive = False
+-    with pytest.raises(RequestParameterInvalidException) as exc_info:
+-        temp_file_source.list("/", recursive=recursive, sort_by="name")
+-    assert "Server-side sorting is not supported by this file source" in str(exc_info.value)
+-
+-
+-def _populate_test_scenario(file_source: BaseFilesSource):
+-    """Create a directory structure in the file source."""
+-    user_context = user_context_fixture()
+-
+-    _upload_to(file_source, "/a", content="a", user_context=user_context)
+-    _upload_to(file_source, "/b", content="b", user_context=user_context)
+-    _upload_to(file_source, "/c", content="c", user_context=user_context)
+-    _upload_to(file_source, "/dir1/d", content="d", user_context=user_context)
+-    _upload_to(file_source, "/dir1/e", content="e", user_context=user_context)
+-    _upload_to(file_source, "/dir1/sub1/f", content="f", user_context=user_context)
+-
+-
+-def _upload_to(file_source: BaseFilesSource, target_uri: str, content: str, user_context=None):
+-    with tempfile.NamedTemporaryFile(mode="w") as f:
+-        f.write(content)
+-        f.flush()
+-        file_source.write_from(target_uri, f.name, user_context=user_context)
+-
+-
+-def assert_list_names(file_source: BaseFilesSource, uri: str, recursive: bool, expected_names: list[str]):
+-    result, count = file_source.list(uri, recursive=recursive)
+-    assert count == len(expected_names)
+-    assert sorted([entry.name for entry in result]) == sorted(expected_names)
+-    return result
+-
+-
+-def _configured_file_sources() -> TestConfiguredFileSources:
+-    tmp, root = setup_root()
+-    file_sources_config = FileSourcePluginsConfig()
+-    plugin = TEMP_PLUGIN
+-    plugin["root_path"] = root
+-    file_sources = TestConfiguredFileSources(file_sources_config, conf_dict={TEMP_PLUGIN["id"]: plugin}, test_root=root)
+-    _populate_test_scenario(file_sources.get_file_source_path(ROOT_URI).file_source)
+-    return file_sources
++@generate_file_source_tests
++class TestTempFilesSource(BaseFileSourceTestSuite):
++    """
++    Test suite for TempFilesSource using the decorator-based generic test framework.
++
++    The @generate_file_source_tests decorator automatically creates individual
++    test functions for each test method in BaseFileSourceTestSuite.
++    """
++
++    @property
++    def root_uri(self) -> str:
++        return ROOT_URI
++
++    @property
++    def plugin_config(self) -> dict[str, Any]:
++        return TEMP_PLUGIN
++
++    def get_configured_file_sources(self) -> TestConfiguredFileSources:
++        """Create and return configured file sources with test data."""
++        tmp, root = setup_root()
++        file_sources_config = FileSourcePluginsConfig()
++        plugin = self.plugin_config.copy()
++        plugin["root_path"] = root
++        file_sources = TestConfiguredFileSources(
++            file_sources_config, conf_dict={self.plugin_config["id"]: plugin}, test_root=root
++        )
++
++        # Populate with test data
++        file_source = self.get_file_source_instance(file_sources)
++        self.populate_test_scenario(file_source)
++
++        return file_sources
++
++    def get_file_source_instance(self, file_sources: TestConfiguredFileSources) -> BaseFilesSource:
++        """Return the TempFilesSource instance."""
++        file_source_pair = file_sources.get_file_source_path(self.root_uri)
++        file_source = file_source_pair.file_source
++        assert isinstance(file_source, TempFilesSource)
++        return file_source

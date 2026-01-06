@@ -1,0 +1,2160 @@
+diff --git a/client/galaxy/scripts/components/Markdown/Markdown.vue b/client/galaxy/scripts/components/Markdown/Markdown.vue
+new file mode 100644
+index 000000000000..5d49d1fcac44
+--- /dev/null
++++ b/client/galaxy/scripts/components/Markdown/Markdown.vue
+@@ -0,0 +1,214 @@
++<template>
++    <div class="markdown-wrapper">
++        <div v-html="markdownRendered"></div>
++    </div>
++</template>
++
++<script>
++import $ from "jquery";
++import { getAppRoot } from "onload/loadConfig";
++import { getGalaxyInstance } from "app";
++import { render_embedded_items } from "mvc/embedded-objects";
++import { mountJobMetrics } from "components/JobMetrics";
++import { mountJobParameters } from "components/JobParameters";
++import MarkdownIt from "markdown-it";
++
++import JOB_STATES_MODEL from "mvc/history/job-states-model";
++import HDCAModel from "mvc/history/hdca-model";
++import HDCAListItemEdit from "mvc/history/hdca-li-edit";
++
++const FUNCTION_CALL_LINE_TEMPLATE = /\s*(\w+)\s*\((\s*\w+\s*=\s*\w+\s*)\)\s*/m;
++
++const md = MarkdownIt();
++
++const default_fence = md.renderer.rules.fence;
++
++const RENDER_FUNCTIONS = {
++    history_dataset_display: (action, args, content) => {
++        const history_dataset_id = args.history_dataset_id;
++        return `<div class='embedded-item display dataset'>
++            <div class='title'>
++                <div style="float: left">
++                <a class="display_in_embed icon-button toggle-expand" title="Show Dataset content"></a>
++                <a class="toggle icon-button" title="Hide Dataset content"></a>
++                </div>
++                <div style="float: right">
++                <a href="${getAppRoot()}dataset/display?dataset_id=${history_dataset_id}" class="icon-button disk" title="Save dataset"></a>
++                <a href="${getAppRoot()}dataset/imp?dataset_id=${history_dataset_id}" class="icon-button import" title="Import dataset"></a>
++                </div>
++                <a class="toggle-embed"><h4>Galaxy Dataset | <span class="render-name" history_dataset_id="${history_dataset_id}"></span</h4></a>
++                <input type="hidden" name="ajax-item-content-url" value="${getAppRoot()}dataset/get_item_content_async?id=${history_dataset_id}">
++            </div>
++            <div class='summary-content'>
++            </div>
++            <div class='expanded-content'>
++                <div class='item-content'>
++                </div>
++            </div>
++        </div>`;
++    },
++    history_dataset_collection_display: (action, args, content) => {
++        const history_dataset_collection_id = args.history_dataset_collection_id;
++        return `<div class='dataset-collection' history_dataset_collection_id="${history_dataset_collection_id}"></div>`;
++    },
++    workflow_display: (action, args, content) => {
++        const workflow_id = args.workflow_id;
++        return `<div class='embedded-item display workflow'>
++            <div class='title'>
++                <div style="float: left">
++                <a class="display_in_embed icon-button toggle-expand" title="Show Workflow content"></a>
++                <a class="toggle icon-button" title="Hide Workflow content"></a>
++                </div>
++                <div style="float: right">
++                <!-- fix URL -->
++                <a href="${getAppRoot()}api/workflows/${workflow_id}/download?format=json-download" class="icon-button disk" title="Save workflow"></a>
++                </div>
++                <a class="toggle-embed"><h4>Galaxy Workflow | <span class="render-name" workflow_id="${workflow_id}"></span></h4></a>
++                <input type="hidden" name="ajax-item-content-url" value="${getAppRoot()}workflow/get_item_content_async?id=${workflow_id}">
++            </div>
++            <div class='summary-content'>
++            </div>
++            <div class='expanded-content'>
++                <div class='item-content'>
++                </div>
++            </div>
++        </div>`;
++    },
++    history_dataset_as_image: (action, args, content) => {
++        const history_dataset_id = args.history_dataset_id;
++        return `<img src="${getAppRoot()}dataset/display?dataset_id=${history_dataset_id}"></img>`;
++    },
++    history_dataset_peek: (action, args, content) => {
++        const history_dataset_id = args.history_dataset_id;
++        return `<div class='dataset-peek' history_dataset_id="${history_dataset_id}"><pre><code></code></pre></div>`;
++    },
++    history_dataset_info: (action, args, content) => {
++        const history_dataset_id = args.history_dataset_id;
++        return `<div class='dataset-info' history_dataset_id="${history_dataset_id}"><pre><code></code></pre></div>`;
++    },
++    tool_stdout: (action, args, content) => {
++        const jobId = args.job_id;
++        return `<div class="tool-stdout" job_id="${jobId}"><pre><code></code></pre></div>`;
++    },
++    tool_stderr: (action, args, content) => {
++        const jobId = args.job_id;
++        return `<div class="tool-stderr" job_id="${jobId}"><pre><code></code></pre></div>`;
++    },
++    job_metrics: (action, args, content) => {
++        const jobId = args.job_id;
++        return `<div class="job-metrics" job_id="${jobId}"></div>`;
++    },
++    job_parameters: (action, args, content) => {
++        const jobId = args.job_id;
++        return `<div class="job-parameters" job_id="${jobId}"></div>`;
++    }
++};
++
++md.renderer.rules.fence = function(tokens, idx, options, env, slf) {
++    const token = tokens[idx],
++        info = token.info ? token.info.trim() : "",
++        content = token.content;
++    if (info == "galaxy") {
++        const arr = FUNCTION_CALL_LINE_TEMPLATE.exec(content);
++        const action = arr[1];
++        const arguments_str = arr[2].trim();
++        const args = {};
++        if (arguments_str) {
++            const parts = arguments_str.split(/(\s+)/);
++            for (const part of parts) {
++                const [key, val] = part.split("=");
++                args[key.trim()] = val.trim();
++            }
++        }
++        return RENDER_FUNCTIONS[action](action, args, content);
++    } else {
++        return default_fence(tokens, idx, options, env, slf);
++    }
++};
++
++function render_fenced_output(tag, objects, idAttr, metadataKey) {
++    $("." + tag).each((i, el) => {
++        const objectId = $(el).attr(idAttr);
++        const meta = objects[objectId][metadataKey];
++        $(el)
++            .find("code")
++            .text(meta);
++    });
++}
++
++export default {
++    props: {
++        markdownConfig: {
++            type: Object
++        }
++    },
++    data() {
++        return {
++            markdownRendered: "",
++            historyDatasets: {},
++            historyDatasetCollections: {},
++            workflows: {},
++            jobs: {}
++        };
++    },
++    watch: {
++        markdownConfig: function(mConfig, oldVal) {
++            const markdown = mConfig.markdown;
++            this.markdownRendered = md.render(markdown);
++            this.historyDatasets = mConfig.history_datasets || {};
++            this.historyDatasetCollections = mConfig.history_dataset_collections || {};
++            this.workflows = mConfig.workflows || {};
++            this.jobs = mConfig.jobs || {};
++
++            this.$nextTick(() => {
++                render_embedded_items();
++                mountJobMetrics({ includeTitle: false });
++                mountJobParameters({ includeTitle: false });
++                $("span.render-name").each((i, el) => {
++                    const historyDatasetId = $(el).attr("history_dataset_id");
++                    if (historyDatasetId) {
++                        $(el).text(this.historyDatasets[historyDatasetId]["name"]);
++                    }
++                    const workflowId = $(el).attr("workflow_id");
++                    if (workflowId) {
++                        $(el).text(this.workflows[workflowId]["name"]);
++                    }
++                });
++
++                render_fenced_output("tool-stdout", this.jobs, "job_id", "tool_stdout");
++                render_fenced_output("tool-stderr", this.jobs, "job_id", "tool_stderr");
++                render_fenced_output("dataset-peek", this.historyDatasets, "history_dataset_id", "peek");
++                render_fenced_output("dataset-info", this.historyDatasets, "history_dataset_id", "info");
++
++                $(".dataset-collection").each((i, el) => {
++                    const Galaxy = getGalaxyInstance();
++                    const hdcaId = $(el).attr("history_dataset_collection_id");
++                    const hdca = this.historyDatasetCollections[hdcaId];
++                    const hdcaModel = new HDCAModel.HistoryDatasetCollection(hdca);
++
++                    const jobStateSummariesCollection = new JOB_STATES_MODEL.JobStatesSummaryCollection();
++                    jobStateSummariesCollection.historyId = hdca["history_id"];
++                    jobStateSummariesCollection.monitor();
++                    jobStateSummariesCollection.trackModel(hdcaModel);
++
++                    return new HDCAListItemEdit.HDCAListItemEdit({
++                        model: hdcaModel,
++                        el: $(el),
++                        linkTarget: "galaxy_main",
++                        purgeAllowed: Galaxy.config.allow_user_dataset_purge,
++                        logger: Galaxy.logger
++                    }).render(0);
++                });
++            });
++        }
++    }
++};
++</script>
++
++<style lang="scss">
++// Load styling developed for "pages" embedded content.
++@import "embed_item";
++.toggle {
++    display: none;
++}
++</style>
+diff --git a/client/galaxy/scripts/components/Markdown/MarkdownEditor.vue b/client/galaxy/scripts/components/Markdown/MarkdownEditor.vue
+new file mode 100644
+index 000000000000..f3b623e55dd1
+--- /dev/null
++++ b/client/galaxy/scripts/components/Markdown/MarkdownEditor.vue
+@@ -0,0 +1,49 @@
++<template>
++    <textarea class="markdown-textarea" id="workflow-report-editor" :value="input" @input="update"> </textarea>
++</template>
++
++<script>
++import _ from "underscore";
++
++export default {
++    props: {
++        initialMarkdown: {
++            required: true,
++            type: String
++        },
++        onupdate: {
++            type: Function
++        }
++    },
++    data: function() {
++        return {
++            input: this.initialMarkdown
++        };
++    },
++    methods: {
++        update: _.debounce(function(e) {
++            this.input = e.target.value;
++            if (this.onupdate) {
++                this.onupdate(this.input);
++            }
++        }, 300)
++    }
++};
++</script>
++
++<style>
++.markdown-textarea {
++    border: none;
++    border-right: 1px solid #ccc;
++    border-left: 1px solid #ccc;
++    resize: none;
++    outline: none;
++    background-color: #f6f6f6;
++    font-size: 14px;
++    font-family: "Monaco", courier, monospace;
++    padding: 20px;
++
++    width: 100%;
++    height: 100%;
++}
++</style>
+diff --git a/client/galaxy/scripts/components/WorkflowInvocationReport.vue b/client/galaxy/scripts/components/WorkflowInvocationReport.vue
+new file mode 100644
+index 000000000000..93c9ecaad085
+--- /dev/null
++++ b/client/galaxy/scripts/components/WorkflowInvocationReport.vue
+@@ -0,0 +1,43 @@
++<template>
++    <markdown :markdown-config="markdownConfig"> </markdown>
++</template>
++
++<script>
++import { getAppRoot } from "onload/loadConfig";
++import axios from "axios";
++import Markdown from "components/Markdown/Markdown.vue";
++
++export default {
++    components: {
++        Markdown
++    },
++    props: {
++        invocationId: {
++            type: String,
++            required: true
++        }
++    },
++    data() {
++        return {
++            markdownConfig: {}
++        };
++    },
++    created: function() {
++        const invocationId = this.invocationId;
++        const url = getAppRoot() + `api/workflows/foobar/invocations/${invocationId}/report`;
++        this.ajaxCall(url);
++    },
++    methods: {
++        ajaxCall: function(url) {
++            axios
++                .get(url)
++                .then(response => {
++                    this.markdownConfig = response.data;
++                })
++                .catch(e => {
++                    console.error(e);
++                });
++        }
++    }
++};
++</script>
+diff --git a/client/galaxy/scripts/entry/analysis/AnalysisRouter.js b/client/galaxy/scripts/entry/analysis/AnalysisRouter.js
+index b9de5a9a10fa..7c0d86290685 100644
+--- a/client/galaxy/scripts/entry/analysis/AnalysisRouter.js
++++ b/client/galaxy/scripts/entry/analysis/AnalysisRouter.js
+@@ -28,6 +28,7 @@ import Workflows from "mvc/workflow/workflow";
+ import WorkflowImport from "components/WorkflowImport.vue";
+ import HistoryImport from "components/HistoryImport.vue";
+ import HistoryView from "components/HistoryView.vue";
++import WorkflowInvocationReport from "components/WorkflowInvocationReport.vue";
+ import HistoryList from "mvc/history/history-list";
+ import PluginList from "components/PluginList.vue";
+ import ToolFormComposite from "mvc/tool/tool-form-composite";
+@@ -62,6 +63,7 @@ export const getAnalysisRouter = Galaxy =>
+             "(/)workflows/import": "show_workflows_import",
+             "(/)workflows/run(/)": "show_workflows_run",
+             "(/)workflows(/)list": "show_workflows",
++            "(/)workflows/invocations/report": "show_workflow_invocation_report",
+             "(/)workflows/list_published(/)": "show_workflows_published",
+             "(/)workflows/create(/)": "show_workflows_create",
+             "(/)histories(/)citations(/)": "show_history_citations",
+@@ -181,6 +183,14 @@ export const getAnalysisRouter = Galaxy =>
+             new historyInstance({ propsData: { id: QueryStringParsing.get("id") } }).$mount(vm);
+         },
+ 
++        show_workflow_invocation_report: function() {
++            const invocationId = QueryStringParsing.get("id");
++            var reportInstance = Vue.extend(WorkflowInvocationReport);
++            var vm = document.createElement("div");
++            this.page.display(vm);
++            new reportInstance({ propsData: { invocationId: invocationId } }).$mount(vm);
++        },
++
+         show_history_structure: function() {
+             const displayStructureInstance = Vue.extend(DisplayStructure);
+             const vm = document.createElement("div");
+diff --git a/client/galaxy/scripts/mvc/history/history-contents.js b/client/galaxy/scripts/mvc/history/history-contents.js
+index bc362cc40ee4..9a8cbe67bb38 100644
+--- a/client/galaxy/scripts/mvc/history/history-contents.js
++++ b/client/galaxy/scripts/mvc/history/history-contents.js
+@@ -64,22 +64,8 @@ export var HistoryContents = _super.extend(BASE_MVC.LoggableMixin).extend({
+ 
+     trackJobStates: function() {
+         this.each(historyContent => {
+-            if (historyContent.has("job_states_summary")) {
+-                return;
+-            }
+-
+-            if (historyContent.attributes.history_content_type === "dataset_collection") {
+-                var jobSourceType = historyContent.attributes.job_source_type;
+-                var jobSourceId = historyContent.attributes.job_source_id;
+-                if (jobSourceType && this.jobStateSummariesCollection) {
+-                    this.jobStateSummariesCollection.add({
+-                        id: jobSourceId,
+-                        model: jobSourceType,
+-                        history_id: this.history_id,
+-                        collection_id: historyContent.attributes.id
+-                    });
+-                    historyContent.jobStatesSummary = this.jobStateSummariesCollection.get(jobSourceId);
+-                }
++            if (this.jobStateSummariesCollection) {
++                this.jobStateSummariesCollection.trackModel(historyContent);
+             }
+         });
+     },
+diff --git a/client/galaxy/scripts/mvc/history/job-states-model.js b/client/galaxy/scripts/mvc/history/job-states-model.js
+index 6c97dcd14671..b03577359c37 100644
+--- a/client/galaxy/scripts/mvc/history/job-states-model.js
++++ b/client/galaxy/scripts/mvc/history/job-states-model.js
+@@ -118,6 +118,28 @@ var JobStatesSummaryCollection = Backbone.Collection.extend({
+         this.active = true;
+     },
+ 
++    trackModel: function(historyContent) {
++        if (historyContent.has("job_states_summary")) {
++            // already tracked...
++            return;
++        }
++
++        const historyId = this.historyId;
++        if (historyContent.attributes.history_content_type === "dataset_collection") {
++            var jobSourceType = historyContent.attributes.job_source_type;
++            var jobSourceId = historyContent.attributes.job_source_id;
++            if (jobSourceType) {
++                this.add({
++                    id: jobSourceId,
++                    model: jobSourceType,
++                    history_id: historyId,
++                    collection_id: historyContent.attributes.id
++                });
++                historyContent.jobStatesSummary = this.get(jobSourceId);
++            }
++        }
++    },
++
+     url: function() {
+         var nonTerminalModels = this.models.filter(model => {
+             return !model.terminal();
+diff --git a/client/galaxy/scripts/mvc/workflow/workflow-canvas.js b/client/galaxy/scripts/mvc/workflow/workflow-canvas.js
+index 5825aa23b478..652388722c53 100644
+--- a/client/galaxy/scripts/mvc/workflow/workflow-canvas.js
++++ b/client/galaxy/scripts/mvc/workflow/workflow-canvas.js
+@@ -109,7 +109,7 @@ class CanvasManager {
+         this.app.workflow.fit_canvas_to_nodes();
+     }
+     initZoomControls() {
+-        var zoomControl = $('<div class="btn-group-horizontal"/>').css({
++        var zoomControl = $('<div class="btn-group-horizontal workflow-canvas-content"/>').css({
+             position: "absolute",
+             left: "1rem",
+             bottom: "1rem",
+diff --git a/client/galaxy/scripts/mvc/workflow/workflow-manager.js b/client/galaxy/scripts/mvc/workflow/workflow-manager.js
+index adaf86871bbc..67eb4b87625f 100644
+--- a/client/galaxy/scripts/mvc/workflow/workflow-manager.js
++++ b/client/galaxy/scripts/mvc/workflow/workflow-manager.js
+@@ -2,6 +2,28 @@ import $ from "jquery";
+ import Connector from "mvc/workflow/workflow-connector";
+ import { Toast } from "ui/toast";
+ 
++import Vue from "vue";
++import MarkdownEditor from "components/Markdown/MarkdownEditor";
++
++const DEFAULT_INVOCATION_REPORT = `
++# Workflow Execution Report
++
++## Workflow Inputs
++\`\`\`galaxy
++invocation_inputs()
++\`\`\`
++
++## Workflow Outputs
++\`\`\`galaxy
++invocation_outputs()
++\`\`\`
++
++## Workflow
++\`\`\`galaxy
++workflow_display()
++\`\`\`
++`;
++
+ class Workflow {
+     constructor(app, canvas_container) {
+         this.app = app;
+@@ -202,7 +224,8 @@ class Workflow {
+             };
+             nodes[node.id] = node_data;
+         });
+-        return { steps: nodes };
++        const report = this.report;
++        return { steps: nodes, report: report };
+     }
+     from_simple(data, initialImport_) {
+         var initialImport = initialImport_ === undefined ? true : initialImport_;
+@@ -217,6 +240,17 @@ class Workflow {
+         // First pass, nodes
+         var using_workflow_outputs = false;
+         wf.workflow_version = data.version;
++        wf.report = data.report;
++        const markdownEditorInstance = Vue.extend(MarkdownEditor);
++        new markdownEditorInstance({
++            propsData: {
++                onupdate: markdown => {
++                    this.report_changed(markdown);
++                },
++                initialMarkdown: (data.report && data.report.markdown) || DEFAULT_INVOCATION_REPORT
++            },
++            el: "#workflow-report-editor"
++        });
+         $.each(data.steps, (id, step) => {
+             var node = wf.app.prebuildNode(step.type, step.name, step.content_id);
+             // If workflow being copied into another, wipe UUID and let
+@@ -327,6 +361,10 @@ class Workflow {
+         }
+         this.app.showWorkflowParameters();
+     }
++    report_changed(report_markdown) {
++        this.has_changes = true;
++        this.report.markdown = report_markdown;
++    }
+     layout() {
+         this.check_changes_in_active_form();
+         this.has_changes = true;
+diff --git a/client/galaxy/scripts/mvc/workflow/workflow-view.js b/client/galaxy/scripts/mvc/workflow/workflow-view.js
+index 80e0236ac0e2..3c8f6da05742 100644
+--- a/client/galaxy/scripts/mvc/workflow/workflow-view.js
++++ b/client/galaxy/scripts/mvc/workflow/workflow-view.js
+@@ -363,6 +363,8 @@ export default Backbone.View.extend({
+                 () => (window.location = `${getAppRoot()}workflows/run?id=${self.options.id}`)
+             );
+             $("#workflow-save-button").click(() => save_current_workflow());
++            $("#workflow-report-button").click(() => edit_report());
++            $("#workflow-canvas-button").click(() => edit_canvas());
+             make_popupmenu($("#workflow-options-button"), {
+                 "Save As": workflow_save_as,
+                 "Edit Attributes": function() {
+@@ -421,6 +423,16 @@ export default Backbone.View.extend({
+             self.canvas_manager.draw_overview();
+         }
+ 
++        function edit_report() {
++            $(".workflow-canvas-content").hide();
++            $(".workflow-report-content").show();
++        }
++
++        function edit_canvas() {
++            $(".workflow-canvas-content").show();
++            $(".workflow-report-content").hide();
++        }
++
+         // On load, set the size to the pref stored in local storage if it exists
+         var overview_size = localStorage.getItem("overview-size");
+         if (overview_size !== undefined) {
+diff --git a/client/galaxy/scripts/ui/popupmenu.js b/client/galaxy/scripts/ui/popupmenu.js
+index 9a7e2302b373..a79d0180d960 100644
+--- a/client/galaxy/scripts/ui/popupmenu.js
++++ b/client/galaxy/scripts/ui/popupmenu.js
+@@ -39,13 +39,15 @@ export function make_popupmenu(button_element, initial_options) {
+                     // Action can be either an anonymous function and a mapped dict.
+                     const action = v.action || v;
+                     const url = v.url || "javascript:void(0);";
+-                    menu_element.append(
+-                        $("<a>")
+-                            .addClass("dropdown-item")
+-                            .attr("href", url)
+-                            .html(k)
+-                            .click(action)
+-                    );
++                    const $a = $("<a>")
++                        .addClass("dropdown-item")
++                        .attr("href", url)
++                        .html(k)
++                        .click(action);
++                    if (v.class) {
++                        $a.addClass(v.class);
++                    }
++                    menu_element.append($a);
+                 } else {
+                     menu_element.append(
+                         $("<div/>")
+diff --git a/client/package.json b/client/package.json
+index 33279b0af525..89d80ca3494a 100644
+--- a/client/package.json
++++ b/client/package.json
+@@ -36,6 +36,7 @@
+     "jquery.cookie": "^1.4.1",
+     "latex-parser": "^0.6.2",
+     "latex-to-unicode-converter": "^0.5.2",
++    "markdown-it": "^8.4.2",
+     "popper.js": "^1.14.7",
+     "pyre-to-regexp": "^0.0.5",
+     "raven-js": "^3.27.0",
+diff --git a/client/yarn.lock b/client/yarn.lock
+index 3461cf2c4201..e1832bc16ce6 100644
+--- a/client/yarn.lock
++++ b/client/yarn.lock
+@@ -7692,6 +7692,13 @@ liftoff@^2.5.0:
+     rechoir "^0.6.2"
+     resolve "^1.1.7"
+ 
++linkify-it@^2.0.0:
++  version "2.1.0"
++  resolved "https://registry.yarnpkg.com/linkify-it/-/linkify-it-2.1.0.tgz#c4caf38a6cd7ac2212ef3c7d2bde30a91561f9db"
++  integrity sha512-4REs8/062kV2DSHxNfq5183zrqXMl7WP0WzABH9IeJI+NLm429FgE1PDecltYfnOoFDFlZGh2T8PfZn0r+GTRg==
++  dependencies:
++    uc.micro "^1.0.1"
++
+ listify@^1.0.0:
+   version "1.0.0"
+   resolved "https://registry.yarnpkg.com/listify/-/listify-1.0.0.tgz#03ca7ba2d150d4267773f74e57558d1053d2bee3"
+@@ -7940,6 +7947,17 @@ markdown-escapes@^1.0.0:
+   resolved "https://registry.yarnpkg.com/markdown-escapes/-/markdown-escapes-1.0.2.tgz#e639cbde7b99c841c0bacc8a07982873b46d2122"
+   integrity sha512-lbRZ2mE3Q9RtLjxZBZ9+IMl68DKIXaVAhwvwn9pmjnPLS0h/6kyBMgNhqi1xFJ/2yv6cSyv0jbiZavZv93JkkA==
+ 
++markdown-it@^8.4.2:
++  version "8.4.2"
++  resolved "https://registry.yarnpkg.com/markdown-it/-/markdown-it-8.4.2.tgz#386f98998dc15a37722aa7722084f4020bdd9b54"
++  integrity sha512-GcRz3AWTqSUphY3vsUqQSFMbgR38a4Lh3GWlHRh/7MRwz8mcu9n2IO7HOh+bXHrR9kOPDl5RNCaEsrneb+xhHQ==
++  dependencies:
++    argparse "^1.0.7"
++    entities "~1.1.1"
++    linkify-it "^2.0.0"
++    mdurl "^1.0.1"
++    uc.micro "^1.0.5"
++
+ markdown-table@^1.1.0:
+   version "1.1.2"
+   resolved "https://registry.yarnpkg.com/markdown-table/-/markdown-table-1.1.2.tgz#c78db948fa879903a41bce522e3b96f801c63786"
+@@ -8028,6 +8046,11 @@ mdn-data@~1.1.0:
+   resolved "https://registry.yarnpkg.com/mdn-data/-/mdn-data-1.1.4.tgz#50b5d4ffc4575276573c4eedb8780812a8419f01"
+   integrity sha512-FSYbp3lyKjyj3E7fMl6rYvUdX0FBXaluGqlFoYESWQlyUTq8R+wp0rkFxoYFqZlHCvsUXGjyJmLQSnXToYhOSA==
+ 
++mdurl@^1.0.1:
++  version "1.0.1"
++  resolved "https://registry.yarnpkg.com/mdurl/-/mdurl-1.0.1.tgz#fe85b2ec75a59037f2adfec100fd6c601761152e"
++  integrity sha1-/oWy7HWlkDfyrf7BAP1sYBdhFS4=
++
+ media-typer@0.3.0:
+   version "0.3.0"
+   resolved "https://registry.yarnpkg.com/media-typer/-/media-typer-0.3.0.tgz#8710d7af0aa626f8fffa1ce00168545263255748"
+@@ -12422,6 +12445,11 @@ typescript@^3.2.2:
+   resolved "https://registry.yarnpkg.com/typescript/-/typescript-3.3.4000.tgz#76b0f89cfdbf97827e1112d64f283f1151d6adf0"
+   integrity sha512-jjOcCZvpkl2+z7JFn0yBOoLQyLoIkNZAs/fYJkUG6VKy6zLPHJGfQJYFHzibB6GJaF/8QrcECtlQ5cpvRHSMEA==
+ 
++uc.micro@^1.0.1, uc.micro@^1.0.5:
++  version "1.0.6"
++  resolved "https://registry.yarnpkg.com/uc.micro/-/uc.micro-1.0.6.tgz#9c411a802a409a91fc6cf74081baba34b24499ac"
++  integrity sha512-8Y75pvTYkLJW2hWQHXxoqRgV7qb9B+9vFEtidML+7koHUFapnVJAZ6cKs+Qjz5Aw3aZWHMC6u0wJE3At+nSGwA==
++
+ uglify-es@^3.3.4:
+   version "3.3.9"
+   resolved "https://registry.yarnpkg.com/uglify-es/-/uglify-es-3.3.9.tgz#0c1c4f0700bed8dbc124cdb304d2592ca203e677"
+diff --git a/lib/galaxy/config/sample/datatypes_conf.xml.sample b/lib/galaxy/config/sample/datatypes_conf.xml.sample
+index f9c7e28f929b..6dc1e5ce9de5 100644
+--- a/lib/galaxy/config/sample/datatypes_conf.xml.sample
++++ b/lib/galaxy/config/sample/datatypes_conf.xml.sample
+@@ -309,7 +309,7 @@
+     </datatype>
+     <datatype extension="obo" type="galaxy.datatypes.text:Obo" mimetype="text/html" display_in_upload="true"/>
+     <datatype extension="owl" type="galaxy.datatypes.xml:Owl" mimetype="text/html" display_in_upload="true"/>
+-    <datatype extension="png" type="galaxy.datatypes.images:Png" mimetype="image/png"/>
++    <datatype extension="png" type="galaxy.datatypes.images:Png" mimetype="image/png" display_in_upload="true"/>
+     <datatype extension="qual" type="galaxy.datatypes.qualityscore:QualityScore"/>
+     <datatype extension="qualsolexa" type="galaxy.datatypes.qualityscore:QualityScoreSolexa" display_in_upload="true"/>
+     <datatype extension="qualillumina" type="galaxy.datatypes.qualityscore:QualityScoreIllumina" display_in_upload="true"/>
+diff --git a/lib/galaxy/dependencies/pipfiles/default/Pipfile b/lib/galaxy/dependencies/pipfiles/default/Pipfile
+index 9443eaf9d2d2..6b3cff58a20b 100644
+--- a/lib/galaxy/dependencies/pipfiles/default/Pipfile
++++ b/lib/galaxy/dependencies/pipfiles/default/Pipfile
+@@ -32,6 +32,8 @@ watchdog = "*"
+ numpy = "*"
+ bx-python = "*"
+ MarkupSafe = "*"
++Markdown = "*"
++Weasyprint = "==0.42"
+ PyYAML = "*"
+ SQLAlchemy = "*"
+ SQLAlchemy-Utils = "*"
+diff --git a/lib/galaxy/managers/markdown_util.py b/lib/galaxy/managers/markdown_util.py
+new file mode 100644
+index 000000000000..be4144804e83
+--- /dev/null
++++ b/lib/galaxy/managers/markdown_util.py
+@@ -0,0 +1,355 @@
++"""Utilities defining "Galaxy Flavored Markdown".
++
++This is an extension of markdown designed to allow rendering Galaxy object
++references.
++
++The core "Galaxy Flavored Markdown" format should just reference objects
++by encoded IDs - but preprocessing should allow for instance workflow objects
++to be referenced relative to the workflow (inputs, outputs, steps, etc..) and
++potential history flavor would allow objects to be referenced by HID. This
++second idea is unimplemented, it is just an example of the general concept of
++context specific processing.
++"""
++import logging
++import re
++
++from galaxy.managers.collections import DatasetCollectionManager
++from galaxy.managers.hdas import HDAManager
++from galaxy.managers.hdcas import HDCASerializer
++from galaxy.managers.jobs import JobManager
++from galaxy.managers.workflows import WorkflowsManager
++
++log = logging.getLogger(__name__)
++
++GALAXY_FLAVORED_MARKDOWN_CONTAINERS = [
++    "history_dataset_display",
++    "history_dataset_collection_display",
++    "history_dataset_as_image",
++    "history_dataset_peek",
++    "history_dataset_info",
++    "workflow_display",
++    "job_metrics",
++    "job_parameters",
++    "tool_stderr",
++    "tool_stdout",
++]
++INVOCATION_SECTIONS = [
++    "invocation_inputs",
++    "invocation_outputs",
++]
++ALL_CONTAINER_TYPES = GALAXY_FLAVORED_MARKDOWN_CONTAINERS + INVOCATION_SECTIONS
++GALAXY_FLAVORED_MARKDOWN_CONTAINER_REGEX = "(%s)" % "|".join(ALL_CONTAINER_TYPES)
++
++FUNCTION_ARG = r'\s*\w+\s*=\s*\w+\s*'
++FUNCTION_CALL_LINE_TEMPLATE = r'\s*%s\s*\((?:' + FUNCTION_ARG + r')?\)\s*'
++GALAXY_MARKDOWN_FUNCTION_CALL_LINE = re.compile(FUNCTION_CALL_LINE_TEMPLATE % GALAXY_FLAVORED_MARKDOWN_CONTAINER_REGEX)
++
++BLOCK_FENCE_START = re.compile(r'```.*')
++BLOCK_FENCE_END = re.compile(r'```[\s]*')
++
++OUTPUT_LABEL_PATTERN = re.compile(r'output=([\w_\-]+)')
++INPUT_LABEL_PATTERN = re.compile(r'input=([\w_\-]+)')
++# STEP_OUTPUT_LABEL_PATTERN = re.compile(r'step_output=([\w_\-]+)/([\w_\-]+)')
++STEP_LABEL_PATTERN = re.compile(r'step=([\w_\-]+)')
++ID_PATTERN = re.compile(r'(workflow_id|history_dataset_id|history_dataset_collection_id|job_id)=([\d]+)')
++GALAXY_FLAVORED_MARKDOWN_CONTAINER_LINE_PATTERN = re.compile(
++    r"```\s*galaxy\s*"
++)
++INVOCATION_SECTION_MARKDOWN_CONTAINER_LINE_PATTERN = re.compile(
++    r"```\s*galaxy\s*"
++)
++GALAXY_FENCED_BLOCK = re.compile(r'^```\s*galaxy\s*(.*?)^```', re.MULTILINE ^ re.DOTALL)
++VALID_CONTAINER_START_PATTERN = re.compile(r"^```\s+[\w]+.*$")
++VALID_CONTAINER_END_PATTERN = re.compile(r"^```\s*$")
++WHITE_SPACE_ONLY_PATTERN = re.compile(r"^[\s]+$")
++
++
++def ready_galaxy_markdown_for_export(trans, internal_galaxy_markdown):
++    """Fill in details needed to render Galaxy flavored markdown.
++
++    Take it from a minimal internal version to an externally render-able version
++    with more details populated and actual IDs replaced with encoded IDs to render
++    external links. Return expanded markdown and extra data useful for rendering
++    custom container tags.
++    """
++    hdas_manager = HDAManager(trans.app)
++    workflows_manager = WorkflowsManager(trans.app)
++    extra_rendering_data = {}
++
++    def _remap(container, line):
++        id_match = re.search(ID_PATTERN, line)
++        object_id = None
++        encoded_id = None
++        if id_match:
++            object_id = int(id_match.group(2))
++            encoded_id = trans.security.encode_id(object_id)
++            line = line.replace(id_match.group(), "%s=%s" % (id_match.group(1), encoded_id))
++
++        def ensure_rendering_data_for(object_type, encoded_id):
++            if object_type not in extra_rendering_data:
++                extra_rendering_data[object_type] = {}
++            object_type_data = extra_rendering_data[object_type]
++            if encoded_id not in object_type_data:
++                object_type_data[encoded_id] = {}
++            return object_type_data[encoded_id]
++
++        def extend_history_dataset_rendering_data(key, val, default_val):
++            ensure_rendering_data_for("history_datasets", encoded_id)[key] = val or default_val
++
++        if container == "history_dataset_display":
++            assert object_id is not None
++            hda = hdas_manager.get_accessible(object_id, trans.user)
++            if "history_datasets" not in extra_rendering_data:
++                extra_rendering_data["history_datasets"] = {}
++            extend_history_dataset_rendering_data("name", hda.name, "")
++        elif container == "history_dataset_peek":
++            assert object_id is not None
++            hda = hdas_manager.get_accessible(object_id, trans.user)
++            peek = hda.peek
++            extend_history_dataset_rendering_data("peek", peek, "*No Dataset Peek Available*")
++        elif container == "history_dataset_info":
++            hda = hdas_manager.get_accessible(object_id, trans.user)
++            info = hda.info
++            extend_history_dataset_rendering_data("info", info, "*No Dataset Peek Available*")
++        elif container == "workflow_display":
++            # TODO: should be workflow id...
++            stored_workflow = workflows_manager.get_stored_accessible_workflow(trans, encoded_id)
++            ensure_rendering_data_for("workflows", encoded_id)["name"] = stored_workflow.name
++        elif container == "history_dataset_collection_display":
++            collection_manager = DatasetCollectionManager(trans.app)
++            hdca = collection_manager.get_dataset_collection_instance(trans, "history", encoded_id)
++            hdca_serializer = HDCASerializer(trans.app)
++            hdca_view = hdca_serializer.serialize_to_view(
++                hdca, user=trans.user, trans=trans, view="summary"
++            )
++            if "history_dataset_collections" not in extra_rendering_data:
++                extra_rendering_data["history_dataset_collections"] = {}
++            ensure_rendering_data_for("history_dataset_collections", encoded_id).update(hdca_view)
++        elif container == "tool_stdout":
++            job_manager = JobManager(trans.app)
++            job = job_manager.get_accessible_job(trans, object_id)
++            ensure_rendering_data_for("jobs", encoded_id)["tool_stdout"] = job.tool_stdout or "*No Standard Output Available*"
++        elif container == "tool_stderr":
++            job_manager = JobManager(trans.app)
++            job = job_manager.get_accessible_job(trans, object_id)
++            ensure_rendering_data_for("jobs", encoded_id)["tool_stderr"] = job.tool_stderr or "*No Standard Error Available*"
++        return (line, False)
++
++    export_markdown = _remap_galaxy_markdown_calls(_remap, internal_galaxy_markdown)
++    return export_markdown, extra_rendering_data
++
++
++def resolve_invocation_markdown(trans, invocation, workflow_markdown):
++    """Resolve invocation objects to convert markdown to 'internal' representation.
++
++    Replace references to abstract workflow parts with actual galaxy object IDs corresponding
++    to the actual executed workflow. For instance:
++
++        convert output=name -to- history_dataset_id=<id> | history_dataset_collection_id=<id>
++        convert input=name -to- history_dataset_id=<id> | history_dataset_collection_id=<id>
++        convert step=name -to- job_id=<id>
++
++    Also expand/convert workflow invocation specific container sections into actual Galaxy
++    markdown - these containers include: invocation_inputs, invocation_outputs, invocation_workflow.
++    Hopefully this list will be expanded to include invocation_qc.
++    """
++    # TODO: convert step outputs?
++    # convert step_output=index/name -to- history_dataset_id=<id> | history_dataset_collection_id=<id>
++
++    def _section_remap(container, line):
++        section_markdown = ""
++        if container == "invocation_outputs":
++            for output_assoc in invocation.output_associations:
++                if not output_assoc.workflow_output.label:
++                    continue
++
++                if output_assoc.history_content_type == "dataset":
++                    section_markdown += """#### Output Dataset: %s
++```galaxy
++history_dataset_display(output=%s)
++```
++""" % (output_assoc.workflow_output.label, output_assoc.workflow_output.label)
++                else:
++                    section_markdown += """#### Output Dataset Collection: %s
++```galaxy
++history_dataset_collection_display(output=%s)
++```
++""" % (output_assoc.workflow_output.label)
++        elif container == "invocation_inputs":
++            for input_assoc in invocation.input_associations:
++                if not input_assoc.workflow_step.label:
++                    continue
++
++                if input_assoc.history_content_type == "dataset":
++                    section_markdown += """#### Input Dataset: %s
++```galaxy
++history_dataset_display(input=%s)
++```
++""" % (input_assoc.workflow_step.label, input_assoc.workflow_step.label)
++                else:
++                    section_markdown += """#### Input Dataset Collection: %s
++```galaxy
++history_dataset_collection_display(input=%s)
++```
++""" % (input_assoc.workflow_step.label, input_assoc.workflow_step.label)
++        else:
++            return line, False
++        return section_markdown, True
++
++    def _remap(container, line):
++        if container == "workflow_display":
++            # TODO: this really should be workflow id not stored workflow id but the API
++            # it consumes wants the stored id.
++            return ("workflow_display(workflow_id=%s)\n" % invocation.workflow.stored_workflow.id, False)
++        ref_object_type = None
++        output_match = re.search(OUTPUT_LABEL_PATTERN, line)
++        input_match = re.search(INPUT_LABEL_PATTERN, line)
++        step_match = re.search(STEP_LABEL_PATTERN, line)
++        if output_match:
++            target_match = output_match
++            name = output_match.group(1)
++            ref_object = invocation.get_output_object(name)
++        elif input_match:
++            target_match = input_match
++            name = input_match.group(1)
++            ref_object = invocation.get_input_object(name)
++        elif step_match:
++            target_match = step_match
++            name = step_match.group(1)
++            ref_object_type = "job"
++            ref_object = invocation.step_invocation_for_label(name).job
++        else:
++            target_match = None
++            ref_object = None
++        if ref_object:
++            if ref_object_type is None:
++                if ref_object.history_content_type == "dataset":
++                    ref_object_type = "history_dataset"
++                else:
++                    ref_object_type = "history_dataset_collection"
++            line = line.replace(target_match.group(), "%s_id=%s" % (ref_object_type, ref_object.id))
++        return (line, False)
++
++    log.debug("workflow markdown is \n%s" % workflow_markdown)
++    workflow_markdown = _remap_galaxy_markdown_calls(
++        _section_remap,
++        workflow_markdown,
++    )
++    galaxy_markdown = _remap_galaxy_markdown_calls(_remap, workflow_markdown)
++    log.debug("galaxy markdown is \n%s" % galaxy_markdown)
++    return galaxy_markdown
++
++
++def validate_galaxy_markdown(galaxy_markdown, internal=True):
++    expecting_container_close_for = None
++    last_line_no = 0
++    function_calls = 0
++    for (line, fenced, open_fence, line_no) in _split_markdown_lines(galaxy_markdown):
++        last_line_no = line_no
++
++        def invalid_line(template, **kwd):
++            if "line" in kwd:
++                kwd["line"] = line.rstrip("\r\n")
++            raise Exception("Invalid line %d: %s" % (line_no + 1, template.format(**kwd)))
++
++        expecting_container_close = expecting_container_close_for is not None
++        if not fenced and expecting_container_close:
++            invalid_line("[{line}] is not expected close line for [{expected_for}]", line=line, expected_for=expecting_container_close_for)
++            continue
++        elif not fenced:
++            continue
++        elif fenced and expecting_container_close and BLOCK_FENCE_END.match(line):
++            expecting_container_close_for = None
++        elif open_fence and GALAXY_FLAVORED_MARKDOWN_CONTAINER_LINE_PATTERN.match(line):
++            if expecting_container_close:
++                if not VALID_CONTAINER_END_PATTERN.match(line):
++                    invalid_line("Invalid command close line [{line}] for [{expected_for}]", line=line, expected_for=expecting_container_close_for)
++                # else closing container and we're done
++                expecting_container_close_for = None
++                continue
++
++            expecting_container_close_for = line
++            continue
++        elif fenced and line and expecting_container_close_for:
++            if GALAXY_MARKDOWN_FUNCTION_CALL_LINE.match(line):
++                function_calls += 1
++                if function_calls > 1:
++                    invalid_line("Only one Galaxy directive is allowed per fenced Galaxy block (```galaxy)")
++                continue
++            else:
++                invalid_line("Invalid embedded Galaxy markup line [{line}]", line=line)
++
++        # Markdown unrelated to Galaxy object containers.
++        continue
++
++    if expecting_container_close_for:
++        raise Exception("Invalid line %d: %s" % (last_line_no, "close of block for [{expected_for}] expected".format(expected_for=expecting_container_close_for)))
++
++
++def _remap_galaxy_markdown_containers(func, markdown):
++    new_markdown = markdown
++
++    searching_from = 0
++    while True:
++        from_markdown = new_markdown[searching_from:]
++        match = re.search(GALAXY_FENCED_BLOCK, from_markdown)
++        if match is not None:
++            (replacement, whole_block) = func(match.group(1))
++            if whole_block:
++                start_pos = match.start()
++                end_pos = match.end()
++            else:
++                start_pos = match.start(1)
++                end_pos = match.end(1)
++            start_pos = start_pos + searching_from
++            end_pos = end_pos + searching_from
++
++            new_markdown = new_markdown[:start_pos] + replacement + new_markdown[end_pos:]
++            searching_from = end_pos
++        else:
++            break
++
++    return new_markdown
++
++
++def _remap_galaxy_markdown_calls(func, markdown):
++
++    def _remap_container(container):
++        matching_line = None
++        for line in container.splitlines():
++            if GALAXY_MARKDOWN_FUNCTION_CALL_LINE.match(line):
++                assert matching_line is None
++                matching_line = line
++
++        assert matching_line, "Failed to find func call line in [%s]" % container
++        match = GALAXY_MARKDOWN_FUNCTION_CALL_LINE.match(line)
++
++        return func(match.group(1), matching_line + "\n")
++
++    return _remap_galaxy_markdown_containers(_remap_container, markdown)
++
++
++def _split_markdown_lines(markdown):
++    """Yield lines of a markdown document line-by-line keeping track of fencing.
++
++    'Fenced' lines are code-like block (e.g. between ```) that shouldn't contain
++    Markdown markup.
++    """
++    block_fenced = False
++    indent_fenced = False
++    for line_number, line in enumerate(markdown.splitlines(True)):
++        open_fence_this_iteration = False
++        indent_fenced = line.startswith("    ") or (indent_fenced and WHITE_SPACE_ONLY_PATTERN.match(line))
++        if not block_fenced:
++            if BLOCK_FENCE_START.match(line):
++                open_fence_this_iteration = True
++                block_fenced = True
++        yield (line, block_fenced or indent_fenced, open_fence_this_iteration, line_number)
++        if not open_fence_this_iteration and BLOCK_FENCE_END.match(line):
++            block_fenced = False
++
++
++__all__ = (
++    'ready_galaxy_markdown_for_export',
++    'resolve_invocation_markdown',
++)
+diff --git a/lib/galaxy/managers/workflows.py b/lib/galaxy/managers/workflows.py
+index 586aa9eaf40f..8b871719502b 100644
+--- a/lib/galaxy/managers/workflows.py
++++ b/lib/galaxy/managers/workflows.py
+@@ -59,7 +59,7 @@ class WorkflowsManager(object):
+     def __init__(self, app):
+         self.app = app
+ 
+-    def get_stored_workflow(self, trans, workflow_id):
++    def get_stored_workflow(self, trans, workflow_id, by_stored_id=True):
+         """ Use a supplied ID (UUID or encoded stored workflow ID) to find
+         a workflow.
+         """
+@@ -70,10 +70,16 @@ def get_stored_workflow(self, trans, workflow_id):
+                 trans.app.model.StoredWorkflow.latest_workflow_id == trans.app.model.Workflow.id,
+                 trans.app.model.Workflow.uuid == workflow_uuid
+             ))
+-        else:
++        elif by_stored_id:
+             workflow_id = decode_id(self.app, workflow_id)
+             workflow_query = trans.sa_session.query(trans.app.model.StoredWorkflow).\
+                 filter(trans.app.model.StoredWorkflow.id == workflow_id)
++        else:
++            workflow_id = decode_id(self.app, workflow_id)
++            workflow_query = trans.sa_session.query(trans.app.model.StoredWorkflow).filter(and_(
++                trans.app.model.StoredWorkflow.latest_workflow_id == trans.app.model.Workflow.id,
++                trans.app.model.Workflow.id == workflow_id
++            ))
+         stored_workflow = workflow_query.options(joinedload('annotations'),
+                                                  joinedload('tags'),
+                                                  subqueryload('latest_workflow').joinedload('steps').joinedload('*')).first()
+@@ -81,11 +87,11 @@ def get_stored_workflow(self, trans, workflow_id):
+             raise exceptions.ObjectNotFound("No such workflow found.")
+         return stored_workflow
+ 
+-    def get_stored_accessible_workflow(self, trans, workflow_id):
++    def get_stored_accessible_workflow(self, trans, workflow_id, by_stored_id=True):
+         """ Get a stored workflow from a encoded stored workflow id and
+         make sure it accessible to the user.
+         """
+-        stored_workflow = self.get_stored_workflow(trans, workflow_id)
++        stored_workflow = self.get_stored_workflow(trans, workflow_id, by_stored_id=by_stored_id)
+ 
+         # check to see if user has permissions to selected workflow
+         if stored_workflow.user != trans.user and not trans.user_is_admin and not stored_workflow.published:
+@@ -388,6 +394,9 @@ def _workflow_from_raw_description(self, trans, raw_workflow_description, name,
+         workflow = model.Workflow()
+         workflow.name = name
+ 
++        if 'report' in data:
++            workflow.reports_config = data['report']
++
+         # Assume no errors until we find a step that has some
+         workflow.has_errors = False
+         # Create each step
+@@ -580,6 +589,7 @@ def _workflow_to_dict_editor(self, trans, stored, workflow, tooltip=True, is_sub
+         data['name'] = workflow.name
+         data['steps'] = {}
+         data['upgrade_messages'] = {}
++        data['report'] = workflow.reports_config
+         input_step_types = set(workflow.input_step_types)
+         # For each step, rebuild the form and encode the state
+         for step in workflow.steps:
+diff --git a/lib/galaxy/model/__init__.py b/lib/galaxy/model/__init__.py
+index 5264e9fc5463..ad80b1f95611 100644
+--- a/lib/galaxy/model/__init__.py
++++ b/lib/galaxy/model/__init__.py
+@@ -4580,6 +4580,21 @@ def workflow_outputs(self):
+             for workflow_output in step.workflow_outputs:
+                 yield workflow_output
+ 
++    def workflow_output_for(self, output_label):
++        target_output = None
++        for workflow_output in self.workflow_outputs:
++            if workflow_output.label == output_label:
++                target_output = workflow_output
++                break
++        return target_output
++
++    @property
++    def workflow_output_labels(self):
++        names = []
++        for workflow_output in self.workflow_outputs:
++            names.append(workflow_output.label)
++        return names
++
+     @property
+     def top_level_workflow(self):
+         """ If this workflow is not attached to stored workflow directly,
+@@ -4964,6 +4979,13 @@ def step_invocation_for_step_id(self, step_id):
+                 target_invocation_step = invocation_step
+         return target_invocation_step
+ 
++    def step_invocation_for_label(self, label):
++        target_invocation_step = None
++        for invocation_step in self.steps:
++            if label == invocation_step.workflow_step.label:
++                target_invocation_step = invocation_step
++        return target_invocation_step
++
+     @staticmethod
+     def poll_unhandled_workflow_ids(sa_session):
+         and_conditions = [
+@@ -5020,6 +5042,47 @@ def add_output(self, workflow_output, step, output_object):
+         else:
+             raise Exception("Unknown output type encountered")
+ 
++    def get_output_object(self, label):
++        for output_dataset_assoc in self.output_datasets:
++            if output_dataset_assoc.workflow_output.label == label:
++                return output_dataset_assoc.dataset
++        for output_dataset_collection_assoc in self.output_dataset_collections:
++            if output_dataset_collection_assoc.workflow_output.label == label:
++                return output_dataset_collection_assoc.dataset_collection
++        # That probably isn't good.
++        workflow_output = self.workflow.workflow_output_for(label)
++        if workflow_output:
++            raise Exception("Failed to find workflow output named [%s], one was defined but none registered during execution." % label)
++        else:
++            raise Exception("Failed to find workflow output named [%s], workflow doesn't define output by that name - valid names are %s." % (label, self.workflow.workflow_output_labels))
++
++    def get_input_object(self, label):
++        for input_dataset_assoc in self.input_datasets:
++            if input_dataset_assoc.workflow_step.label == label:
++                return input_dataset_assoc.dataset
++        for input_dataset_collection_assoc in self.input_dataset_collections:
++            if input_dataset_collection_assoc.workflow_step.label == label:
++                return input_dataset_collection_assoc.dataset_collection
++        raise Exception("Failed to find input with label %s" % label)
++
++    @property
++    def output_associations(self):
++        outputs = []
++        for output_dataset_assoc in self.output_datasets:
++            outputs.append(output_dataset_assoc)
++        for output_dataset_collection_assoc in self.output_dataset_collections:
++            outputs.append(output_dataset_collection_assoc.dataset_collection)
++        return outputs
++
++    @property
++    def input_associations(self):
++        inputs = []
++        for input_dataset_assoc in self.input_datasets:
++            inputs.append(input_dataset_assoc)
++        for input_dataset_collection_assoc in self.input_dataset_collections:
++            inputs.append(input_dataset_collection_assoc)
++        return inputs
++
+     def to_dict(self, view='collection', value_mapper=None, step_details=False, legacy_job_state=False):
+         rval = super(WorkflowInvocation, self).to_dict(view=view, value_mapper=value_mapper)
+         if view == 'element':
+@@ -5089,22 +5152,30 @@ def to_dict(self, view='collection', value_mapper=None, step_details=False, lega
+     def update(self):
+         self.update_time = galaxy.model.orm.now.now()
+ 
+-    def add_input(self, content, step_id):
++    def add_input(self, content, step_id=None, step=None):
++        assert step_id is not None or step is not None
++
++        def attach_step(request_to_content):
++            if step_id is not None:
++                request_to_content.workflow_step_id = step_id
++            else:
++                request_to_content.workflow_step = step
++
+         history_content_type = getattr(content, "history_content_type", None)
+         if history_content_type == "dataset":
+             request_to_content = WorkflowRequestToInputDatasetAssociation()
+             request_to_content.dataset = content
+-            request_to_content.workflow_step_id = step_id
++            attach_step(request_to_content)
+             self.input_datasets.append(request_to_content)
+         elif history_content_type == "dataset_collection":
+             request_to_content = WorkflowRequestToInputDatasetCollectionAssociation()
+             request_to_content.dataset_collection = content
+-            request_to_content.workflow_step_id = step_id
++            attach_step(request_to_content)
+             self.input_dataset_collections.append(request_to_content)
+         else:
+             request_to_content = WorkflowRequestInputStepParameter()
+             request_to_content.parameter_value = content
+-            request_to_content.workflow_step_id = step_id
++            attach_step(request_to_content)
+             self.input_step_parameters.append(request_to_content)
+ 
+     @property
+@@ -5254,12 +5325,14 @@ def __init__(self, workflow_step=None, name=None, value=None):
+ class WorkflowRequestToInputDatasetAssociation(Dictifiable, RepresentById):
+     """ Workflow step input dataset parameters.
+     """
++    history_content_type = "dataset"
+     dict_collection_visible_keys = ['id', 'workflow_invocation_id', 'workflow_step_id', 'dataset_id', 'name']
+ 
+ 
+ class WorkflowRequestToInputDatasetCollectionAssociation(Dictifiable, RepresentById):
+     """ Workflow step input dataset collection parameters.
+     """
++    history_content_type = "dataset_collection"
+     dict_collection_visible_keys = ['id', 'workflow_invocation_id', 'workflow_step_id', 'dataset_collection_id', 'name']
+ 
+ 
+@@ -5271,11 +5344,13 @@ class WorkflowRequestInputStepParameter(Dictifiable, RepresentById):
+ 
+ class WorkflowInvocationOutputDatasetAssociation(Dictifiable, RepresentById):
+     """Represents links to output datasets for the workflow."""
++    history_content_type = "dataset"
+     dict_collection_visible_keys = ['id', 'workflow_invocation_id', 'workflow_step_id', 'dataset_id', 'name']
+ 
+ 
+ class WorkflowInvocationOutputDatasetCollectionAssociation(Dictifiable, RepresentById):
+     """Represents links to output dataset collections for the workflow."""
++    history_content_type = "dataset_collection"
+     dict_collection_visible_keys = ['id', 'workflow_invocation_id', 'workflow_step_id', 'dataset_collection_id', 'name']
+ 
+ 
+diff --git a/lib/galaxy/model/mapping.py b/lib/galaxy/model/mapping.py
+index 35835ada9834..52da85440daa 100644
+--- a/lib/galaxy/model/mapping.py
++++ b/lib/galaxy/model/mapping.py
+@@ -993,6 +993,7 @@
+     Column("name", TEXT),
+     Column("has_cycles", Boolean),
+     Column("has_errors", Boolean),
++    Column("reports_config", JSONType),
+     Column("uuid", UUIDType, nullable=True))
+ 
+ model.WorkflowStep.table = Table(
+diff --git a/lib/galaxy/model/migrate/versions/0158_workflow_reports.py b/lib/galaxy/model/migrate/versions/0158_workflow_reports.py
+new file mode 100644
+index 000000000000..fcb231fc0185
+--- /dev/null
++++ b/lib/galaxy/model/migrate/versions/0158_workflow_reports.py
+@@ -0,0 +1,30 @@
++"""
++Adds reports_config to workflow.
++"""
++import datetime
++import logging
++
++from sqlalchemy import Column, MetaData
++
++from galaxy.model.custom_types import JSONType
++from galaxy.model.migrate.versions.util import add_column, drop_column
++
++now = datetime.datetime.utcnow
++log = logging.getLogger(__name__)
++metadata = MetaData()
++
++
++def upgrade(migrate_engine):
++    metadata.bind = migrate_engine
++    print(__doc__)
++    metadata.reflect()
++
++    reports_config_column = Column('reports_config', JSONType, default=None)
++    add_column(reports_config_column, 'workflow', metadata)
++
++
++def downgrade(migrate_engine):
++    metadata.bind = migrate_engine
++    metadata.reflect()
++
++    drop_column('reports_config', 'workflow', metadata)
+diff --git a/lib/galaxy/webapps/galaxy/api/workflows.py b/lib/galaxy/webapps/galaxy/api/workflows.py
+index 8a7a3df026cb..2abfb6349b46 100644
+--- a/lib/galaxy/webapps/galaxy/api/workflows.py
++++ b/lib/galaxy/webapps/galaxy/api/workflows.py
+@@ -38,6 +38,7 @@
+ )
+ from galaxy.workflow.extract import extract_workflow
+ from galaxy.workflow.modules import module_factory
++from galaxy.workflow.reports import generate_report_json
+ from galaxy.workflow.run import invoke, queue_invoke
+ from galaxy.workflow.run_request import build_workflow_run_configs
+ from tool_shed.galaxy_install.install_manager import InstallRepositoryManager
+@@ -866,6 +867,21 @@ def cancel_invocation(self, trans, workflow_id, invocation_id, **kwd):
+         workflow_invocation = self.workflow_manager.cancel_invocation(trans, decoded_workflow_invocation_id)
+         return self.__encode_invocation(workflow_invocation, **kwd)
+ 
++    @expose_api
++    def show_invocation_report(self, trans, workflow_id, invocation_id, **kwd):
++        """
++        GET /api/workflows/{workflow_id}/invocations/{invocation_id}/report
++
++        Get JSON summarizing invocation for reporting.
++        """
++        decoded_workflow_invocation_id = self.decode_id(invocation_id)
++        workflow_invocation = self.workflow_manager.get_invocation(trans, decoded_workflow_invocation_id)
++        generator_plugin_type = kwd.get("generator_plugin_type")
++        runtime_report_config_json = kwd.get("runtime_report_config_json")
++        return generate_report_json(
++            trans, workflow_invocation, runtime_report_config_json=runtime_report_config_json, plugin_type=generator_plugin_type
++        )
++
+     @expose_api
+     def invocation_step(self, trans, workflow_id, invocation_id, step_id, **kwd):
+         """
+diff --git a/lib/galaxy/webapps/galaxy/buildapp.py b/lib/galaxy/webapps/galaxy/buildapp.py
+index 6c9aed014a12..348cd1269766 100644
+--- a/lib/galaxy/webapps/galaxy/buildapp.py
++++ b/lib/galaxy/webapps/galaxy/buildapp.py
+@@ -150,6 +150,7 @@ def app_factory(global_conf, load_app_kwds={}, **kwargs):
+     webapp.add_client_route('/workflows/create')
+     webapp.add_client_route('/workflows/run')
+     webapp.add_client_route('/workflows/import')
++    webapp.add_client_route('/workflows/invocations/report')
+     webapp.add_client_route('/custom_builds')
+     webapp.add_client_route('/realtime_entry_points/list')
+ 
+@@ -548,6 +549,14 @@ def populate_api_routes(webapp, app):
+             conditions=dict(method=['GET'])
+         )
+ 
++        webapp.mapper.connect(
++            'workflow_%s_report' % name,
++            '/api/workflows/{workflow_id}/%s/{invocation_id}/report' % noun,
++            controller='workflows',
++            action='show_invocation_report',
++            conditions=dict(method=['GET'])
++        )
++
+         webapp.mapper.connect(
+             'cancel_workflow_%s' % name,
+             '/api/workflows/{workflow_id}/%s/{invocation_id}' % noun,
+diff --git a/lib/galaxy/workflow/reports/__init__.py b/lib/galaxy/workflow/reports/__init__.py
+new file mode 100644
+index 000000000000..f30370070d79
+--- /dev/null
++++ b/lib/galaxy/workflow/reports/__init__.py
+@@ -0,0 +1,11 @@
++from galaxy.util import plugin_config
++
++DEFAULT_REPORT_GENERATOR_TYPE = "markdown"
++
++
++def generate_report_json(trans, invocation, runtime_report_config_json=None, plugin_type=None):
++    import galaxy.workflow.reports.generators
++    plugin_classes = plugin_config.plugins_dict(galaxy.workflow.reports.generators, 'plugin_type')
++    plugin_type = plugin_type or DEFAULT_REPORT_GENERATOR_TYPE
++    plugin = plugin_classes[plugin_type]()
++    return plugin.generate_report_json(trans, invocation, runtime_report_config_json=runtime_report_config_json)
+diff --git a/lib/galaxy/workflow/reports/generators/__init__.py b/lib/galaxy/workflow/reports/generators/__init__.py
+new file mode 100644
+index 000000000000..77bb68a4542c
+--- /dev/null
++++ b/lib/galaxy/workflow/reports/generators/__init__.py
+@@ -0,0 +1,60 @@
++"""Module containing Galaxy workflow report generator plugins.
++"""
++from abc import (
++    ABCMeta,
++    abstractmethod
++)
++
++import six
++
++from galaxy.managers.markdown_util import (
++    ready_galaxy_markdown_for_export,
++    resolve_invocation_markdown,
++)
++
++
++@six.add_metaclass(ABCMeta)
++class WorkflowReportGeneratorPlugin(object):
++    """
++    """
++
++    @property
++    @abstractmethod
++    def plugin_type(self):
++        """Short string labelling this plugin."""
++
++    @abstractmethod
++    def generate_report_json(self, trans, invocation, runtime_report_config_json=None):
++        """
++        """
++
++    @abstractmethod
++    def generate_report_pdf(self, trans, invocation, runtime_report_config_json=None):
++        """
++        """
++
++
++@six.add_metaclass(ABCMeta)
++class WorkflowMarkdownGeneratorPlugin(WorkflowReportGeneratorPlugin):
++    """WorkflowReportGeneratorPlugin that generates markdown as base report."""
++
++    def generate_report_json(self, trans, invocation, runtime_report_config_json=None):
++        """
++        """
++        workflow_markdown = self._generate_report_markdown(trans, invocation, runtime_report_config_json=runtime_report_config_json)
++        internal_markdown = resolve_invocation_markdown(trans, invocation, workflow_markdown)
++        export_markdown, extra_rendering_data = ready_galaxy_markdown_for_export(trans, internal_markdown)
++        rval = {
++            "render_format": "markdown",  # Presumably the frontend could render things other ways.
++            "markdown": export_markdown,
++        }
++        rval.update(extra_rendering_data)
++        return rval
++
++    def generate_report_pdf(self, trans, invocation, runtime_report_config_json=None):
++        # TODO: translate markdown to a PDF
++        raise NotImplementedError()
++
++    @abstractmethod
++    def _generate_report_markdown(self, trans, invocation, runtime_report_config_json=None):
++        """ """
+diff --git a/lib/galaxy/workflow/reports/generators/markdown.py b/lib/galaxy/workflow/reports/generators/markdown.py
+new file mode 100644
+index 000000000000..4f735274d434
+--- /dev/null
++++ b/lib/galaxy/workflow/reports/generators/markdown.py
+@@ -0,0 +1,46 @@
++"""The class defines the default stock Galaxy workflow reporting plugin
++"""
++import logging
++import string
++
++from ..generators import WorkflowMarkdownGeneratorPlugin
++
++log = logging.getLogger(__name__)
++
++DEFAULT_MARKDOWN = """
++# ${title}
++
++## Workflow Inputs
++```galaxy
++invocation_inputs()
++```
++
++## Workflow Outputs
++```galaxy
++invocation_outputs()
++```
++
++## Workflow
++```galaxy
++workflow_display()
++```
++"""
++
++
++class MarkdownWorkflowMarkdownReportGeneratorPlugin(WorkflowMarkdownGeneratorPlugin):
++    plugin_type = "markdown"
++
++    def _generate_report_markdown(self, trans, invocation, runtime_report_config_json=None):
++        reports_config = (invocation.workflow.reports_config or {}).copy()
++        # TODO: more intelligent merge here.
++        reports_config.update(runtime_report_config_json or {})
++        title = reports_config.get("title", "Workflow Execution Summary of %s" % invocation.workflow.stored_workflow.name)
++        markdown = reports_config.get("markdown")
++        if markdown is None:
++            template_kwds = {"title": title}
++            markdown = string.Template(DEFAULT_MARKDOWN).safe_substitute(**template_kwds)
++
++        return markdown
++
++
++__all__ = ('MarkdownWorkflowMarkdownReportGeneratorPlugin', )
+diff --git a/templates/webapps/galaxy/workflow/editor.mako b/templates/webapps/galaxy/workflow/editor.mako
+index c56347d93689..a61053e2b09c 100644
+--- a/templates/webapps/galaxy/workflow/editor.mako
++++ b/templates/webapps/galaxy/workflow/editor.mako
+@@ -62,6 +62,7 @@
+     }
+     canvas { position: absolute; z-index: 10; }
+     canvas.dragging { position: absolute; z-index: 1000; }
++    .workflow-report-content { display: none; }
+     </style>
+ </%def>
+ 
+@@ -238,6 +239,12 @@
+                 <a id="workflow-save-button" class="panel-header-button" href="javascript:void(0)" role="button" title="Save" style="display: inline-block;" aria-label="Save">
+                     <span class="fa fa-floppy-o"></span>
+                 </a>
++                <a id="workflow-report-button" class="panel-header-button workflow-canvas-content" href="javascript:void(0)" role="button" title="Edit Report" aria-label="Edit Report">
++                    <span class="fa fa-edit"></span>
++                </a>
++                <a id="workflow-canvas-button" class="panel-header-button workflow-report-content" href="javascript:void(0)" role="button" title="Edit Workflow" aria-label="Edit Workflow">
++                    <span class="fa fa-sitemap fa-rotate-270"></span>
++                </a>
+                 <a id="workflow-options-button" class="panel-header-button" href="javascript:void(0)" role="button" title="Workflow options" style="display: inline-block;" aria-label="Workflow options">
+                     <span class="fa fa-cog"></span>
+                 </a>
+@@ -246,9 +253,12 @@
+         </div>
+     </div>
+     <div class="unified-panel-body" id="workflow-canvas-body">
+-        <div id="canvas-viewport">
++        <div id="canvas-viewport" class="workflow-canvas-content">
+             <div id="canvas-container" style="position: absolute; width: 100%; height: 100%;"></div>
+         </div>
++        <div id="report-editor-container" class="workflow-report-content" style="position: absolute; width: 100%; height: 100%; display: none">
++            <textarea id="workflow-report-editor" style="width: 100%; height: 100%;"></textarea>
++        </div>
+         <div id='workflow-parameters-box' style="display:none; position: absolute; right:0px; border: solid grey 1px; padding: 5px; background: #EEEEEE; z-index: 20000; overflow: auto; max-width: 300px; max-height: 300px;">
+             <div style="margin-bottom:5px;">
+                 <b>Workflow Parameters</b>
+@@ -256,7 +266,7 @@
+             <div id="workflow-parameters-container">
+             </div>
+         </div>
+-        <div class="workflow-overview">
++        <div class="workflow-overview workflow-canvas-content">
+             <div style="position: relative; overflow: hidden; width: 100%; height: 100%; border-top: solid gray 1px; border-left: solid grey 1px;">
+                 <div id="overview" style="position: absolute;">
+                     <canvas width="0" height="0" style="background: white; width: 100%; height: 100%;" id="overview-canvas"></canvas>
+diff --git a/test/api/test_workflows.py b/test/api/test_workflows.py
+index 26a55f347f3d..e1a063278e8a 100644
+--- a/test/api/test_workflows.py
++++ b/test/api/test_workflows.py
+@@ -23,6 +23,8 @@
+     WORKFLOW_ONE_STEP_DEFAULT,
+     WORKFLOW_RENAME_ON_INPUT,
+     WORKFLOW_RUNTIME_PARAMETER_AFTER_PAUSE,
++    WORKFLOW_WITH_CUSTOM_REPORT_1,
++    WORKFLOW_WITH_CUSTOM_REPORT_1_TEST_DATA,
+     WORKFLOW_WITH_DYNAMIC_OUTPUT_COLLECTION,
+     WORKFLOW_WITH_OUTPUT_COLLECTION,
+     WORKFLOW_WITH_OUTPUT_COLLECTION_MAPPING,
+@@ -1234,6 +1236,58 @@ def test_workflow_flatten_with_mapped_over_execution(self):
+             assert nested_collection['elements'][0]['object']['populated']
+             assert nested_collection['elements'][0]['object']['element_count'] == 2
+ 
++    @skip_without_tool("cat")
++    def test_workflow_invocation_report_1(self):
++        test_data = """
++input_1:
++  value: 1.bed
++  type: File
++"""
++        with self.dataset_populator.test_history() as history_id:
++            summary = self._run_jobs(r"""
++class: GalaxyWorkflow
++inputs:
++  input_1: data
++outputs:
++  output_1:
++    outputSource: first_cat/out_file1
++steps:
++  first_cat:
++    tool_id: cat
++    in:
++      input1: input_1
++""", test_data=test_data, history_id=history_id)
++            workflow_id = summary.workflow_id
++            invocation_id = summary.invocation_id
++            report_json = self.workflow_populator.workflow_report_json(workflow_id, invocation_id)
++            assert "markdown" in report_json
++            self._assert_has_keys(report_json , "markdown", "render_format")
++            assert report_json["render_format"] == "markdown"
++            markdown_content = report_json["markdown"]
++            assert "## Workflow Outputs" in markdown_content
++            assert "## Workflow Inputs" in markdown_content
++            assert "## About This Report" not in markdown_content
++
++    @skip_without_tool("cat")
++    def test_workflow_invocation_report_custom(self):
++        with self.dataset_populator.test_history() as history_id:
++            summary = self._run_jobs(
++                WORKFLOW_WITH_CUSTOM_REPORT_1,
++                test_data=WORKFLOW_WITH_CUSTOM_REPORT_1_TEST_DATA,
++                history_id=history_id
++            )
++            workflow_id = summary.workflow_id
++            invocation_id = summary.invocation_id
++            report_json = self.workflow_populator.workflow_report_json(workflow_id, invocation_id)
++            assert "markdown" in report_json, "markdown not in report json %s" % report_json
++            self._assert_has_keys(report_json , "markdown", "render_format")
++            assert report_json["render_format"] == "markdown"
++            markdown_content = report_json["markdown"]
++            assert "## Workflow Outputs" in markdown_content
++            assert "\n```galaxy\nhistory_dataset_display(history_dataset_id=" in markdown_content
++            assert "## Workflow Inputs" in markdown_content
++            assert "## About This Report" in markdown_content
++
+     @skip_without_tool("__APPLY_RULES__")
+     def test_workflow_run_apply_rules(self):
+         with self.dataset_populator.test_history() as history_id:
+diff --git a/test/base/populators.py b/test/base/populators.py
+index a1c701ff2ee8..bc4be2239026 100644
+--- a/test/base/populators.py
++++ b/test/base/populators.py
+@@ -750,6 +750,24 @@ def wait_for_invocation(self, workflow_id, invocation_id, timeout=DEFAULT_TIMEOU
+         url = "workflows/%s/usage/%s" % (workflow_id, invocation_id)
+         return wait_on_state(lambda: self._get(url), desc="workflow invocation state", timeout=timeout)
+ 
++    def history_invocations(self, history_id):
++        history_invocations_response = self._get("invocations", {"history_id": history_id})
++        api_asserts.assert_status_code_is(history_invocations_response, 200)
++        return history_invocations_response.json()
++
++    def wait_for_history_workflows(self, history_id, assert_ok=True, timeout=DEFAULT_TIMEOUT, expected_invocation_count=None):
++        if expected_invocation_count is not None:
++            def invocation_count():
++                invocations = self.history_invocations(history_id)
++                if len(invocations) == expected_invocation_count:
++                    return True
++
++            wait_on(invocation_count, "%s history invocations" % expected_invocation_count)
++        for invocation in self.history_invocations(history_id):
++            workflow_id = invocation["workflow_id"]
++            invocation_id = invocation["id"]
++            self.wait_for_workflow(workflow_id, invocation_id, history_id, timeout=timeout, assert_ok=assert_ok)
++
+     def wait_for_workflow(self, workflow_id, invocation_id, history_id, assert_ok=True, timeout=DEFAULT_TIMEOUT):
+         """ Wait for a workflow invocation to completely schedule and then history
+         to be complete. """
+@@ -780,6 +798,11 @@ def invoke_workflow(self, history_id, workflow_id, inputs=None, request=None, as
+         else:
+             return invocation_response
+ 
++    def workflow_report_json(self, workflow_id, invocation_id):
++        response = self._get("workflows/%s/invocations/%s/report" % (workflow_id, invocation_id))
++        api_asserts.assert_status_code_is(response, 200)
++        return response.json()
++
+     def download_workflow(self, workflow_id, style=None):
+         params = {}
+         if style is not None:
+diff --git a/test/base/workflow_fixtures.py b/test/base/workflow_fixtures.py
+index 7f96b3c41db2..55de9ccc7e7d 100644
+--- a/test/base/workflow_fixtures.py
++++ b/test/base/workflow_fixtures.py
+@@ -444,3 +444,240 @@
+       input1: input1
+       queries_0|input2: input1
+ """
++
++WORKFLOW_WITH_CUSTOM_REPORT_1 = """
++class: GalaxyWorkflow
++name: My Cool Workflow
++inputs:
++  input_1: data
++  image_input: data
++  input_list: collection
++outputs:
++  output_1:
++    outputSource: first_cat/out_file1
++  output_image:
++    outputSource: image_cat/out_file1
++steps:
++  first_cat:
++    tool_id: cat
++    in:
++      input1: input_1
++  image_cat:
++    tool_id: cat
++    in:
++      input1: image_input
++  qc_step:
++    tool_id: qc_stdout
++    state:
++      quality: 9
++    in:
++      input: input_1
++report:
++  markdown: |
++    ## About This Report
++
++    This report is generated from markdown content in the workflow YAML/JSON.
++    Workflow invocation reports provide a customizable way for workflow authors
++    to summarize the results of a workflow execution. There is a default markdown
++    template if a workflow does not define one (right now it just shows the inputs,
++    outputs, and workflow - but this will evolve).
++
++    This report is written in "Galaxy Workflow Flavored Markdown". This workflow
++    variant of "Galaxy Flavored Markdown" contains workflow-relative references.
++    Dataset, collections, and jobs are referenced by step labels, input labels, and output
++    labels - rather than by object IDs. The Galaxy invocation report generator plugin
++    translates this to "Galaxy Flavored Markdown" at the time the report is viewed and
++    that format references actual object IDs (by database ID internally, and encoded ID
++    when exported to the client via the API).
++
++    An upshot of translating the workflow markdown to this second neutral format that
++    has no concept of the workflow invocation is that client side rendering (and much
++    of the backend processing) is completely general and not tied to workflows or
++    invocations. The same markdown components could potentially be used to render pages,
++    history annotations, describe library folders, etc..
++
++    The next two sections demonstrate the auto generated inputs and outputs sections
++    in the default workflow invocation report template.
++
++        ## Workflow Inputs
++        ```galaxy
++        invocation_inputs()
++        ```
++
++        ## Workflow Outputs
++        ```galaxy
++        invocation_outputs()
++        ```
++
++    ## Workflow Inputs
++    ```galaxy
++    invocation_inputs()
++    ```
++
++    ## Workflow Outputs
++    ```galaxy
++    invocation_outputs()
++    ```
++
++    The auto-generated sections could be hand-crafted from workflow markdown also,
++    listing out each input and output explicitly. The auto generated sections are merely
++    a convenience to avoid needing to that by hand and for supplying a default report
++    for workflows that don't define a custom one report.
++
++    ## More Custom Content
++
++    The rest of this report demonstrates more the directives allowed in the report
++    markdown. ``invocation_outputs`` and ``invocation_inputs`` are not allow in
++    "Galaxy Flavored Markdown" (the non-workflow invocation specific format), but
++    the remainder of these are allowed - they would just need to reference object
++    IDs instead of inputs, outputs, and steps.
++
++    Once can reference an output and embed a display of it as follows:
++
++        ```galaxy
++        history_dataset_display(output=output_1)
++        ```
++
++    ```galaxy
++    history_dataset_display(output=output_1)
++    ```
++
++    Inputs can be referenced and displayed the same way:
++
++        ```galaxy
++        history_dataset_display(input=input_1)
++        ```
++
++    ```galaxy
++    history_dataset_display(input=input_1)
++    ```
++
++    ---
++
++    Images can be embedded directly into the report as follows:
++
++        ```galaxy
++        history_dataset_as_image(output=output_image)
++        ```
++
++    ```galaxy
++    history_dataset_as_image(output=output_image)
++    ```
++
++    ---
++
++    Dataset peek content can be displayed to quickly provided an embedded
++    summary of an input or output:
++
++        ```galaxy
++        history_dataset_peek(output=output_1)
++        ```
++
++    ```galaxy
++    history_dataset_peek(output=output_1)
++    ```
++
++    ---
++
++    Dataset "info" content can be displayed as well:
++
++        ```galaxy
++        history_dataset_info(input=input_1)
++        ```
++
++    ```galaxy
++    history_dataset_info(input=input_1)
++    ```
++
++    ---
++
++    Collections can be displayed:
++
++        ```galaxy
++        history_dataset_collection_display(input=input_list)
++        ```
++
++    ```galaxy
++    history_dataset_collection_display(input=input_list)
++    ```
++
++    ---
++
++    The whole workflow can be embedded to provide some context and display
++    annotations and steps.
++
++        ```galaxy
++        workflow_display()
++        ```
++
++    ```galaxy
++    workflow_display()
++    ```
++
++    ---
++
++    Job parameters can be summarized:
++
++        ```galaxy
++        job_parameters(step=qc_step)
++        ```
++
++    ```galaxy
++    job_parameters(step=qc_step)
++    ```
++
++    ---
++
++    Job metrics can be summarized as well:
++
++        ```galaxy
++        job_metrics(step=image_cat)
++        ```
++
++    ```galaxy
++    job_metrics(step=image_cat)
++    ```
++
++    ---
++
++    Tool standard out and error are also available for steps.
++
++        ```galaxy
++        tool_stdout(step=qc_step)
++        ```
++
++    ```galaxy
++    tool_stdout(step=qc_step)
++    ```
++
++        ```galaxy
++        tool_stderr(step=qc_step)
++        ```
++
++    ```galaxy
++    tool_stderr(step=qc_step)
++    ```
++
++    ---
++
++    *fin*
++
++"""
++
++WORKFLOW_WITH_CUSTOM_REPORT_1_TEST_DATA = """
++input_1:
++  value: 1.bed
++  type: File
++  name: my bed file
++image_input:
++  value: 454Score.png
++  type: File
++  file_type: png
++  name: my input image
++input_list:
++  type: list
++  elements:
++    - identifier: i1
++      content: "0"
++  name: example list
++"""
+diff --git a/test/functional/tools/qc_stdout.xml b/test/functional/tools/qc_stdout.xml
+index a5355239b53b..c02dc2c94509 100644
+--- a/test/functional/tools/qc_stdout.xml
++++ b/test/functional/tools/qc_stdout.xml
+@@ -2,10 +2,13 @@
+     <stdio>
+        <regex match="Quality of sample is .*%\." source="stdout" level="qc" />
+     </stdio>
+-    <command detect_errors="exit_code">
++    <command detect_errors="exit_code"><![CDATA[
+         cp $input $output;
+-        echo "Quality of sample is ${int($quality) * 10}%."
+-    </command>
++        echo "Some example stdout........";
++        echo "Quality of sample is ${int($quality) * 10}%.";
++        echo "Some more example stdout........";
++        >&2 echo "my standard error"
++    ]]></command>
+     <inputs>
+         <param name="input" type="data" format="txt" label="Input data" />
+         <param name="quality" type="integer" value="9" />
+diff --git a/test/functional/tools/sample_datatypes_conf.xml b/test/functional/tools/sample_datatypes_conf.xml
+index ba5dbdcf9cbc..dfd10a0f5851 100644
+--- a/test/functional/tools/sample_datatypes_conf.xml
++++ b/test/functional/tools/sample_datatypes_conf.xml
+@@ -15,6 +15,7 @@
+     <datatype extension="fastqsolexa" type="galaxy.datatypes.sequence:FastqSolexa" display_in_upload="true" />
+     <datatype extension="fastqcssanger" type="galaxy.datatypes.sequence:FastqCSSanger" display_in_upload="true" />
+     <datatype extension="fastqillumina" type="galaxy.datatypes.sequence:FastqIllumina" display_in_upload="true" />
++    <datatype extension="png" type="galaxy.datatypes.images:Png" mimetype="image/png" display_in_upload="true"/>
+     <datatype extension="sam" type="galaxy.datatypes.tabular:Sam" display_in_upload="true">
+         <converter file="sam_to_unsorted_bam.xml" target_datatype="unsorted.bam"/>
+         <converter file="to_qname_sorted_bam.xml" target_datatype="qname_sorted.bam"/>
+diff --git a/test/selenium_tests/test_workflow_run.py b/test/selenium_tests/test_workflow_run.py
+index 95f1fd2bbc64..c69d0017abaa 100644
+--- a/test/selenium_tests/test_workflow_run.py
++++ b/test/selenium_tests/test_workflow_run.py
+@@ -8,6 +8,8 @@
+     WORKFLOW_RENAME_ON_REPLACEMENT_PARAM,
+     WORKFLOW_RUNTIME_PARAMETER_SIMPLE,
+     WORKFLOW_SIMPLE_CAT_TWICE,
++    WORKFLOW_WITH_CUSTOM_REPORT_1,
++    WORKFLOW_WITH_CUSTOM_REPORT_1_TEST_DATA,
+     WORKFLOW_WITH_DYNAMIC_OUTPUT_COLLECTION,
+     WORKFLOW_WITH_OLD_TOOL_VERSION,
+     WORKFLOW_WITH_RULES_1,
+@@ -179,13 +181,35 @@ def test_execution_with_rules(self):
+         output_content = self.dataset_populator.get_history_collection_details(history_id, hid=6)
+         rules_test_data.check_example_2(output_content, self.dataset_populator)
+ 
++    @selenium_test
++    @managed_history
++    def test_execution_with_custom_invocation_repoprt(self):
++        history_id, inputs = self.workflow_run_setup_inputs(WORKFLOW_WITH_CUSTOM_REPORT_1_TEST_DATA)
++        self.open_in_workflow_run(WORKFLOW_WITH_CUSTOM_REPORT_1)
++        self.workflow_run_specify_inputs(inputs)
++        self.workflow_run_submit()
++
++        self.sleep_for(self.wait_types.UX_TRANSITION)
++        self.screenshot("workflow_run_invocation_report")
++
++        self.workflow_populator.wait_for_history_workflows(history_id, expected_invocation_count=1)
++
++        invocation_0 = self.workflow_populator.history_invocations(history_id)[0]
++        self.get("workflows/invocations/report?id=%s" % invocation_0["id"])
++        self.wait_for_selector_visible(".embedded-item.dataset")
++        self.screenshot("workflow_report_custom_1")
++
+     def open_in_workflow_run(self, yaml_content):
+         name = self.workflow_upload_yaml_with_random_name(yaml_content)
+         self.workflow_run_with_name(name)
+ 
+     def workflow_run_setup_inputs(self, content):
+         history_id = self.current_history_id()
+-        test_data = yaml.safe_load(content)["test_data"]
++        yaml_content = yaml.safe_load(content)
++        if "test_data" in yaml_content:
++            test_data = yaml_content["test_data"]
++        else:
++            test_data = yaml_content
+         inputs, _, _ = load_data_dict(history_id, test_data, self.dataset_populator, self.dataset_collection_populator)
+         self.dataset_populator.wait_for_history(history_id)
+         return history_id, inputs
+diff --git a/test/unit/test_markdown_validate.py b/test/unit/test_markdown_validate.py
+new file mode 100644
+index 000000000000..1dc5561bf4b0
+--- /dev/null
++++ b/test/unit/test_markdown_validate.py
+@@ -0,0 +1,71 @@
++from galaxy.managers.markdown_util import validate_galaxy_markdown
++
++
++def assert_markdown_valid(markdown):
++    validate_galaxy_markdown(markdown)
++
++
++def assert_markdown_invalid(markdown, at_line=None):
++    failed = False
++    try:
++        validate_galaxy_markdown(markdown)
++    except Exception as e:
++        failed = True
++        if at_line is not None:
++            assert "Invalid line %d" % (at_line + 1) in str(e)
++    assert failed, "Expected markdown [%s] to fail validation but it did not." % markdown
++
++
++def test_markdown_validation():
++    assert_markdown_valid("""
++hello world
++""")
++    assert_markdown_valid("""
++hello ``world``
++
++Here is some more text.
++
++```
++import <stdio>
++printf('hello')
++```
++""")
++    # assert valid container is fine.
++    assert_markdown_valid("""
++```galaxy
++job_metrics(job_id=THISFAKEID)
++```
++""")
++    # assert valid container is fine at end of document.
++    assert_markdown_valid("""
++```galaxy
++job_metrics(job_id=THISFAKEID)
++```""")
++    # assert valid containers require container close
++    assert_markdown_invalid("""
++```galaxy
++job_metrics(job_id=THISFAKEID)
++""", at_line=1)
++    # assert valid containers require container close, even at end...
++    assert_markdown_invalid("""
++```galaxy
++job_metrics(job_id=THISFAKEID)""")
++    # assert only one command allowed
++    assert_markdown_invalid("""
++```galaxy
++job_metrics(job_id=THISFAKEID)
++job_metrics(job_id=THISFAKEID2)
++```
++""")
++    # assert command paren is closed
++    assert_markdown_invalid("""
++```galaxy
++job_metrics(job_id=THISFAKEID
++```
++""")
++    # assert command arg is named.
++    assert_markdown_invalid("""
++```galaxy
++job_metrics(THISFAKEID)
++```
++""")
+diff --git a/test/unit/workflows/test_workflow_markdown.py b/test/unit/workflows/test_workflow_markdown.py
+new file mode 100644
+index 000000000000..742d557b4515
+--- /dev/null
++++ b/test/unit/workflows/test_workflow_markdown.py
+@@ -0,0 +1,95 @@
++from galaxy import model
++from galaxy.managers.markdown_util import resolve_invocation_markdown, validate_galaxy_markdown
++from .test_workflow_progress import TEST_WORKFLOW_YAML
++from .workflow_support import MockTrans, yaml_to_model
++
++
++def test_workflow_section_expansion():
++    workflow_markdown = """
++## Workflow
++```galaxy
++workflow_display()
++```
++"""
++    galaxy_markdown = resolved_markdown(workflow_markdown)
++    assert "## Workflow\n" in galaxy_markdown
++    assert "```galaxy\nworkflow_display(workflow_id=342)\n```\n" in galaxy_markdown
++
++
++def test_inputs_section_expansion():
++    workflow_markdown = """
++## Workflow Inputs
++```galaxy
++invocation_inputs()
++```
++"""
++    galaxy_markdown = resolved_markdown(workflow_markdown)
++    assert "## Workflow Inputs" in galaxy_markdown
++    assert "```galaxy\nhistory_dataset_display(history_dataset_id=567)\n" in galaxy_markdown
++    assert len(galaxy_markdown.split("```")) == 3
++
++
++def test_outputs_section_expansion():
++    workflow_markdown = """
++## Workflow Outputs
++```galaxy
++invocation_outputs()
++```
++"""
++    galaxy_markdown = resolved_markdown(workflow_markdown)
++    assert "## Workflow Outputs" in galaxy_markdown
++    assert "```galaxy\nhistory_dataset_display(history_dataset_id=563)" in galaxy_markdown
++
++
++def test_input_reference_mapping():
++    workflow_markdown = """
++And outputs...
++
++```galaxy
++history_dataset_peek(input=input1)
++```
++"""
++    galaxy_markdown = resolved_markdown(workflow_markdown)
++    assert "```galaxy\nhistory_dataset_peek(history_dataset_id=567)\n```" in galaxy_markdown
++
++
++def test_output_reference_mapping():
++    workflow_markdown = """
++And outputs...
++
++```galaxy
++history_dataset_as_image(output=output_label)
++```
++"""
++    galaxy_markdown = resolved_markdown(workflow_markdown)
++    assert "```galaxy\nhistory_dataset_as_image(history_dataset_id=563)\n```" in galaxy_markdown
++
++
++def resolved_markdown(workflow_markdown):
++    # Convert workflow markdown to internal Galaxy markdown with object id references
++    # and with sections expanded.
++    trans = MockTrans()
++    validate_galaxy_markdown(workflow_markdown)
++    galaxy_markdown = resolve_invocation_markdown(trans, example_invocation(trans), workflow_markdown)
++    return galaxy_markdown
++
++
++def example_invocation(trans):
++    invocation = model.WorkflowInvocation()
++    workflow = yaml_to_model(TEST_WORKFLOW_YAML)
++    workflow.id = 342
++    invocation.workflow = workflow
++
++    # TODO: fix this to use workflow id and eliminate hack.
++    stored_workflow = model.StoredWorkflow()
++    stored_workflow.id = 342
++    invocation.workflow.stored_workflow = stored_workflow
++
++    hda = model.HistoryDatasetAssociation(create_dataset=True, sa_session=trans.sa_session)
++    hda.id = 567
++    invocation.add_input(hda, step=workflow.steps[0])
++    out_hda = model.HistoryDatasetAssociation(create_dataset=True, sa_session=trans.sa_session)
++    out_hda.id = 563
++    wf_output = model.WorkflowOutput(workflow.steps[2], label="output_label")
++    invocation.add_output(wf_output, workflow.steps[2], out_hda)
++    return invocation
+diff --git a/test/unit/workflows/test_workflow_progress.py b/test/unit/workflows/test_workflow_progress.py
+index 028483f1640c..7ff5661541a1 100644
+--- a/test/unit/workflows/test_workflow_progress.py
++++ b/test/unit/workflows/test_workflow_progress.py
+@@ -8,6 +8,7 @@
+ steps:
+   - type: "data_input"
+     tool_inputs: {"name": "input1"}
++    label: "input1"
+   - type: "data_input"
+     tool_inputs: {"name": "input2"}
+   - type: "tool"

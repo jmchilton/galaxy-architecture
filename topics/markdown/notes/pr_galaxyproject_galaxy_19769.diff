@@ -1,0 +1,1512 @@
+diff --git a/client/package.json b/client/package.json
+index 9a55429476df..1b07b1f79efd 100644
+--- a/client/package.json
++++ b/client/package.json
+@@ -45,6 +45,7 @@
+     "@types/jest": "^29.5.12",
+     "@vueuse/core": "^10.5.0",
+     "@vueuse/math": "^10.9.0",
++    "ace-builds": "^1.39.0",
+     "assert": "^2.1.0",
+     "axios": "^1.6.2",
+     "babel-runtime": "^6.26.0",
+diff --git a/client/src/components/Markdown/Editor/CellAction.vue b/client/src/components/Markdown/Editor/CellAction.vue
+new file mode 100644
+index 000000000000..40f9d9b6992c
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/CellAction.vue
+@@ -0,0 +1,91 @@
++<template>
++    <div>
++        <CellButton ref="buttonRef" title="Actions" :show="show" :icon="faEllipsisV" />
++        <Popper
++            v-if="buttonRef"
++            ref="popperRef"
++            :reference-el="buttonRef.$el"
++            trigger="click"
++            placement="right"
++            mode="light">
++            <div @click="popperRef.visible = false">
++                <span class="d-flex justify-content-between">
++                    <small class="my-1 mx-3 text-info">{{ title }}</small>
++                </span>
++                <CellOption
++                    v-if="name !== 'markdown'"
++                    title="Attach Data"
++                    description="Select data for this cell"
++                    :icon="faPaperclip"
++                    @click="$emit('configure')" />
++                <CellOption
++                    title="Clone"
++                    description="Create a copy of this cell"
++                    :icon="faClone"
++                    @click="$emit('clone')" />
++                <CellOption
++                    title="Delete"
++                    description="Delete this cell"
++                    :icon="faTrash"
++                    @click="confirmDelete = true" />
++                <CellOption
++                    v-if="cellIndex > 0"
++                    title="Move Up"
++                    description="Move this cell upwards"
++                    :icon="faArrowUp"
++                    @click="$emit('move', 'up')" />
++                <CellOption
++                    v-if="cellTotal - cellIndex > 1"
++                    title="Move Down"
++                    description="Move this cell downwards"
++                    :icon="faArrowDown"
++                    @click="$emit('move', 'down')" />
++            </div>
++        </Popper>
++        <BModal v-model="confirmDelete" title="Delete Cell" title-tag="h2" @ok="$emit('delete')">
++            <p v-localize>Are you sure you want to delete this cell?</p>
++        </BModal>
++    </div>
++</template>
++
++<script setup lang="ts">
++import { faClone, faEllipsisV } from "@fortawesome/free-solid-svg-icons";
++import { BModal } from "bootstrap-vue";
++import { faArrowDown, faArrowUp, faPaperclip, faTrash } from "font-awesome-6";
++import { computed, ref } from "vue";
++
++import type { CellType } from "./types";
++
++import CellButton from "./CellButton.vue";
++import CellOption from "./CellOption.vue";
++import Popper from "@/components/Popper/Popper.vue";
++
++const props = defineProps<{
++    cellIndex: number;
++    cellTotal: number;
++    name: string;
++    show: boolean;
++}>();
++
++defineEmits<{
++    (e: "click", cell: CellType): void;
++    (e: "clone"): void;
++    (e: "configure"): void;
++    (e: "delete"): void;
++    (e: "move", direction: string): void;
++}>();
++
++const buttonRef = ref();
++const confirmDelete = ref(false);
++const popperRef = ref();
++
++const title = computed(() => `${props.name.charAt(0).toUpperCase()}${props.name.slice(1)}`);
++</script>
++
++<style>
++.cell-add-categories {
++    max-height: 20rem;
++    max-width: 15rem;
++    min-width: 15rem;
++}
++</style>
+diff --git a/client/src/components/Markdown/Editor/CellAdd.test.js b/client/src/components/Markdown/Editor/CellAdd.test.js
+new file mode 100644
+index 000000000000..240931001095
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/CellAdd.test.js
+@@ -0,0 +1,88 @@
++import { mount } from "@vue/test-utils";
++import { BAlert } from "bootstrap-vue";
++
++import CellAdd from "./CellAdd.vue";
++import CellButton from "./CellButton.vue";
++import CellOption from "./CellOption.vue";
++import DelayedInput from "@/components/Common/DelayedInput.vue";
++import Popper from "@/components/Popper/Popper.vue";
++
++jest.mock("./templates", () => ({
++    cellTemplates: [
++        {
++            name: "Category 1",
++            templates: [
++                { title: "Option A", description: "Desc A", cell: { id: 1 } },
++                { title: "Option B", description: "Desc B", cell: { id: 2 } },
++            ],
++        },
++        {
++            name: "Category 2",
++            templates: [{ title: "Option C", description: "Desc C", cell: { id: 3 } }],
++        },
++    ],
++}));
++
++const createContainer = (tag = "div") => {
++    const container = document.createElement(tag);
++    document.body.appendChild(container);
++    return container;
++};
++
++const mountTarget = () => {
++    return mount(CellAdd, {
++        attachTo: createContainer(),
++        global: {
++            components: { BAlert, CellButton, CellOption, DelayedInput, Popper },
++        },
++    });
++};
++
++describe("CellAdd.vue", () => {
++    it("renders correctly", async () => {
++        const wrapper = mountTarget();
++        expect(wrapper.exists()).toBe(true);
++        expect(wrapper.findComponent(CellButton).exists()).toBe(true);
++    });
++
++    it("opens the popper when clicking the button", async () => {
++        const wrapper = mountTarget();
++        await wrapper.findComponent(CellButton).trigger("click");
++        await wrapper.vm.$nextTick();
++        expect(wrapper.findComponent(Popper).exists()).toBe(true);
++    });
++
++    it("filters templates based on search input", async () => {
++        const wrapper = mountTarget();
++        await wrapper.vm.$nextTick();
++        wrapper.findComponent(DelayedInput).vm.$emit("change", "option a");
++        await wrapper.vm.$nextTick();
++        const categories = wrapper.findAll(".cell-add-categories");
++        expect(categories).toHaveLength(1);
++        expect(categories.at(0).find(".text-info").text()).toBe("Category 1");
++        expect(categories.at(0).find(".cell-option").text()).toContain("Option A");
++    });
++
++    it("shows 'No results found' when no templates match search", async () => {
++        const wrapper = mountTarget();
++        await wrapper.vm.$nextTick();
++        wrapper.findComponent(DelayedInput).vm.$emit("change", "nonexistent");
++        await wrapper.vm.$nextTick();
++        expect(wrapper.findComponent(BAlert).exists()).toBe(true);
++        expect(wrapper.findComponent(BAlert).text()).toContain('No results found for "nonexistent".');
++    });
++
++    it("emits a 'click' event when a cell option is selected", async () => {
++        const wrapper = mountTarget();
++        await wrapper.findComponent(CellButton).trigger("click");
++        await wrapper.vm.$nextTick();
++        const option = wrapper.findComponent(CellOption);
++        await option.trigger("click");
++        expect(wrapper.emitted("click")).toBeTruthy();
++        expect(wrapper.emitted("click")?.[0][0]).toMatchObject({
++            configure: false,
++            toggle: true,
++            id: expect.any(Number),
++        });
++    });
++});
+diff --git a/client/src/components/Markdown/Editor/CellAdd.vue b/client/src/components/Markdown/Editor/CellAdd.vue
+new file mode 100644
+index 000000000000..cb383751dd07
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/CellAdd.vue
+@@ -0,0 +1,75 @@
++<template>
++    <div>
++        <CellButton ref="buttonRef" title="Insert" :icon="faPlus" />
++        <Popper v-if="buttonRef" :reference-el="buttonRef.$el" trigger="click" placement="right" mode="light">
++            <DelayedInput class="p-1" :delay="100" placeholder="Search" @change="query = $event" />
++            <div class="cell-add-categories overflow-auto">
++                <div v-if="filteredTemplates.length > 0">
++                    <div v-for="(category, categoryIndex) of filteredTemplates" :key="categoryIndex">
++                        <hr class="solid m-0" />
++                        <span class="d-flex justify-content-between">
++                            <small class="my-1 mx-3 text-info">{{ category.name }}</small>
++                        </span>
++                        <div v-if="category.templates.length > 0" class="cell-add-options popper-close">
++                            <CellOption
++                                v-for="(option, optionIndex) of category.templates"
++                                :key="optionIndex"
++                                :title="option.title"
++                                :description="option.description"
++                                @click="$emit('click', { configure: false, toggle: true, ...option.cell })" />
++                        </div>
++                    </div>
++                </div>
++                <BAlert v-else class="m-1 p-1" variant="info" show> No results found for "{{ query }}". </BAlert>
++            </div>
++        </Popper>
++    </div>
++</template>
++
++<script setup lang="ts">
++import { faPlus } from "@fortawesome/free-solid-svg-icons";
++import { BAlert } from "bootstrap-vue";
++import { computed, ref } from "vue";
++
++import { cellTemplates } from "./templates";
++import type { CellType, TemplateCategory } from "./types";
++
++import CellButton from "./CellButton.vue";
++import CellOption from "./CellOption.vue";
++import DelayedInput from "@/components/Common/DelayedInput.vue";
++import Popper from "@/components/Popper/Popper.vue";
++
++defineEmits<{
++    (e: "click", cell: CellType): void;
++}>();
++
++const buttonRef = ref();
++const query = ref("");
++
++const filteredTemplates = computed(() => {
++    const filteredCategories: Array<TemplateCategory> = [];
++    cellTemplates.forEach((category) => {
++        const matchedTemplates = category.templates.filter(
++            (template) =>
++                category.name.toLowerCase().includes(query.value.toLowerCase()) ||
++                template.title.toLowerCase().includes(query.value.toLowerCase()) ||
++                template.description.toLowerCase().includes(query.value.toLowerCase())
++        );
++        if (matchedTemplates.length > 0) {
++            filteredCategories.push({
++                name: category.name,
++                templates: matchedTemplates,
++            });
++        }
++    });
++    return filteredCategories;
++});
++</script>
++
++<style>
++.cell-add-categories {
++    max-height: 20rem;
++    max-width: 15rem;
++    min-width: 15rem;
++}
++</style>
+diff --git a/client/src/components/Markdown/Editor/CellButton.test.js b/client/src/components/Markdown/Editor/CellButton.test.js
+new file mode 100644
+index 000000000000..f1884abcc3ba
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/CellButton.test.js
+@@ -0,0 +1,38 @@
++import { mount } from "@vue/test-utils";
++import { getLocalVue } from "tests/jest/helpers";
++
++import Target from "./CellButton.vue";
++
++const localVue = getLocalVue();
++
++function mountTarget(props = {}) {
++    return mount(Target, {
++        localVue,
++        propsData: props,
++        stubs: {
++            FontAwesomeIcon: true,
++        },
++    });
++}
++
++describe("CellButton.vue", () => {
++    it("should render button", async () => {
++        const wrapper = mountTarget({
++            icon: "button-icon",
++            title: "button-title",
++        });
++        expect(wrapper.find("[icon='button-icon']").exists()).toBeTruthy();
++        expect(wrapper.attributes()["title"]).toBe("button-title");
++        expect(wrapper.classes()).not.toContain("active");
++        expect(wrapper.classes()).toContain("btn-outline-primary");
++        await wrapper.setProps({ active: true });
++        expect(wrapper.classes()).toContain("active");
++        expect(wrapper.classes()).toContain("btn-outline-secondary");
++        await wrapper.trigger("click");
++        expect(wrapper.emitted("click")).toBeTruthy();
++        expect(wrapper.emitted("click")?.length).toBe(1);
++        wrapper.element.blur = jest.fn();
++        await wrapper.trigger("mouseleave");
++        expect(wrapper.element.blur).toHaveBeenCalled();
++    });
++});
+diff --git a/client/src/components/Markdown/Editor/CellButton.vue b/client/src/components/Markdown/Editor/CellButton.vue
+new file mode 100644
+index 000000000000..5da2c593d615
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/CellButton.vue
+@@ -0,0 +1,49 @@
++<template>
++    <BButton
++        v-b-tooltip.noninteractive.right
++        class="border-0 m-1 px-1 py-0"
++        :class="{ active, 'cell-button-hide': !show }"
++        :title="title"
++        :variant="active ? 'outline-secondary' : 'outline-primary'"
++        @click="$emit('click')"
++        @mouseleave="onMouseLeave($event)">
++        <FontAwesomeIcon :icon="icon" fixed-width />
++    </BButton>
++</template>
++
++<script setup lang="ts">
++import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
++import { BButton, VBTooltipPlugin } from "bootstrap-vue";
++import type { IconDefinition } from "font-awesome-6";
++import Vue from "vue";
++
++Vue.use(VBTooltipPlugin);
++
++withDefaults(
++    defineProps<{
++        active?: boolean;
++        icon: IconDefinition;
++        show?: boolean;
++        title: string;
++    }>(),
++    {
++        active: false,
++        show: true,
++    }
++);
++
++defineEmits<{
++    (e: "click"): void;
++}>();
++
++function onMouseLeave(event: Event) {
++    const target = event.target as HTMLElement;
++    target.blur();
++}
++</script>
++
++<style>
++.cell-button-hide {
++    color: transparent !important;
++}
++</style>
+diff --git a/client/src/components/Markdown/Editor/CellCode.vue b/client/src/components/Markdown/Editor/CellCode.vue
+new file mode 100644
+index 000000000000..dfbc8c379105
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/CellCode.vue
+@@ -0,0 +1,98 @@
++<template>
++    <div ref="editor" class="w-100" />
++</template>
++
++<script setup>
++import ace from "ace-builds";
++import { debounce } from "lodash";
++import { onBeforeUnmount, onMounted, ref, watch } from "vue";
++
++const DELAY = 300;
++
++const props = defineProps({
++    theme: {
++        type: String,
++        default: "github_light_default",
++    },
++    mode: {
++        type: String,
++        default: "json",
++    },
++    value: {
++        type: String,
++        required: true,
++    },
++});
++
++const emit = defineEmits(["change"]);
++
++const editor = ref(null);
++
++let aceEditor = null;
++
++const emitChange = debounce((newValue) => {
++    emit("change", newValue);
++}, DELAY);
++
++async function buildEditor() {
++    const modePath = `ace/mode/${props.mode}`;
++    const themePath = `ace/theme/${props.theme}`;
++    const modeUrl = await import(`ace-builds/src-noconflict/mode-${props.mode}?url`);
++    const themeUrl = await import(`ace-builds/src-noconflict/theme-${props.theme}?url`);
++    ace.config.setModuleUrl(modePath, modeUrl);
++    ace.config.setModuleUrl(themePath, themeUrl);
++    aceEditor = ace.edit(editor.value, {
++        highlightActiveLine: false,
++        highlightGutterLine: false,
++        maxLines: 30,
++        minLines: 1,
++        mode: modePath,
++        showPrintMargin: false,
++        theme: themePath,
++        useWorker: false,
++        value: props.value,
++        wrap: true,
++    });
++
++    aceEditor.on("blur", () => {
++        aceEditor.setOption("highlightActiveLine", false);
++        aceEditor.setOption("highlightGutterLine", false);
++        editor.value.classList.remove("cell-code-focus");
++    });
++
++    aceEditor.on("change", () => {
++        const newValue = aceEditor.getValue();
++        emitChange(newValue);
++    });
++
++    aceEditor.on("focus", () => {
++        aceEditor.setOption("highlightActiveLine", true);
++        aceEditor.setOption("highlightGutterLine", true);
++        editor.value.classList.add("cell-code-focus");
++    });
++}
++
++onBeforeUnmount(() => {
++    emitChange.cancel();
++});
++
++onMounted(() => {
++    buildEditor();
++});
++
++watch(
++    () => props.value,
++    (newValue) => {
++        if (aceEditor && newValue !== aceEditor.getValue()) {
++            aceEditor.setValue(newValue, -1);
++        }
++    }
++);
++</script>
++
++<style lang="scss">
++@import "theme/blue.scss";
++.cell-code-focus {
++    background-color: $gray-100;
++}
++</style>
+diff --git a/client/src/components/Markdown/Editor/CellConfigure.vue b/client/src/components/Markdown/Editor/CellConfigure.vue
+new file mode 100644
+index 000000000000..4fd0a28014d8
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/CellConfigure.vue
+@@ -0,0 +1,22 @@
++<template>
++    <ConfigureGalaxy
++        v-if="name === 'galaxy'"
++        :content="content"
++        @change="$emit('change', $event)"
++        @cancel="$emit('cancel')" />
++    <b-alert v-else variant="warning" show> Data cannot be linked to this cell type. </b-alert>
++</template>
++
++<script setup lang="ts">
++import ConfigureGalaxy from "./Configurations/ConfigureGalaxy.vue";
++
++defineProps<{
++    name: string;
++    content: string;
++}>();
++
++defineEmits<{
++    (e: "cancel"): void;
++    (e: "change", content: string): void;
++}>();
++</script>
+diff --git a/client/src/components/Markdown/Editor/CellEditor.vue b/client/src/components/Markdown/Editor/CellEditor.vue
+new file mode 100644
+index 000000000000..aea676bdf7d4
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/CellEditor.vue
+@@ -0,0 +1,143 @@
++<template>
++    <div class="h-100 w-75 mx-auto">
++        <div v-for="(cell, cellIndex) in cells" :key="cellIndex" ref="cellRefs">
++            <CellAdd @click="onAdd(cellIndex, $event)" />
++            <hr class="solid m-0" />
++            <CellWrapper
++                :cell-index="cellIndex"
++                :cell-total="cells.length"
++                :name="cell.name"
++                :content="cell.content"
++                :configure="cell.configure"
++                :toggle="cell.toggle"
++                @configure="onConfigure(cellIndex)"
++                @change="onChange(cellIndex, $event)"
++                @clone="onClone(cellIndex)"
++                @delete="onDelete(cellIndex)"
++                @move="onMove(cellIndex, $event)"
++                @toggle="onToggle(cellIndex)" />
++            <hr class="solid m-0" />
++        </div>
++        <CellAdd @click="onAdd(cells.length, $event)" />
++    </div>
++</template>
++
++<script setup lang="ts">
++import { nextTick, ref } from "vue";
++
++import { parseMarkdown } from "@/components/Markdown/parse";
++
++import type { CellType } from "./types";
++
++import CellAdd from "./CellAdd.vue";
++import CellWrapper from "./CellWrapper.vue";
++
++const props = defineProps<{
++    markdownText: string;
++}>();
++
++const emit = defineEmits(["update"]);
++
++const cells = ref<Array<CellType>>(parseCells());
++const cellRefs = ref<Array<HTMLElement>>([]);
++
++// Add new cell
++function onAdd(cellIndex: number, cell: CellType) {
++    const newCells = [...cells.value];
++    newCells.splice(cellIndex, 0, { ...cell });
++    cells.value = newCells;
++    onUpdate();
++    scrollToCell(cellIndex);
++}
++
++// Toggle
++function onConfigure(cellIndex: number) {
++    const cell = cells.value?.[cellIndex];
++    if (cell) {
++        cell.configure = !cell.configure;
++    }
++}
++
++// Handle cell code changes
++function onChange(cellIndex: number, cellContent: string) {
++    const cell = cells.value?.[cellIndex];
++    if (cell) {
++        cell.content = cellContent;
++    }
++    onUpdate();
++}
++
++// Clone cell and insert it at cellIndex + 1, then scroll to it
++function onClone(cellIndex: number) {
++    const cell = cells.value?.[cellIndex];
++    if (cell) {
++        const newCells = [...cells.value];
++        newCells.splice(cellIndex + 1, 0, { ...cell });
++        cells.value = newCells;
++        onUpdate();
++        scrollToCell(cellIndex + 1);
++    }
++}
++
++// Delete cell
++function onDelete(cellIndex: number) {
++    cells.value = cells.value.filter((_, itemIndex) => itemIndex !== cellIndex);
++    onUpdate();
++}
++
++// Move cell upwards or downwards, then scroll to it
++function onMove(cellIndex: number, direction: "up" | "down") {
++    if (cells.value.length > 0) {
++        const newCells = [...cells.value];
++        const swapIndex = direction === "up" ? cellIndex - 1 : cellIndex + 1;
++        if (swapIndex >= 0 && swapIndex < newCells.length) {
++            const currentCell = newCells[cellIndex];
++            const swapCell = newCells[swapIndex];
++            if (currentCell && swapCell) {
++                newCells[cellIndex] = { ...swapCell };
++                newCells[swapIndex] = { ...currentCell };
++                cells.value = newCells;
++                onUpdate();
++                scrollToCell(swapIndex);
++            }
++        }
++    }
++}
++
++// Communicate cell changes to parent
++function onUpdate() {
++    let newMarkdownText = "";
++    cells.value.forEach((cell) => {
++        if (cell.name === "markdown") {
++            newMarkdownText += cell.content;
++        } else {
++            newMarkdownText += `\`\`\`${cell.name}\n${cell.content}\n\`\`\``;
++        }
++        newMarkdownText += "\n\n";
++    });
++    emit("update", newMarkdownText);
++}
++
++// Toggle
++function onToggle(cellIndex: number) {
++    const cell = cells.value?.[cellIndex];
++    if (cell) {
++        cell.toggle = !cell.toggle;
++    }
++}
++
++// Parse cells
++function parseCells(configure: boolean = false, toggle: boolean = false) {
++    return parseMarkdown(props.markdownText).map((cell) => ({ ...cell, configure, toggle }));
++}
++
++// Scroll a specific cell into view
++function scrollToCell(cellIndex: number) {
++    nextTick(() => {
++        const element = cellRefs.value[cellIndex];
++        if (element instanceof HTMLElement) {
++            element.scrollIntoView({ behavior: "smooth", block: "center" });
++        }
++    });
++}
++</script>
+diff --git a/client/src/components/Markdown/Editor/CellOption.test.js b/client/src/components/Markdown/Editor/CellOption.test.js
+new file mode 100644
+index 000000000000..64fb262a8d4e
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/CellOption.test.js
+@@ -0,0 +1,28 @@
++import { faPlus } from "@fortawesome/free-solid-svg-icons";
++import { mount } from "@vue/test-utils";
++import { getLocalVue } from "tests/jest/helpers";
++
++import Target from "./CellOption.vue";
++
++const localVue = getLocalVue();
++
++function mountTarget(props = {}) {
++    return mount(Target, {
++        localVue,
++        propsData: props,
++    });
++}
++
++describe("CellOption.vue", () => {
++    it("should render button", async () => {
++        const wrapper = mountTarget({
++            title: "option-title",
++            description: "option-description",
++        });
++        expect(wrapper.find(".font-weight-bold").text()).toBe("option-title");
++        expect(wrapper.find("small").text()).toBe("option-description");
++        expect(wrapper.find("[data-icon='plus']").exists()).toBeFalsy();
++        await wrapper.setProps({ icon: faPlus });
++        expect(wrapper.find("[data-icon='plus']").exists()).toBeTruthy();
++    });
++});
+diff --git a/client/src/components/Markdown/Editor/CellOption.vue b/client/src/components/Markdown/Editor/CellOption.vue
+new file mode 100644
+index 000000000000..3b49883055d7
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/CellOption.vue
+@@ -0,0 +1,42 @@
++<template>
++    <span role="button" tabindex="0" class="cell-option d-flex justify-content-between" @click="$emit('click')">
++        <div class="my-1 mx-3">
++            <div class="font-weight-bold">{{ title }}</div>
++            <small v-if="description" class="d-inline-block text-wrap text-break">{{ description }}</small>
++        </div>
++        <div v-if="icon" class="my-2 mx-3 align-self-center">
++            <FontAwesomeIcon :icon="icon" />
++        </div>
++    </span>
++</template>
++
++<script setup lang="ts">
++import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
++
++defineProps<{
++    title: string;
++    description?: string;
++    icon?: any;
++}>();
++
++defineEmits<{
++    (e: "click"): void;
++}>();
++</script>
++
++<style scoped lang="scss">
++@import "theme/blue.scss";
++
++.cell-option {
++    &:hover {
++        background: $brand-primary;
++        color: $white;
++        small {
++            color: $white;
++        }
++    }
++    small {
++        color: $text-muted;
++    }
++}
++</style>
+diff --git a/client/src/components/Markdown/Editor/CellWrapper.vue b/client/src/components/Markdown/Editor/CellWrapper.vue
+new file mode 100644
+index 000000000000..c2aaadd436cf
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/CellWrapper.vue
+@@ -0,0 +1,102 @@
++<template>
++    <div @mouseenter="hover = true" @mouseleave="hover = false">
++        <div class="d-flex">
++            <div
++                class="d-flex flex-column cursor-pointer"
++                :class="{ 'cell-wrapper-hover': hover }"
++                @click="$emit('toggle')">
++                <CellButton v-if="toggle" title="Collapse" :icon="faAngleDoubleUp" />
++                <CellButton v-else title="Expand" :icon="faAngleDoubleDown" />
++            </div>
++            <div class="w-100">
++                <div class="m-2">
++                    <MarkdownDefault v-if="name === 'markdown'" :content="content" />
++                    <MarkdownGalaxy v-else-if="name === 'galaxy'" :content="content" />
++                    <b-alert v-else variant="danger" show> This cell type `{{ name }}` is not available. </b-alert>
++                </div>
++            </div>
++        </div>
++        <div v-if="toggle" class="d-flex">
++            <div class="d-flex flex-column" :class="{ 'cell-wrapper-hover': hover }">
++                <CellAction
++                    :name="name"
++                    :show="hover"
++                    :cellIndex="cellIndex"
++                    :cellTotal="cellTotal"
++                    @clone="$emit('clone')"
++                    @configure="$emit('configure')"
++                    @delete="$emit('delete')"
++                    @move="$emit('move', $event)" />
++            </div>
++            <div class="w-100 position-relative">
++                <hr class="solid m-0" />
++                <ConfigureGalaxy
++                    v-if="name === 'galaxy' && configure"
++                    :name="name"
++                    :content="content"
++                    @cancel="$emit('configure')"
++                    @change="handleConfigure($event)" />
++                <CellCode :key="name" class="mt-1" :value="content" :mode="mode" @change="$emit('change', $event)" />
++                <small class="cell-wrapper-type position-absolute">
++                    {{ VALID_TYPES.includes(name) ? name : "unknown" }}
++                </small>
++            </div>
++        </div>
++    </div>
++</template>
++
++<script setup lang="ts">
++import { faAngleDoubleDown, faAngleDoubleUp } from "@fortawesome/free-solid-svg-icons";
++import { computed, ref } from "vue";
++
++import MarkdownDefault from "../Sections/MarkdownDefault.vue";
++import MarkdownGalaxy from "../Sections/MarkdownGalaxy.vue";
++import CellAction from "./CellAction.vue";
++import CellButton from "./CellButton.vue";
++import CellCode from "./CellCode.vue";
++import ConfigureGalaxy from "./Configurations/ConfigureGalaxy.vue";
++
++const VALID_TYPES = ["galaxy", "markdown", "vega", "visualization", "vitessce"];
++
++const props = defineProps<{
++    cellIndex: number;
++    cellTotal: number;
++    configure?: boolean;
++    content: string;
++    name: string;
++    toggle?: boolean;
++}>();
++
++const emit = defineEmits(["change", "clone", "configure", "delete", "move", "toggle"]);
++
++const hover = ref(false);
++
++const mode = computed(() => {
++    switch (props.name) {
++        case "galaxy":
++            return "python";
++        case "markdown":
++            return "markdown";
++    }
++    return "json";
++});
++
++function handleConfigure(newValue: string) {
++    emit("change", newValue);
++    emit("configure");
++}
++</script>
++
++<style lang="scss">
++@import "theme/blue.scss";
++
++.cell-wrapper-hover {
++    background-color: $gray-100;
++}
++
++.cell-wrapper-type {
++    bottom: 0;
++    color: $gray-500;
++    right: 0;
++}
++</style>
+diff --git a/client/src/components/Markdown/Editor/Configurations/ConfigureGalaxy.vue b/client/src/components/Markdown/Editor/Configurations/ConfigureGalaxy.vue
+new file mode 100644
+index 000000000000..bdd5c1d61d73
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/Configurations/ConfigureGalaxy.vue
+@@ -0,0 +1,68 @@
++<template>
++    <b-alert v-if="errorMessage" variant="warning" show>{{ errorMessage }}</b-alert>
++    <MarkdownDialog
++        v-else-if="requirement"
++        :argument-type="requirement"
++        :argument-name="contentObject?.name"
++        :argument-payload="contentObject?.args"
++        :useLabels="false"
++        @onInsert="$emit('change', $event)"
++        @onCancel="$emit('cancel')" />
++    <b-alert v-else v-localize variant="info" show>
++        No inputs available for <b>`{{ contentObject?.name }}`</b>.
++    </b-alert>
++</template>
++
++<script setup lang="ts">
++import { computed, type Ref, ref, watch } from "vue";
++
++import { getArgs } from "@/components/Markdown/parse";
++
++import REQUIREMENTS from "./requirements";
++
++import MarkdownDialog from "@/components/Markdown/MarkdownDialog.vue";
++
++const props = defineProps<{
++    content: string;
++}>();
++
++defineEmits<{
++    (e: "cancel"): void;
++    (e: "change", content: string): void;
++}>();
++
++interface contentType {
++    args: Record<string, any>;
++    name: string;
++}
++
++const contentObject: Ref<contentType | undefined> = ref();
++const errorMessage = ref("");
++
++const requirement = computed(() => {
++    const name = contentObject.value?.name || "";
++    if (name) {
++        for (const [key, values] of Object.entries(REQUIREMENTS)) {
++            if (values.includes(name)) {
++                return key;
++            }
++        }
++    }
++    return null;
++});
++
++function parseContent() {
++    try {
++        contentObject.value = getArgs(props.content);
++        errorMessage.value = "";
++    } catch (e) {
++        errorMessage.value = `Failed to parse: ${e}`;
++    }
++}
++
++watch(
++    () => props.content,
++    () => parseContent(),
++    { immediate: true }
++);
++</script>
+diff --git a/client/src/components/Markdown/Editor/Configurations/requirements.ts b/client/src/components/Markdown/Editor/Configurations/requirements.ts
+new file mode 100644
+index 000000000000..3d3a25b40e0f
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/Configurations/requirements.ts
+@@ -0,0 +1,19 @@
++export default {
++    history_dataset_collection_id: ["history_dataset_collection_display"],
++    history_dataset_id: [
++        "history_dataset_display",
++        "history_dataset_info",
++        "history_dataset_index",
++        "history_dataset_type",
++        "history_dataset_embedded",
++        "history_dataset_as_table",
++        "history_dataset_as_image",
++        "history_dataset_link",
++        "history_dataset_name",
++        "history_dataset_peek",
++    ],
++    history_id: ["history_link"],
++    invocation_id: ["invocation_time"],
++    job_id: ["job_metrics", "job_parameters", "tool_stderr", "tool_stdout"],
++    workflow_id: ["workflow_display", "workflow_image", "workflow_license"],
++};
+diff --git a/client/src/components/Markdown/Editor/Configurations/types.ts b/client/src/components/Markdown/Editor/Configurations/types.ts
+new file mode 100644
+index 000000000000..534d3128b237
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/Configurations/types.ts
+@@ -0,0 +1,11 @@
++export type ApiResponse = Array<any> | undefined;
++
++export interface ContentType {
++    dataset_id: string;
++    dataset_name?: string;
++}
++
++export interface OptionType {
++    id: string | null | undefined;
++    name: string | null | undefined;
++}
+diff --git a/client/src/components/Markdown/Editor/templates.ts b/client/src/components/Markdown/Editor/templates.ts
+new file mode 100644
+index 000000000000..1f8dcdfa9b07
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/templates.ts
+@@ -0,0 +1,290 @@
++import type { TemplateCategory } from "./types";
++
++export const cellTemplates: Array<TemplateCategory> = [
++    {
++        name: "Markdown",
++        templates: [
++            {
++                title: "Heading 1",
++                description: "Main headline",
++                cell: {
++                    name: "markdown",
++                    content: "# Heading 1",
++                },
++            },
++            {
++                title: "Heading 2",
++                description: "Section headline",
++                cell: {
++                    name: "markdown",
++                    content: "## Heading 2",
++                },
++            },
++            {
++                title: "Heading 3",
++                description: "Subhead",
++                cell: {
++                    name: "markdown",
++                    content: "### Heading 3",
++                },
++            },
++        ],
++    },
++    {
++        name: "Galaxy",
++        templates: [
++            {
++                title: "Collection",
++                description: "Display a Collection",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_dataset_collection_display()",
++                },
++            },
++            {
++                title: "Dataset",
++                description: "Display a Dataset",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_dataset_display()",
++                },
++            },
++            {
++                title: "Dataset Details",
++                description: "Display a Dataset Information",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_dataset_info()",
++                },
++            },
++            {
++                title: "Dataset Index",
++                description: "Display a Dataset Index",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_dataset_index()",
++                },
++            },
++            {
++                title: "Dataset Type",
++                description: "Display a Dataset Type",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_dataset_type()",
++                },
++            },
++            {
++                title: "Embedded Dataset",
++                description: "Embed a Dataset",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_dataset_embedded()",
++                },
++            },
++            {
++                title: "Embedded Dataset as Table",
++                description: "Embed a Dataset as Table",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_dataset_as_table()",
++                },
++            },
++            {
++                title: "Image",
++                description: "Embed an Image",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_dataset_as_image()",
++                },
++            },
++            {
++                title: "Link to Dataset",
++                description: "Create link to a Dataset",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_dataset_link()",
++                },
++            },
++            {
++                title: "Link to Import",
++                description: "Link to Import a History",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_link()",
++                },
++            },
++            {
++                title: "Name of Dataset",
++                description: "Display a Dataset name",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_dataset_name()",
++                },
++            },
++            {
++                title: "Peek into Dataset",
++                description: "Display a Dataset peek",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "history_dataset_peek()",
++                },
++            },
++            {
++                title: "Job Metrics as Table",
++                description: "Display job resource consumption",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "job_metrics()",
++                },
++            },
++            {
++                title: "Job Parameters as Table",
++                description: "Display the input parameters of a Job",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "job_parameters()",
++                },
++            },
++            {
++                title: "Tool Error of Job run",
++                description: "Display Tool errors",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "tool_stderr()",
++                },
++            },
++            {
++                title: "Tool Output of Job run",
++                description: "Display Tool standard output",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "tool_stdout()",
++                },
++            },
++            {
++                title: "Display a Workflow",
++                description: "Display all Workflow steps",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "workflow_display()",
++                },
++            },
++            {
++                title: "Time a Workflow was invoked",
++                description: "Inovcation time of a Workflow run",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "invocation_time()",
++                },
++            },
++            {
++                title: "Workflow (as image)",
++                description: "A static image of a Workflow",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "workflow_image()",
++                },
++            },
++            {
++                title: "Workflow License",
++                description: "Usage license of a Workflow",
++                cell: {
++                    name: "galaxy",
++                    configure: true,
++                    content: "workflow_license()",
++                },
++            },
++            {
++                title: "Access",
++                description: "Link used to access this Galaxy",
++                cell: {
++                    name: "galaxy",
++                    content: "instance_access_link()",
++                },
++            },
++            {
++                title: "Citation",
++                description: "Link describing how to cite this Galaxy instance",
++                cell: {
++                    name: "galaxy",
++                    content: "instance_citation_link()",
++                },
++            },
++            {
++                title: "Help",
++                description: "Link describing how to cite this Galaxy instance",
++                cell: {
++                    name: "galaxy",
++                    content: "instance_help_link()",
++                },
++            },
++            {
++                title: "Organization",
++                description: "Link describing how to cite this Galaxy instance",
++                cell: {
++                    name: "galaxy",
++                    content: "instance_organization_link()",
++                },
++            },
++            {
++                title: "Resources",
++                description: "Link for more information about this Galaxy",
++                cell: {
++                    name: "galaxy",
++                    content: "instance_resources_link()",
++                },
++            },
++            {
++                title: "Support",
++                description: "Link describing how to cite this Galaxy instance",
++                cell: {
++                    name: "galaxy",
++                    content: "instance_support_link()",
++                },
++            },
++            {
++                title: "Terms and Conditions",
++                description: "Link describing terms and conditions for using this Galaxy instance",
++                cell: {
++                    name: "galaxy",
++                    content: "instance_terms_link()",
++                },
++            },
++            {
++                title: "Current Time",
++                description: "as text",
++                cell: {
++                    name: "galaxy",
++                    content: "generate_time()",
++                },
++            },
++            {
++                title: "Galaxy Version",
++                description: "as text",
++                cell: {
++                    name: "galaxy",
++                    content: "generate_galaxy_version()",
++                },
++            },
++        ],
++    },
++];
+diff --git a/client/src/components/Markdown/Editor/types.ts b/client/src/components/Markdown/Editor/types.ts
+new file mode 100644
+index 000000000000..2e1a93c31936
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/types.ts
+@@ -0,0 +1,17 @@
++export interface CellType {
++    name: string;
++    content: string;
++    configure?: boolean;
++    toggle?: boolean;
++}
++
++export interface TemplateCategory {
++    name: string;
++    templates: Array<TemplateEntry>;
++}
++
++export interface TemplateEntry {
++    title: string;
++    description: string;
++    cell: CellType;
++}
+diff --git a/client/src/components/Markdown/MarkdownDialog.vue b/client/src/components/Markdown/MarkdownDialog.vue
+index e1a549d285fb..e40ad7144d72 100644
+--- a/client/src/components/Markdown/MarkdownDialog.vue
++++ b/client/src/components/Markdown/MarkdownDialog.vue
+@@ -3,11 +3,10 @@ import BootstrapVue from "bootstrap-vue";
+ import { storeToRefs } from "pinia";
+ import Vue, { computed, ref } from "vue";
+ 
+-import { GalaxyApi } from "@/api";
+ import { useHistoryStore } from "@/stores/historyStore";
+-import { rethrowSimple } from "@/utils/simple-error";
+ 
+ import { type WorkflowLabel, type WorkflowLabels } from "./labels";
++import { getHistories, getInvocations, getJobs, getWorkflows } from "./services";
+ 
+ import MarkdownSelector from "./MarkdownSelector.vue";
+ import MarkdownVisualization from "./MarkdownVisualization.vue";
+@@ -89,38 +88,6 @@ const selectedLabelTitle = computed(() => {
+     return (config && config.labelTitle) || "Select Label";
+ });
+ 
+-async function getInvocations() {
+-    const { data, error } = await GalaxyApi().GET("/api/invocations");
+-    if (error) {
+-        rethrowSimple(error);
+-    }
+-    return data;
+-}
+-
+-async function getJobs() {
+-    const { data, error } = await GalaxyApi().GET("/api/jobs");
+-    if (error) {
+-        rethrowSimple(error);
+-    }
+-    return data;
+-}
+-
+-async function getWorkflows() {
+-    const { data, error } = await GalaxyApi().GET("/api/workflows");
+-    if (error) {
+-        rethrowSimple(error);
+-    }
+-    return data;
+-}
+-
+-async function getHistories() {
+-    const { data, error } = await GalaxyApi().GET("/api/histories/published");
+-    if (error) {
+-        rethrowSimple(error);
+-    }
+-    return data;
+-}
+-
+ function onData(response: unknown) {
+     dataShow.value = false;
+     emit("onInsert", `${props.argumentName}(history_dataset_id=${response})`);
+diff --git a/client/src/components/Markdown/MarkdownEditor.vue b/client/src/components/Markdown/MarkdownEditor.vue
+index 09e4a086b27c..d33fa1d2e163 100644
+--- a/client/src/components/Markdown/MarkdownEditor.vue
++++ b/client/src/components/Markdown/MarkdownEditor.vue
+@@ -7,6 +7,15 @@
+                         {{ title }}
+                     </div>
+                     <div>
++                        <b-form-radio-group
++                            v-if="!steps || steps.length === 0"
++                            v-model="editor"
++                            v-b-tooltip.hover.bottom
++                            button-variant="outline-primary"
++                            buttons
++                            size="sm"
++                            title="Editor"
++                            :options="editorOptions" />
+                         <slot name="buttons" />
+                         <b-button v-b-tooltip.hover.bottom title="Help" variant="link" role="button" @click="onHelp">
+                             <FontAwesomeIcon icon="question" />
+@@ -16,6 +25,14 @@
+             </div>
+             <div class="unified-panel-body">
+                 <TextEditor
++                    v-if="editor === 'text'"
++                    :title="title"
++                    :markdown-text="markdownText"
++                    :steps="steps"
++                    :mode="mode"
++                    @update="$emit('update', $event)" />
++                <CellEditor
++                    v-else
+                     :title="title"
+                     :markdown-text="markdownText"
+                     :steps="steps"
+@@ -39,6 +56,7 @@ import { faQuestion } from "@fortawesome/free-solid-svg-icons";
+ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+ import { ref } from "vue";
+ 
++import CellEditor from "./Editor/CellEditor.vue";
+ import TextEditor from "./Editor/TextEditor.vue";
+ import MarkdownHelp from "@/components/Markdown/MarkdownHelp.vue";
+ 
+@@ -53,6 +71,12 @@ defineProps<{
+ 
+ const showHelpModal = ref<boolean>(false);
+ 
++const editor = ref("text");
++const editorOptions = ref([
++    { text: "Text", value: "text" },
++    { text: "Cells", value: "cells" },
++]);
++
+ function onHelp() {
+     showHelpModal.value = true;
+ }
+diff --git a/client/src/components/Markdown/services.js b/client/src/components/Markdown/services.js
+index 527e7484bb04..c79b3f5fc541 100644
+--- a/client/src/components/Markdown/services.js
++++ b/client/src/components/Markdown/services.js
+@@ -2,6 +2,8 @@ import axios from "axios";
+ import { getAppRoot } from "onload/loadConfig";
+ import { rethrowSimple } from "utils/simple-error";
+ 
++import { GalaxyApi } from "@/api";
++
+ export async function copyCollection(hdcaId, historyId) {
+     const url = `${getAppRoot()}api/histories/${historyId}/contents/dataset_collections`;
+     const payload = {
+@@ -17,3 +19,35 @@ export async function copyCollection(hdcaId, historyId) {
+         rethrowSimple(e);
+     }
+ }
++
++export async function getInvocations() {
++    const { data, error } = await GalaxyApi().GET("/api/invocations");
++    if (error) {
++        rethrowSimple(error);
++    }
++    return data;
++}
++
++export async function getJobs() {
++    const { data, error } = await GalaxyApi().GET("/api/jobs");
++    if (error) {
++        rethrowSimple(error);
++    }
++    return data;
++}
++
++export async function getWorkflows() {
++    const { data, error } = await GalaxyApi().GET("/api/workflows");
++    if (error) {
++        rethrowSimple(error);
++    }
++    return data;
++}
++
++export async function getHistories() {
++    const { data, error } = await GalaxyApi().GET("/api/histories/published");
++    if (error) {
++        rethrowSimple(error);
++    }
++    return data;
++}
+diff --git a/client/src/components/SelectionDialog/BasicSelectionDialog.vue b/client/src/components/SelectionDialog/BasicSelectionDialog.vue
+index 9697de20104b..a9beae54f7c6 100644
+--- a/client/src/components/SelectionDialog/BasicSelectionDialog.vue
++++ b/client/src/components/SelectionDialog/BasicSelectionDialog.vue
+@@ -8,7 +8,7 @@ import SelectionDialog from "@/components/SelectionDialog/SelectionDialog.vue";
+ 
+ interface Props {
+     detailsKey?: string;
+-    getData: () => Promise<object[]>;
++    getData: () => Promise<Array<object> | undefined>;
+     isEncoded?: boolean;
+     labelKey?: string;
+     leafIcon?: string;
+@@ -53,18 +53,20 @@ async function load() {
+         // TODO: Consider supporting pagination here
+         // this could potentially load quite a lot of items
+         const incoming = await props.getData();
+-        items.value = incoming.map((item: any) => {
+-            const timeStamp = item[props.timeKey];
+-            showTime.value = !!timeStamp;
+-            return {
+-                id: item.id,
+-                label: item[props.labelKey] || null,
+-                details: item[props.detailsKey] || null,
+-                time: timeStamp || null,
+-                isLeaf: true,
+-                url: "",
+-            };
+-        });
++        if (incoming) {
++            items.value = incoming.map((item: any) => {
++                const timeStamp = item[props.timeKey];
++                showTime.value = !!timeStamp;
++                return {
++                    id: item.id,
++                    label: item[props.labelKey] || null,
++                    details: item[props.detailsKey] || null,
++                    time: timeStamp || null,
++                    isLeaf: true,
++                    url: "",
++                };
++            });
++        }
+         optionsShow.value = true;
+     } catch (err) {
+         errorMessage.value = errorMessageAsString(err);
+diff --git a/client/yarn.lock b/client/yarn.lock
+index 704c91dcfb15..a4f86e3857c3 100644
+--- a/client/yarn.lock
++++ b/client/yarn.lock
+@@ -3155,6 +3155,11 @@ accepts@~1.3.4, accepts@~1.3.5, accepts@~1.3.8:
+     mime-types "~2.1.34"
+     negotiator "0.6.3"
+ 
++ace-builds@^1.39.0:
++  version "1.39.0"
++  resolved "https://registry.yarnpkg.com/ace-builds/-/ace-builds-1.39.0.tgz#c191ce9168ba60e51a0de3c51950066809e3c7ce"
++  integrity sha512-MqoZojv4gpc5QyTMor/dS6kmruDV9db9LVZbCiT4qYz6WsDiv4qyG5f7ZPc+wjUl6oLMqgCAsBjo1whdSVyMlQ==
++
+ acorn-globals@^7.0.0:
+   version "7.0.1"
+   resolved "https://registry.yarnpkg.com/acorn-globals/-/acorn-globals-7.0.1.tgz#0dbf05c44fa7c94332914c02066d5beff62c40c3"

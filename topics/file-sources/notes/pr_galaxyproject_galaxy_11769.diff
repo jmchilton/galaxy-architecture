@@ -1,0 +1,895 @@
+diff --git a/lib/galaxy/files/__init__.py b/lib/galaxy/files/__init__.py
+index e63fb682cbdd..15259ef831d7 100644
+--- a/lib/galaxy/files/__init__.py
++++ b/lib/galaxy/files/__init__.py
+@@ -243,6 +243,23 @@ def preferences(self):
+         user = self.trans.user
+         return user and user.extra_preferences or defaultdict(lambda: None)
+ 
++    @property
++    def role_names(self):
++        """The set of role names of this user."""
++        user = self.trans.user
++        return user and set([ura.role.name for ura in user.roles])
++
++    @property
++    def group_names(self):
++        """The set of group names to which this user belongs."""
++        user = self.trans.user
++        return user and set([ugr.group.name for ugr in user.groups])
++
++    @property
++    def is_admin(self):
++        """Whether this user is an administrator."""
++        return self.trans.user_is_admin
++
+ 
+ class DictFileSourcesUserContext:
+ 
+@@ -264,3 +281,15 @@ def ftp_dir(self):
+     @property
+     def preferences(self):
+         return self._kwd.get("preferences")
++
++    @property
++    def role_names(self):
++        return self._kwd.get("role_names")
++
++    @property
++    def group_names(self):
++        return self._kwd.get("group_names")
++
++    @property
++    def is_admin(self):
++        return self._kwd.get("is_admin")
+diff --git a/lib/galaxy/files/_schema.py b/lib/galaxy/files/_schema.py
+index 3c49d2fa096a..def79b125a59 100644
+--- a/lib/galaxy/files/_schema.py
++++ b/lib/galaxy/files/_schema.py
+@@ -1,5 +1,8 @@
+ from enum import Enum
+-from typing import List
++from typing import (
++    List,
++    Optional,
++)
+ 
+ from pydantic import (
+     BaseModel,
+@@ -62,6 +65,16 @@ class FilesSourcePlugin(BaseModel):
+         description="Whether this files source plugin allows write access.",
+         example=False,
+     )
++    requires_roles: Optional[str] = Field(
++        None,
++        title="Requires roles",
++        description="Only users with the roles specified here can access this files source.",
++    )
++    requires_groups: Optional[str] = Field(
++        None,
++        title="Requires groups",
++        description="Only users belonging to the groups specified here can access this files source.",
++    )
+ 
+     class Config:
+         # This allows additional fields (that are not validated)
+diff --git a/lib/galaxy/files/sources/__init__.py b/lib/galaxy/files/sources/__init__.py
+index 83181a3c2b8e..455339e10439 100644
+--- a/lib/galaxy/files/sources/__init__.py
++++ b/lib/galaxy/files/sources/__init__.py
+@@ -1,7 +1,16 @@
+ import abc
+ import os
+ import time
+-
++from typing import Set
++
++from galaxy.exceptions import (
++    ConfigurationError,
++    ItemAccessibilityException,
++)
++from galaxy.util.bool_expressions import (
++    BooleanExpressionEvaluator,
++    TokenContainedEvaluator,
++)
+ from galaxy.util.template import fill_template
+ 
+ DEFAULT_SCHEME = "gxfiles"
+@@ -24,6 +33,10 @@ def get_scheme(self):
+     def get_writable(self):
+         """Return a boolean indicating if this target is writable."""
+ 
++    @abc.abstractmethod
++    def user_has_access(self, user_context) -> bool:
++        """Return a boolean indicating if the user can access the FileSource."""
++
+     # TODO: off-by-default
+     @abc.abstractmethod
+     def list(self, source_path="/", recursive=False, user_context=None):
+@@ -57,6 +70,16 @@ def get_scheme(self):
+     def get_writable(self):
+         return self.writable
+ 
++    def user_has_access(self, user_context) -> bool:
++        return (
++            user_context is None
++            or user_context.is_admin
++            or (
++                self._user_has_required_roles(user_context)
++                and self._user_has_required_groups(user_context)
++            )
++        )
++
+     def get_uri_root(self):
+         prefix = self.get_prefix()
+         scheme = self.get_scheme()
+@@ -69,13 +92,16 @@ def uri_from_path(self, path):
+         uri_root = self.get_uri_root()
+         return uri_join(uri_root, path)
+ 
+-    def _parse_common_config_opts(self, kwd):
++    def _parse_common_config_opts(self, kwd: dict):
+         self._file_sources_config = kwd.pop("file_sources_config")
+         self.id = kwd.pop("id")
+         self.label = kwd.pop("label", None) or self.id
+         self.doc = kwd.pop("doc", None)
+         self.scheme = kwd.pop("scheme", DEFAULT_SCHEME)
+         self.writable = kwd.pop("writable", DEFAULT_WRITABLE)
++        self.requires_roles = kwd.pop("requires_roles", None)
++        self.requires_groups = kwd.pop("requires_groups", None)
++        self._validate_security_rules()
+         # If coming from to_dict, strip API helper values
+         kwd.pop("uri_root", None)
+         kwd.pop("type", None)
+@@ -89,6 +115,8 @@ def to_dict(self, for_serialization=False, user_context=None):
+             "label": self.label,
+             "doc": self.doc,
+             "writable": self.writable,
++            "requires_roles": self.requires_roles,
++            "requires_groups": self.requires_groups,
+         }
+         if for_serialization:
+             rval.update(self._serialization_props(user_context=user_context))
+@@ -109,15 +137,37 @@ def _serialization_props(self):
+         Used in to_dict method if for_serialization is True.
+         """
+ 
++    def list(self, path="/", recursive=False, user_context=None):
++        self._check_user_access(user_context)
++        return self._list(path, recursive, user_context)
++
++    @abc.abstractmethod
++    def _list(self, path="/", recursive=False, user_context=None):
++        pass
++
+     def write_from(self, target_path, native_path, user_context=None):
+         if not self.get_writable():
+             raise Exception("Cannot write to a non-writable file source.")
++        self._check_user_access(user_context)
+         self._write_from(target_path, native_path, user_context=user_context)
+ 
+     @abc.abstractmethod
+     def _write_from(self, target_path, native_path, user_context=None):
+         pass
+ 
++    def realize_to(self, source_path, native_path, user_context=None):
++        self._check_user_access(user_context)
++        self._realize_to(source_path, native_path, user_context)
++
++    @abc.abstractmethod
++    def _realize_to(self, source_path, native_path, user_context=None):
++        pass
++
++    def _check_user_access(self, user_context):
++        """Raises an exception if the given user doesn't have the rights to access this file source."""
++        if user_context is not None and not self.user_has_access(user_context):
++            raise ItemAccessibilityException(f"User {user_context.username} has no access to file source.")
++
+     def _evaluate_prop(self, prop_val, user_context):
+         rval = prop_val
+         if isinstance(prop_val, str) and "$" in prop_val:
+@@ -130,6 +180,33 @@ def _evaluate_prop(self, prop_val, user_context):
+ 
+         return rval
+ 
++    def _user_has_required_roles(self, user_context) -> bool:
++        if self.requires_roles:
++            return self._evaluate_security_rules(self.requires_roles, user_context.role_names)
++        return True
++
++    def _user_has_required_groups(self, user_context) -> bool:
++        if self.requires_groups:
++            return self._evaluate_security_rules(self.requires_groups, user_context.group_names)
++        return True
++
++    def _evaluate_security_rules(self, rule_expression: str, user_credentials: Set[str]) -> bool:
++        token_evaluator = TokenContainedEvaluator(user_credentials)
++        evaluator = BooleanExpressionEvaluator(token_evaluator)
++        return evaluator.evaluate_expression(rule_expression)
++
++    def _validate_security_rules(self) -> None:
++        """Checks if the security rules defined in the plugin configuration are valid boolean expressions or raises
++        a ConfigurationError exception otherwise."""
++
++        def _get_error_msg_for(rule_name: str) -> str:
++            return f"Invalid boolean expression for '{rule_name}' in {self.label} file source plugin configuration."
++
++        if self.requires_roles and not BooleanExpressionEvaluator.is_valid_expression(self.requires_roles):
++            raise ConfigurationError(_get_error_msg_for("requires_roles"))
++        if self.requires_groups and not BooleanExpressionEvaluator.is_valid_expression(self.requires_groups):
++            raise ConfigurationError(_get_error_msg_for("requires_groups"))
++
+ 
+ def uri_join(*args):
+     # url_join doesn't work with non-standard scheme
+diff --git a/lib/galaxy/files/sources/_pyfilesystem2.py b/lib/galaxy/files/sources/_pyfilesystem2.py
+index eff267e0653e..fbf5f9e84a53 100644
+--- a/lib/galaxy/files/sources/_pyfilesystem2.py
++++ b/lib/galaxy/files/sources/_pyfilesystem2.py
+@@ -22,7 +22,7 @@ def __init__(self, **kwd):
+     def _open_fs(self, user_context=None):
+         """Subclasses must instantiate a PyFilesystem2 handle for this file system."""
+ 
+-    def list(self, path="/", recursive=False, user_context=None):
++    def _list(self, path="/", recursive=False, user_context=None):
+         """Return dictionary of 'Directory's and 'File's."""
+ 
+         with self._open_fs(user_context=user_context) as h:
+@@ -38,7 +38,7 @@ def list(self, path="/", recursive=False, user_context=None):
+                 to_dict = functools.partial(self._resource_info_to_dict, path)
+                 return list(map(to_dict, res))
+ 
+-    def realize_to(self, source_path, native_path, user_context=None):
++    def _realize_to(self, source_path, native_path, user_context=None):
+         with open(native_path, 'wb') as write_file:
+             self._open_fs(user_context=user_context).download(source_path, write_file)
+ 
+diff --git a/lib/galaxy/files/sources/posix.py b/lib/galaxy/files/sources/posix.py
+index 5c9140bf9161..df83b13bbc08 100644
+--- a/lib/galaxy/files/sources/posix.py
++++ b/lib/galaxy/files/sources/posix.py
+@@ -30,7 +30,7 @@ def __init__(self, **kwd):
+         self.enforce_symlink_security = props.get("enforce_symlink_security", DEFAULT_ENFORCE_SYMLINK_SECURITY)
+         self.delete_on_realize = props.get("delete_on_realize", DEFAULT_DELETE_ON_REALIZE)
+ 
+-    def list(self, path="/", recursive=True, user_context=None):
++    def _list(self, path="/", recursive=True, user_context=None):
+         dir_path = self._to_native_path(path, user_context=user_context)
+         if not self._safe_directory(dir_path):
+             raise exceptions.ObjectNotFound('The specified directory does not exist [%s].' % dir_path)
+@@ -47,7 +47,7 @@ def list(self, path="/", recursive=True, user_context=None):
+             to_dict = functools.partial(self._resource_info_to_dict, path, user_context=user_context)
+             return list(map(to_dict, res))
+ 
+-    def realize_to(self, source_path, native_path, user_context=None):
++    def _realize_to(self, source_path, native_path, user_context=None):
+         effective_root = self._effective_root(user_context)
+         source_native_path = self._to_native_path(source_path, user_context=user_context)
+         if self.enforce_symlink_security:
+diff --git a/lib/galaxy/files/sources/s3fs.py b/lib/galaxy/files/sources/s3fs.py
+index 3ba5e82d683d..876db6d7b058 100644
+--- a/lib/galaxy/files/sources/s3fs.py
++++ b/lib/galaxy/files/sources/s3fs.py
+@@ -27,7 +27,7 @@ def __init__(self, **kwd):
+         assert self._endpoint_url or self._bucket
+         self._props = props
+ 
+-    def list(self, path="/", recursive=True, user_context=None):
++    def _list(self, path="/", recursive=True, user_context=None):
+         fs = self._open_fs(user_context=user_context)
+         if recursive:
+             res = []
+@@ -43,7 +43,7 @@ def list(self, path="/", recursive=True, user_context=None):
+             to_dict = functools.partial(self._resource_info_to_dict, path)
+             return list(map(to_dict, res))
+ 
+-    def realize_to(self, source_path, native_path, user_context=None):
++    def _realize_to(self, source_path, native_path, user_context=None):
+         bucket_path = self._bucket_path(source_path)
+         self._open_fs(user_context=user_context).download(bucket_path, native_path)
+ 
+diff --git a/lib/galaxy/util/bool_expressions.py b/lib/galaxy/util/bool_expressions.py
+new file mode 100644
+index 000000000000..cd93cb2ec89b
+--- /dev/null
++++ b/lib/galaxy/util/bool_expressions.py
+@@ -0,0 +1,187 @@
++"""Simple boolean expression parser and evaluator using pyparsing.
++
++Based on the example: https://github.com/pyparsing/pyparsing/blob/master/examples/simpleBool.py
++"""
++
++import logging
++from typing import (
++    Callable,
++    Iterable,
++    Optional,
++    Set,
++)
++
++from pyparsing import (
++    alphanums,
++    CaselessKeyword,
++    Forward,
++    infixNotation,
++    Keyword,
++    opAssoc,
++    ParseException,
++    ParserElement,
++    Word,
++)
++
++log = logging.getLogger(__name__)
++
++ParserElement.enablePackrat()
++
++# Defines the allowed characters that form a valid token.
++# Tokens that don't match this format will raise an exception when found.
++DEFAULT_TOKEN_FORMAT = alphanums + "_-@."
++
++TRUE = Keyword("True")
++FALSE = Keyword("False")
++NOT_OP = CaselessKeyword("not")
++AND_OP = CaselessKeyword("and")
++OR_OP = CaselessKeyword("or")
++
++
++class TokenEvaluator:
++    """Interface to evaluate a token and determine its boolean value."""
++
++    def evaluate(self, token: str) -> bool:
++        """Returns the boolean representation of the given token according to some custom logic."""
++        raise NotImplementedError
++
++
++class BoolOperand:
++    """Represents a boolean operand that has a label and a value.
++
++    The value is determined by a custom TokenEvaluator."""
++    evaluator: TokenEvaluator
++
++    def __init__(self, token):
++        self.label = token[0]
++        self.value = self.evaluator.evaluate(token[0])
++
++    def __bool__(self):
++        return self.value
++
++    def __str__(self):
++        return self.label
++
++    __repr__ = __str__
++
++
++class BoolBinaryOperation:
++    """Base representation of a boolean binary operation."""
++    reprsymbol: str
++    evalop: Callable[[Iterable[object]], bool]
++
++    def __init__(self, token):
++        self.args = token[0][0::2]
++
++    def __str__(self):
++        sep = f" {self.reprsymbol} "
++        return f"({sep.join(map(str, self.args))})"
++
++    def __bool__(self):
++        return self.evalop(bool(a) for a in self.args)
++
++    __nonzero__ = __bool__
++
++
++class BoolAnd(BoolBinaryOperation):
++    """Represents the `AND` boolean operation."""
++    reprsymbol = "&"
++    evalop = all
++
++
++class BoolOr(BoolBinaryOperation):
++    """Represents the `OR` boolean operation."""
++    reprsymbol = "|"
++    evalop = any
++
++
++class BoolNot:
++    """Represents the `NOT` boolean operation."""
++
++    def __init__(self, token):
++        self.arg = token[0][1]
++
++    def __bool__(self):
++        v = bool(self.arg)
++        return not v
++
++    def __str__(self):
++        return f"~{self.arg}"
++
++    __repr__ = __str__
++
++
++class BooleanExpressionEvaluator:
++    """Boolean logic parser that can evaluate an expression using a particular TokenEvaluator.
++
++    Supports AND, OR and NOT operator including parentheses to override operator precedences.
++
++    You can pass in different TokenEvaluator implementations to customize how the tokens (or variables) are
++    converted to a boolean value when evaluating the expression."""
++
++    def __init__(self, evaluator: TokenEvaluator, token_format: Optional[str] = None) -> None:
++        """Initializes the expression evaluator.
++
++        :param evaluator: The custom TokenEvaluator used to transform any token into a boolean.
++        :type evaluator:  TokenEvaluator
++        :param token_format: A string of all allowed characters used to form a valid token, defaults to None.
++                             The default value (None) will use DEFAULT_TOKEN_FORMAT which means the allowed characters are [A-Za-z0-9_-@.].
++        :type token_format:  Optional[str]
++        """
++        action = BoolOperand
++        action.evaluator = evaluator
++        boolOperand = TRUE | FALSE | Word(token_format or DEFAULT_TOKEN_FORMAT)
++        boolOperand.setParseAction(action)
++        self.boolExpr: Forward = infixNotation(
++            boolOperand,
++            [
++                (NOT_OP, 1, opAssoc.RIGHT, BoolNot),
++                (AND_OP, 2, opAssoc.LEFT, BoolAnd),
++                (OR_OP, 2, opAssoc.LEFT, BoolOr),
++            ],
++        )
++
++    def evaluate_expression(self, expr: str) -> bool:
++        """Given an expression it gets evaluated to True or False using boolean logic."""
++        try:
++            res = self.boolExpr.parseString(expr, parseAll=True)[0]
++            return bool(res)
++        except ParseException as e:
++            log.error(f'BooleanExpressionEvaluator unable to evaluate expression => {expr}', exc_info=e)
++            raise e
++
++    @classmethod
++    def is_valid_expression(cls, expr: str) -> bool:
++        """Tries to evaluate the given boolean expression and returns True if it is valid or
++        False if it has syntax or gramatical errors."""
++        try:
++            evaluator = BooleanExpressionEvaluator(ValidationOnlyTokenEvaluator())
++            evaluator.evaluate_expression(expr)
++            return True
++        except ParseException:
++            return False
++
++
++class TokenContainedEvaluator(TokenEvaluator):
++    """Implements the TokenEvaluator interface to determine if a token is contained
++    in a particular list of tokens."""
++
++    def __init__(self, tokens: Set[str]) -> None:
++        """Initializes the token evaluator with the set of tokens that will evaluate to `True`.
++
++        :param tokens: The list of tokens that should be evaluated to True.
++        :type tokens: List[str]
++        """
++        self.tokens = tokens
++
++    def evaluate(self, token: str) -> bool:
++        return token in self.tokens
++
++
++class ValidationOnlyTokenEvaluator(TokenEvaluator):
++    """Simple TokenEvaluator that always evaluates to True for valid tokens.
++
++    This is only useful for validation purposes, do NOT use it for real expression evaluations."""
++
++    def evaluate(self, token: str) -> bool:
++        return True
+diff --git a/lib/galaxy/webapps/galaxy/api/remote_files.py b/lib/galaxy/webapps/galaxy/api/remote_files.py
+index 86550c380d7e..927a9d5f61bd 100644
+--- a/lib/galaxy/webapps/galaxy/api/remote_files.py
++++ b/lib/galaxy/webapps/galaxy/api/remote_files.py
+@@ -36,11 +36,12 @@
+ )
+ 
+ FormatQueryParam: Optional[RemoteFilesFormat] = Query(
+-    default=RemoteFilesFormat.flat,
++    default=RemoteFilesFormat.uri,
+     title="Response format",
+     description=(
+         "The requested format of returned data. Either `flat` to simply list all the files"
+-        " or `jstree` to get a tree representation of the files."
++        ", `jstree` to get a tree representation of the files, or the default `uri` to list "
++        "files and directories by their URI."
+     ),
+ )
+ 
+diff --git a/test/integration/test_remote_files_posix.py b/test/integration/test_remote_files_posix.py
+new file mode 100644
+index 000000000000..f94ef24f4b76
+--- /dev/null
++++ b/test/integration/test_remote_files_posix.py
+@@ -0,0 +1,135 @@
++# Before running this test, start nginx+webdav in Docker using following command:
++# docker run -v `pwd`/test/integration/webdav/data:/media  -e WEBDAV_USERNAME=alice -e WEBDAV_PASSWORD=secret1234 -p 7083:7083 jmchilton/webdavdev
++# Apache Docker host (shown next) doesn't work because displayname not set in response.
++# docker run -v `pwd`/test/integration/webdav:/var/lib/dav  -e AUTH_TYPE=Basic -e USERNAME=alice -e PASSWORD=secret1234  -e LOCATION=/ -p 7083:80 bytemark/webdav
++
++import os
++import shutil
++from tempfile import mkdtemp
++
++from galaxy_test.base import api_asserts
++from galaxy_test.base.populators import DatasetPopulator
++from galaxy_test.driver import integration_util
++
++REQUIRED_ROLE = "user@bx.psu.edu"
++REQUIRED_GROUP = "fs_test_group"
++
++
++def get_posix_file_source_config(root_dir: str, roles: str, groups: str) -> str:
++    return f"""
++- type: posix
++  id: posix_test
++  label: Posix
++  doc: Files from local path
++  root: {root_dir}
++  writable: true
++  requires_roles: {roles}
++  requires_groups: {groups}
++
++"""
++
++
++def create_file_source_config_file_on(temp_dir, root_dir):
++    file_contents = get_posix_file_source_config(root_dir, REQUIRED_ROLE, REQUIRED_GROUP)
++    file_path = os.path.join(temp_dir, "file_sources_conf_posix.yml")
++    with open(file_path, "w") as f:
++        f.write(file_contents)
++    return file_path
++
++
++class PosixFileSourceIntegrationTestCase(integration_util.IntegrationTestCase):
++
++    @classmethod
++    def handle_galaxy_config_kwds(cls, config):
++        temp_dir = os.path.realpath(mkdtemp())
++        cls._test_driver.temp_directories.append(temp_dir)
++        cls.root_dir = os.path.join(temp_dir, "root")
++
++        file_sources_config_file = create_file_source_config_file_on(temp_dir, cls.root_dir)
++        config["file_sources_config_file"] = file_sources_config_file
++
++        # Disable all stock plugins
++        config["ftp_upload_dir"] = None
++        config["library_import_dir"] = None
++        config["user_library_import_dir"] = None
++
++    def setUp(self):
++        super().setUp()
++        self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
++        self._write_file_fixtures()
++
++    def test_plugin_config(self):
++        plugin_config_response = self.galaxy_interactor.get("remote_files/plugins")
++        api_asserts.assert_status_code_is_ok(plugin_config_response)
++        plugins = plugin_config_response.json()
++        assert len(plugins) == 1
++        assert plugins[0]["type"] == "posix"
++        assert plugins[0]["uri_root"] == "gxfiles://posix_test"
++        assert plugins[0]["writable"] is True
++        assert plugins[0]["requires_roles"] == REQUIRED_ROLE
++        assert plugins[0]["requires_groups"] == REQUIRED_GROUP
++
++    def test_allow_admin_access(self):
++        data = {"target": "gxfiles://posix_test"}
++        list_response = self.galaxy_interactor.get("remote_files", data, admin=True)
++        self._assert_list_response_matches_fixtures(list_response)
++
++    def test_user_access(self):
++        data = {"target": "gxfiles://posix_test"}
++        group_id = self._create_group(REQUIRED_GROUP)
++
++        # User has role but not group
++        list_response = self.galaxy_interactor.get("remote_files", data)
++        self._assert_access_forbidden_response(list_response)
++
++        # User has role and group
++        user_id = self.dataset_populator.user_id()
++        self._add_user_to_group(group_id, user_id)
++        list_response = self.galaxy_interactor.get("remote_files", data)
++        self._assert_list_response_matches_fixtures(list_response)
++
++    def _create_group(self, group_name: str):
++        payload = {
++            "name": group_name,
++            "user_ids": [],
++        }
++        response = self._post("groups", payload, admin=True, json=True)
++        self._assert_status_code_is(response, 200)
++        group = response.json()[0]  # POST /api/groups returns a list
++        return group["id"]
++
++    def _add_user_to_group(self, group_id, user_id):
++        update_response = self._put(f"groups/{group_id}/users/{user_id}", admin=True)
++        self._assert_status_code_is_ok(update_response)
++
++    def _assert_list_response_matches_fixtures(self, list_response):
++        api_asserts.assert_status_code_is_ok(list_response)
++        remote_files = list_response.json()
++        assert len(remote_files) == 2
++        if remote_files[0]["class"] == "Directory":
++            dir = remote_files[0]
++            file = remote_files[1]
++        else:
++            dir = remote_files[1]
++            file = remote_files[0]
++        assert file["name"] == "a"
++        assert dir["name"] == "subdir1"
++
++    def _assert_access_forbidden_response(self, response):
++        api_asserts.assert_status_code_is(response, 403)
++
++    def _write_file_fixtures(self):
++        root = PosixFileSourceIntegrationTestCase.root_dir
++        if os.path.exists(root):
++            shutil.rmtree(root)
++        os.mkdir(root)
++
++        with open(os.path.join(root, "a"), "w") as f:
++            f.write("a\n")
++
++        subdir1 = os.path.join(root, "subdir1")
++        os.mkdir(subdir1)
++        with open(os.path.join(subdir1, "b"), "w") as f:
++            f.write("b\n")
++
++        return root
+diff --git a/test/unit/files/_util.py b/test/unit/files/_util.py
+index cd1f2627102c..ec2a101c8477 100644
+--- a/test/unit/files/_util.py
++++ b/test/unit/files/_util.py
+@@ -47,7 +47,7 @@ def list_dir(file_sources, uri, recursive, user_context=None):
+     return res
+ 
+ 
+-def user_context_fixture(user_ftp_dir=None):
++def user_context_fixture(user_ftp_dir=None, role_names=None, group_names=None, is_admin=False):
+     user_context = DictFileSourcesUserContext(
+         username=TEST_USERNAME,
+         email=TEST_EMAIL,
+@@ -55,7 +55,10 @@ def user_context_fixture(user_ftp_dir=None):
+         preferences={
+             'webdav|password': 'secret1234',
+             'dropbox|access_token': os.environ.get('GALAXY_TEST_DROPBOX_ACCESS_TOKEN'),
+-        }
++        },
++        role_names=role_names or set(),
++        group_names=group_names or set(),
++        is_admin=is_admin,
+     )
+     return user_context
+ 
+diff --git a/test/unit/files/test_posix.py b/test/unit/files/test_posix.py
+index b139b1014f43..0a87a7646b2a 100644
+--- a/test/unit/files/test_posix.py
++++ b/test/unit/files/test_posix.py
+@@ -1,7 +1,10 @@
+ import os
+ import tempfile
+ 
++import pytest
++
+ from galaxy.datatypes import sniff
++from galaxy.exceptions import ItemAccessibilityException
+ from galaxy.files import (
+     ConfiguredFileSources,
+     ConfiguredFileSourcesConfig,
+@@ -254,6 +257,129 @@ def test_user_import_dir_implicit_config():
+     assert_realizes_as(file_sources, "gxuserimport://a", "a\n", user_context=user_context)
+ 
+ 
++def test_posix_user_access_requires_role():
++    allowed_role_name = "role1"
++    plugin_extra_config = {
++        "requires_roles": allowed_role_name,
++    }
++    file_sources = _configured_file_sources(writable=True, plugin_extra_config=plugin_extra_config)
++
++    user_context = user_context_fixture()
++    _assert_user_access_prohibited(file_sources, user_context)
++
++    user_context = user_context_fixture(role_names=set([allowed_role_name]))
++    _assert_user_access_granted(file_sources, user_context)
++
++
++def test_posix_user_access_requires_group():
++    allowed_group_name = "group1"
++    plugin_extra_config = {
++        "requires_groups": allowed_group_name,
++    }
++    file_sources = _configured_file_sources(writable=True, plugin_extra_config=plugin_extra_config)
++
++    user_context = user_context_fixture()
++    _assert_user_access_prohibited(file_sources, user_context)
++
++    user_context = user_context_fixture(group_names=set([allowed_group_name]))
++    _assert_user_access_granted(file_sources, user_context)
++
++
++def test_posix_admin_user_has_access():
++    plugin_extra_config = {
++        "requires_roles": "role1",
++        "requires_groups": "group1",
++    }
++    file_sources = _configured_file_sources(writable=True, plugin_extra_config=plugin_extra_config)
++
++    user_context = user_context_fixture()
++    _assert_user_access_prohibited(file_sources, user_context)
++
++    user_context = user_context_fixture(is_admin=True)
++    _assert_user_access_granted(file_sources, user_context)
++
++
++def test_posix_user_access_requires_role_and_group():
++    allowed_group_name = "group1"
++    allowed_role_name = "role1"
++    plugin_extra_config = {
++        "requires_roles": allowed_role_name,
++        "requires_groups": allowed_group_name,
++    }
++    file_sources = _configured_file_sources(writable=True, plugin_extra_config=plugin_extra_config)
++
++    user_context = user_context_fixture(group_names=set([allowed_group_name]))
++    _assert_user_access_prohibited(file_sources, user_context)
++
++    user_context = user_context_fixture(role_names=set([allowed_role_name]))
++    _assert_user_access_prohibited(file_sources, user_context)
++
++    user_context = user_context_fixture(role_names=set([allowed_role_name]), group_names=set([allowed_group_name]))
++    _assert_user_access_granted(file_sources, user_context)
++
++
++def test_posix_user_access_using_boolean_rules():
++    plugin_extra_config = {
++        "requires_roles": "role1 and (role2 or role3)",
++        "requires_groups": "group1 and group2 and not group3",
++    }
++    file_sources = _configured_file_sources(writable=True, plugin_extra_config=plugin_extra_config)
++
++    user_context = user_context_fixture(
++        role_names=set([]),
++        group_names=set([])
++    )
++    _assert_user_access_prohibited(file_sources, user_context)
++
++    user_context = user_context_fixture(
++        role_names=set(["role1"]),
++        group_names=set(["group1", "group2"])
++    )
++    _assert_user_access_prohibited(file_sources, user_context)
++
++    user_context = user_context_fixture(
++        role_names=set(["role1", "role3"]),
++        group_names=set(["group1", "group2", "group3"])
++    )
++    _assert_user_access_prohibited(file_sources, user_context)
++
++    user_context = user_context_fixture(
++        role_names=set(["role1", "role2"]),
++        group_names=set(["group3", "group5"])
++    )
++    _assert_user_access_prohibited(file_sources, user_context)
++
++    user_context = user_context_fixture(
++        role_names=set(["role1", "role3"]),
++        group_names=set(["group1", "group2"])
++    )
++    _assert_user_access_granted(file_sources, user_context)
++
++
++def _assert_user_access_prohibited(file_sources, user_context):
++    with pytest.raises(ItemAccessibilityException):
++        list_root(file_sources, "gxfiles://test1", recursive=False, user_context=user_context)
++
++    with pytest.raises(ItemAccessibilityException):
++        write_from(file_sources, "gxfiles://test1/b", "my test content", user_context=user_context)
++
++    with pytest.raises(ItemAccessibilityException):
++        assert_realizes_as(file_sources, "gxfiles://test1/a", "a\n", user_context=user_context)
++
++
++def _assert_user_access_granted(file_sources, user_context):
++    res = list_root(file_sources, "gxfiles://test1", recursive=False, user_context=user_context)
++    assert res
++
++    write_from(file_sources, "gxfiles://test1/b", "my test content", user_context=user_context)
++
++    res = list_root(file_sources, "gxfiles://test1", recursive=False, user_context=user_context)
++    b = find(res, name="b")
++    assert b is not None, b
++
++    assert_realizes_as(file_sources, "gxfiles://test1/a", "a\n", user_context=user_context)
++
++
+ def _configured_file_sources(include_allowlist=False, plugin_extra_config=None, per_user=False, writable=None):
+     tmp, root = _setup_root()
+     config_kwd = {}
+diff --git a/test/unit/util/test_bool_expressions.py b/test/unit/util/test_bool_expressions.py
+new file mode 100644
+index 000000000000..71fa13cf366d
+--- /dev/null
++++ b/test/unit/util/test_bool_expressions.py
+@@ -0,0 +1,76 @@
++import pytest
++
++from galaxy.util.bool_expressions import (
++    BooleanExpressionEvaluator,
++    DEFAULT_TOKEN_FORMAT,
++    TokenContainedEvaluator,
++)
++
++# Defines the allowed characters that form a valid token.
++# Tokens that don't match this format will raise a ParseException
++TOKEN_FORMAT = DEFAULT_TOKEN_FORMAT
++
++# The set of tokens that will be evaluated to True using the TokenContainedEvaluator the rest
++# of the *valid tokens* (those that match the TOKEN_FORMAT) will be evaluated to False.
++TOKENS_THAT_ARE_TRUE = {"T1", "token_2"}
++
++VALID_EXPRESSIONS_TESTS = [
++    ("T1", True),
++    ("token_2", True),
++    ("T3", False),
++    ("valid_token", False),
++    ("not T3", True),
++    ("NOT token_2", False),
++    ("T1 and not T3", True),
++    ("NOT T1 AND token_2", False),
++    ("not T3 or (T3 AND token_2)", True),
++    ("T1 and (T3 OR token_2)", True),
++    ("(T3 OR T1) and not (T3 OR valid_token)", True),
++]
++
++INVALID_EXPRESSIONS_TESTS = [
++    "",
++    "23 45",
++    "'some quoted str' and not T1",
++    "invalid expression",
++    "T1 and and T2",
++    "T1 not and T3",
++    "(T1 and T3",
++    "T1 or T3)",
++    "T1 and or T2",
++]
++
++
++@pytest.fixture(scope='module')
++def contained_evaluator() -> BooleanExpressionEvaluator:
++    """Boolean expression evaluator using the TokenContainedEvaluator.
++
++    All the tokens in TOKENS_THAT_ARE_TRUE will be evaluated to True and
++    any other token to False."""
++    token_evaluator = TokenContainedEvaluator(TOKENS_THAT_ARE_TRUE)
++    evaluator = BooleanExpressionEvaluator(token_evaluator, TOKEN_FORMAT)
++    return evaluator
++
++
++@pytest.mark.parametrize('expr, expected', VALID_EXPRESSIONS_TESTS)
++def test_expression_evaluates_as_expected(expr: str, expected: bool, contained_evaluator: BooleanExpressionEvaluator):
++    actual = contained_evaluator.evaluate_expression(expr)
++    assert actual == expected
++
++
++@pytest.mark.parametrize('expr', INVALID_EXPRESSIONS_TESTS)
++def test_invalid_expression_raises_exception(expr: str, contained_evaluator: BooleanExpressionEvaluator):
++    with pytest.raises(Exception):
++        contained_evaluator.evaluate_expression(expr)
++
++
++@pytest.mark.parametrize('expr, _', VALID_EXPRESSIONS_TESTS)
++def test_is_valid_expression_return_true_when_valid(expr: str, _: bool):
++    result = BooleanExpressionEvaluator.is_valid_expression(expr)
++    assert result is True
++
++
++@pytest.mark.parametrize('expr', INVALID_EXPRESSIONS_TESTS)
++def test_is_valid_expression_return_false_when_invalid(expr: str):
++    result = BooleanExpressionEvaluator.is_valid_expression(expr)
++    assert result is False

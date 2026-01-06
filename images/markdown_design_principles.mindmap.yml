@@ -1,0 +1,25 @@
+label: Design Principles
+items:
+- label: Contextual Addressing
+  doc: Multiple formats converge to internal IDs
+  items:
+  - label: Workflow
+    doc: step/output labels
+  - label: Tool
+    doc: output references
+  - label: API
+    doc: encoded IDs
+  - label: History (future)
+    doc: history-relative refs
+- label: Lazy Resolution
+  doc: Resolve at appropriate boundary, not eagerly
+- label: Handler Extensibility
+  doc: Add new rendering contexts via abstract pattern
+- label: Mode Awareness
+  doc: Pages vs reports vs tool outputs have different rules
+- label: Separation of Concerns
+  items:
+  - label: Parse vs Resolve
+    doc: markdown_parse.py vs markdown_util.py
+  - label: Frontend vs Backend
+    doc: Vue components vs Python handlers

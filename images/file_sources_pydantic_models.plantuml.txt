@@ -1,0 +1,46 @@
+@startuml
+!include plantuml_options.txt
+
+package "Template Stage" {
+    class S3FsTemplateConfiguration {
+        type: Literal["s3fs"]
+        bucket: Union[str, TemplateExpansion]
+        region: Union[str, TemplateExpansion]
+        access_key_id: Union[str, TemplateExpansion]
+        --
+        "{{ variables.bucket }}"
+        "{{ secrets.key }}"
+    }
+}
+
+package "Resolved Stage" {
+    class S3FsFileSourceConfiguration {
+        type: Literal["s3fs"]
+        bucket: str
+        region: str
+        access_key_id: str
+        --
+        Concrete values only:
+        "my-data-bucket"
+    }
+}
+
+S3FsTemplateConfiguration ..> S3FsFileSourceConfiguration : Jinja2 expand\n+ validate
+
+note right of S3FsTemplateConfiguration
+    TemplateExpansion is a
+    type alias (str) for
+    documentation clarity
+end note
+
+note bottom of S3FsTemplateConfiguration
+    Stage 1: Validate template syntax
+    Stage 2: Validate user input
+end note
+
+note bottom of S3FsFileSourceConfiguration
+    Stage 3: Validate resolved config
+    Used at runtime
+end note
+
+@enduml

@@ -1,0 +1,84 @@
+topic_id: file-sources
+title: Galaxy File Sources Architecture
+training:
+  tutorial_number: 14
+  subtitle: The architecture of pluggable file sources in Galaxy
+  questions:
+  - What are File Sources in Galaxy?
+  - How do user-defined file sources work?
+  - What is the difference between File Sources and Object Stores?
+  objectives:
+  - Understand the File Sources plugin architecture
+  - Learn about user-defined file source templates
+  - Understand fsspec and PyFilesystem2 base classes
+  - Learn about OAuth integration for cloud services
+  key_points:
+  - File Sources provide hierarchical file access for import/export
+  - User-defined templates enable personal cloud storage connections
+  - fsspec enables easy integration of 40+ storage backends
+  - OAuth 2.0 supports seamless cloud service authentication
+  time_estimation: 20m
+  previous_to: production
+sphinx:
+  section: Architecture
+  subsection: File Sources
+contributors:
+  - jmchilton
+  - davelopez
+related_topics: []
+related_code_paths:
+- path: lib/galaxy/files/__init__.py
+  note: File sources module initialization and core abstractions
+- path: lib/galaxy/files/plugins.py
+  note: Plugin loading, catalog management, and ConfiguredFileSources
+- path: lib/galaxy/files/sources/__init__.py
+  note: FilesSource base classes and interface definitions
+- path: lib/galaxy/files/sources/_fsspec.py
+  note: FsspecFilesSource base for fsspec-backed plugins
+- path: lib/galaxy/files/sources/_pyfilesystem2.py
+  note: PyFilesystem2FilesSource base for PyFilesystem2-backed plugins
+- path: lib/galaxy/files/sources/posix.py
+  note: POSIX filesystem plugin (disk, FTP, library imports)
+- path: lib/galaxy/files/sources/s3fs.py
+  note: S3-compatible storage plugin using fsspec
+- path: lib/galaxy/files/sources/zenodo.py
+  note: Zenodo/Invenio integration for DOI-backed archival
+- path: lib/galaxy/files/sources/huggingface.py
+  note: Hugging Face Hub integration for AI/ML models
+- path: lib/galaxy/files/templates/models.py
+  note: Pydantic models for file source templates (catalog, variables, secrets)
+- path: lib/galaxy/files/templates/manager.py
+  note: Template catalog loading and user instance creation
+- path: lib/galaxy/schema/remote_files.py
+  note: API schemas for remote files (browsing, listing)
+- path: lib/galaxy/managers/file_source_instances.py
+  note: Manager for user-defined file source instances
+- path: lib/galaxy/managers/remote_files.py
+  note: Remote files API manager (listing, browsing)
+- path: lib/galaxy/webapps/galaxy/api/file_sources.py
+  note: File sources API endpoints (templates, instances)
+- path: lib/galaxy/webapps/galaxy/api/remote_files.py
+  note: Remote files browsing API endpoints
+related_pull_requests:
+- note: File Sources (Pluggable URI handling across upload components)
+  pull_request: https://github.com/galaxyproject/galaxy/pull/9888
+- note: Writable File Sources
+  pull_request: https://github.com/galaxyproject/galaxy/pull/10152
+- note: Support Roles and Groups in File Sources
+  pull_request: https://github.com/galaxyproject/galaxy/pull/11769
+- note: Converge File Sources and URI handling
+  pull_request: https://github.com/galaxyproject/galaxy/pull/15497
+- note: Zenodo Integration
+  pull_request: https://github.com/galaxyproject/galaxy/pull/18022
+- note: Add pagination support
+  pull_request: https://github.com/galaxyproject/galaxy/pull/18059
+- note: User File Sources
+  pull_request: https://github.com/galaxyproject/galaxy/pull/18127
+- note: OAuth2 Support for User File Sources
+  pull_request: https://github.com/galaxyproject/galaxy/pull/18272
+- note: modelling
+  pull_request: https://github.com/galaxyproject/galaxy/pull/20728
+- note: fsspec support
+  pull_request: https://github.com/galaxyproject/galaxy/pull/20698
+- note: Hugging Face Integration
+  pull_request: https://github.com/galaxyproject/galaxy/pull/20805

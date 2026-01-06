@@ -31,6 +31,8 @@ Experimental POC to prove that maintaining architecture content as structured ma
 - **scripts/generate_schema_docs.py** - Auto-generates docs/SCHEMA.md from models
 - **outputs/training-slides/build.py** - Generates GTN-compatible slides
 - **outputs/sphinx-docs/build.py** - Generates Sphinx markdown with URL conversion
+- **docs/SLIDE_GUIDE.md** - GTN slide syntax, formatting, speaker notes (MUST READ before writing slides)
+- **docs/DIAGRAM_GUIDE.md** - PlantUML/Mermaid usage guide (MUST READ before creating diagrams)
 - **images/MERMAID.md** - Mermaid diagram support documentation (PlantUML vs Mermaid usage guide)
 
 ## Common Tasks
@@ -170,6 +172,14 @@ Generate structured slide plan by analyzing research notes.
 4. Prompts user for flow choice, duration, audience level
 5. Creates `plan/final_plan.md` with chosen flow and next steps
 - Requires: run `/research-topic` first
+
+## Required Reading
+
+**Before writing content** (slides, prose, fragments):
+- Read **docs/SLIDE_GUIDE.md** - GTN slide syntax, formatting rules, speaker notes
+
+**Before creating diagrams/images**:
+- Read **docs/DIAGRAM_GUIDE.md** - PlantUML vs Mermaid usage, file naming, build process
 
 ## When helping with this repo
 

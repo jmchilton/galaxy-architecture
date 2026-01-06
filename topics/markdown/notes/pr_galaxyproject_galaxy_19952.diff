@@ -1,0 +1,3100 @@
+diff --git a/client/src/components/Common/ButtonPlain.vue b/client/src/components/Common/ButtonPlain.vue
+new file mode 100644
+index 000000000000..9fa2b092e46c
+--- /dev/null
++++ b/client/src/components/Common/ButtonPlain.vue
+@@ -0,0 +1,10 @@
++<template>
++    <div
++        role="button"
++        tabindex="0"
++        @click="$emit('click')"
++        @keydown.enter="$emit('click')"
++        @keydown.space.prevent="$emit('click')">
++        <slot />
++    </div>
++</template>
+diff --git a/client/src/components/Markdown/Editor/CellAction.vue b/client/src/components/Markdown/Editor/CellAction.vue
+index 4519801719c9..fafaad60c654 100644
+--- a/client/src/components/Markdown/Editor/CellAction.vue
++++ b/client/src/components/Markdown/Editor/CellAction.vue
+@@ -8,39 +8,43 @@
+             trigger="click"
+             placement="right"
+             mode="light">
+-            <div @click="popperRef.visible = false">
++            <nav
++                role="menu"
++                aria-label="cell actions"
++                tabindex="0"
++                @click="popperRef.visible = false"
++                @keydown.enter="popperRef.visible = false"
++                @keydown.space.prevent="popperRef.visible = false">
+                 <span class="d-flex justify-content-between">
+                     <small class="my-1 mx-3 text-info">{{ title }}</small>
+                 </span>
+                 <CellOption
+-                    v-if="['galaxy', 'visualization'].includes(name)"
+-                    title="Attach Data"
+-                    description="Select data for this cell"
+-                    :icon="faPaperclip"
+-                    @click="$emit('configure')" />
+-                <CellOption
++                    role="menuitem"
+                     title="Clone"
+                     description="Create a copy of this cell"
+                     :icon="faClone"
+                     @click="$emit('clone')" />
+                 <CellOption
++                    role="menuitem"
+                     title="Delete"
+                     description="Delete this cell"
+                     :icon="faTrash"
+                     @click="confirmDelete = true" />
+                 <CellOption
+                     v-if="cellIndex > 0"
++                    role="menuitem"
+                     title="Move Up"
+                     description="Move this cell upwards"
+                     :icon="faArrowUp"
+                     @click="$emit('move', 'up')" />
+                 <CellOption
+                     v-if="cellTotal - cellIndex > 1"
++                    role="menuitem"
+                     title="Move Down"
+                     description="Move this cell downwards"
+                     :icon="faArrowDown"
+                     @click="$emit('move', 'down')" />
+-            </div>
++            </nav>
+         </Popper>
+         <BModal v-model="confirmDelete" title="Delete Cell" title-tag="h2" @ok="$emit('delete')">
+             <p v-localize>Are you sure you want to delete this cell?</p>
+@@ -51,7 +55,7 @@
+ <script setup lang="ts">
+ import { faClone, faEllipsisV } from "@fortawesome/free-solid-svg-icons";
+ import { BModal } from "bootstrap-vue";
+-import { faArrowDown, faArrowUp, faPaperclip, faTrash } from "font-awesome-6";
++import { faArrowDown, faArrowUp, faTrash } from "font-awesome-6";
+ import { computed, ref } from "vue";
+ 
+ import type { CellType } from "./types";
+@@ -60,12 +64,19 @@ import CellButton from "./CellButton.vue";
+ import CellOption from "./CellOption.vue";
+ import Popper from "@/components/Popper/Popper.vue";
+ 
+-const props = defineProps<{
+-    cellIndex: number;
+-    cellTotal: number;
+-    name: string;
+-    show: boolean;
+-}>();
++const props = withDefaults(
++    defineProps<{
++        cellIndex: number;
++        cellTotal: number;
++        configurable?: boolean;
++        name: string;
++        show?: boolean;
++    }>(),
++    {
++        configurable: false,
++        show: true,
++    }
++);
+ 
+ defineEmits<{
+     (e: "click", cell: CellType): void;
+@@ -81,11 +92,3 @@ const popperRef = ref();
+ 
+ const title = computed(() => `${props.name.charAt(0).toUpperCase()}${props.name.slice(1)}`);
+ </script>
+-
+-<style>
+-.cell-add-categories {
+-    max-height: 20rem;
+-    max-width: 15rem;
+-    min-width: 15rem;
+-}
+-</style>
+diff --git a/client/src/components/Markdown/Editor/CellAdd.test.js b/client/src/components/Markdown/Editor/CellAdd.test.js
+index 7fac5e7813d2..f7cc93d81779 100644
+--- a/client/src/components/Markdown/Editor/CellAdd.test.js
++++ b/client/src/components/Markdown/Editor/CellAdd.test.js
+@@ -1,12 +1,16 @@
+ import { mount } from "@vue/test-utils";
+ import { BAlert } from "bootstrap-vue";
+ 
++import { useServerMock } from "@/api/client/__mocks__";
++
+ import CellAdd from "./CellAdd.vue";
+ import CellButton from "./CellButton.vue";
+ import CellOption from "./CellOption.vue";
+ import DelayedInput from "@/components/Common/DelayedInput.vue";
+ import Popper from "@/components/Popper/Popper.vue";
+ 
++const { server, http } = useServerMock();
++
+ jest.mock("./templates", () => ({
+     "Category 1": [
+         { title: "Option A", description: "Desc A", cell: { id: 1 } },
+@@ -22,6 +26,7 @@ const createContainer = (tag = "div") => {
+ };
+ 
+ const mountTarget = () => {
++    server.use(http.get("/api/plugins", ({ response }) => response(200).json([])));
+     return mount(CellAdd, {
+         attachTo: createContainer(),
+         global: {
+@@ -52,7 +57,7 @@ describe("CellAdd.vue", () => {
+         const categories = wrapper.findAll(".cell-add-categories");
+         expect(categories).toHaveLength(1);
+         expect(categories.at(0).find(".text-info").text()).toBe("Category 1");
+-        expect(categories.at(0).find(".cell-option").text()).toContain("Option A");
++        expect(categories.at(0).find(".cell-add-options").text()).toContain("Option A");
+     });
+ 
+     it("shows 'No results found' when no templates match search", async () => {
+diff --git a/client/src/components/Markdown/Editor/CellAdd.vue b/client/src/components/Markdown/Editor/CellAdd.vue
+index 20c72c128c81..d9469a928b0e 100644
+--- a/client/src/components/Markdown/Editor/CellAdd.vue
++++ b/client/src/components/Markdown/Editor/CellAdd.vue
+@@ -3,9 +3,12 @@
+         <CellButton ref="buttonRef" title="Insert" :icon="faPlus" />
+         <Popper v-if="buttonRef" :reference-el="buttonRef.$el" trigger="click" placement="right" mode="light">
+             <DelayedInput class="p-1" :delay="100" placeholder="Search" @change="query = $event" />
+-            <div class="cell-add-categories overflow-auto">
++            <div class="cell-dropdown overflow-auto">
+                 <div v-if="Object.keys(filteredTemplates).length > 0">
+-                    <div v-for="(templates, categoryName) of filteredTemplates" :key="categoryName">
++                    <div
++                        v-for="(templates, categoryName) of filteredTemplates"
++                        :key="categoryName"
++                        class="cell-add-categories">
+                         <hr class="solid m-0" />
+                         <span class="d-flex justify-content-between">
+                             <small class="my-1 mx-3 text-info">{{ categoryName }}</small>
+@@ -75,11 +78,3 @@ onMounted(async () => {
+     visualizations.value = await getVisualizations();
+ });
+ </script>
+-
+-<style>
+-.cell-add-categories {
+-    max-height: 20rem;
+-    max-width: 15rem;
+-    min-width: 15rem;
+-}
+-</style>
+diff --git a/client/src/components/Markdown/Editor/CellButton.vue b/client/src/components/Markdown/Editor/CellButton.vue
+index 5da2c593d615..3c822d1d96cd 100644
+--- a/client/src/components/Markdown/Editor/CellButton.vue
++++ b/client/src/components/Markdown/Editor/CellButton.vue
+@@ -1,12 +1,14 @@
+ <template>
+     <BButton
+-        v-b-tooltip.noninteractive.right
++        v-b-tooltip.noninteractive="tooltipOptions"
+         class="border-0 m-1 px-1 py-0"
+         :class="{ active, 'cell-button-hide': !show }"
+         :title="title"
+         :variant="active ? 'outline-secondary' : 'outline-primary'"
++        :aria-pressed="active"
+         @click="$emit('click')"
+-        @mouseleave="onMouseLeave($event)">
++        @mouseleave="onMouseLeave"
++        @blur="onMouseLeave">
+         <FontAwesomeIcon :icon="icon" fixed-width />
+     </BButton>
+ </template>
+@@ -15,20 +17,22 @@
+ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+ import { BButton, VBTooltipPlugin } from "bootstrap-vue";
+ import type { IconDefinition } from "font-awesome-6";
+-import Vue from "vue";
++import Vue, { computed } from "vue";
+ 
+ Vue.use(VBTooltipPlugin);
+ 
+-withDefaults(
++const props = withDefaults(
+     defineProps<{
+         active?: boolean;
+         icon: IconDefinition;
+         show?: boolean;
+         title: string;
++        tooltipPlacement?: "top" | "right" | "bottom" | "left";
+     }>(),
+     {
+         active: false,
+         show: true,
++        tooltipPlacement: "right",
+     }
+ );
+ 
+@@ -36,6 +40,10 @@ defineEmits<{
+     (e: "click"): void;
+ }>();
+ 
++const tooltipOptions = computed(() => ({
++    placement: props.tooltipPlacement,
++}));
++
+ function onMouseLeave(event: Event) {
+     const target = event.target as HTMLElement;
+     target.blur();
+diff --git a/client/src/components/Markdown/Editor/CellConfigure.vue b/client/src/components/Markdown/Editor/CellConfigure.vue
+deleted file mode 100644
+index 4fd0a28014d8..000000000000
+--- a/client/src/components/Markdown/Editor/CellConfigure.vue
++++ /dev/null
+@@ -1,22 +0,0 @@
+-<template>
+-    <ConfigureGalaxy
+-        v-if="name === 'galaxy'"
+-        :content="content"
+-        @change="$emit('change', $event)"
+-        @cancel="$emit('cancel')" />
+-    <b-alert v-else variant="warning" show> Data cannot be linked to this cell type. </b-alert>
+-</template>
+-
+-<script setup lang="ts">
+-import ConfigureGalaxy from "./Configurations/ConfigureGalaxy.vue";
+-
+-defineProps<{
+-    name: string;
+-    content: string;
+-}>();
+-
+-defineEmits<{
+-    (e: "cancel"): void;
+-    (e: "change", content: string): void;
+-}>();
+-</script>
+diff --git a/client/src/components/Markdown/Editor/CellEditor.vue b/client/src/components/Markdown/Editor/CellEditor.vue
+index 7aacda50d4ec..c0fb472e17f6 100644
+--- a/client/src/components/Markdown/Editor/CellEditor.vue
++++ b/client/src/components/Markdown/Editor/CellEditor.vue
+@@ -143,3 +143,11 @@ function scrollToCell(cellIndex: number) {
+     });
+ }
+ </script>
++
++<style>
++.cell-dropdown {
++    max-height: 20rem;
++    max-width: 16rem;
++    min-width: 16rem;
++}
++</style>
+diff --git a/client/src/components/Markdown/Editor/CellOption.vue b/client/src/components/Markdown/Editor/CellOption.vue
+index 107b0b231e62..10b6cf174593 100644
+--- a/client/src/components/Markdown/Editor/CellOption.vue
++++ b/client/src/components/Markdown/Editor/CellOption.vue
+@@ -1,5 +1,5 @@
+ <template>
+-    <span role="button" tabindex="0" class="cell-option d-flex justify-content-between" @click="$emit('click')">
++    <ButtonPlain class="cell-option d-flex justify-content-between" @click="$emit('click')">
+         <div class="my-1 mx-3">
+             <div class="font-weight-bold">{{ title }}</div>
+             <small v-if="description" class="d-inline-block text-wrap text-break">{{ description }}</small>
+@@ -10,13 +10,15 @@
+         <div v-else-if="logo" class="my-2 mx-3 align-self-start">
+             <Img class="cell-option-logo" :src="logo" :alt="title" />
+         </div>
+-    </span>
++    </ButtonPlain>
+ </template>
+ 
+ <script setup lang="ts">
+ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+ import type { IconDefinition } from "font-awesome-6";
+ 
++import ButtonPlain from "@/components/Common/ButtonPlain.vue";
++
+ defineProps<{
+     title: string;
+     description: string;
+diff --git a/client/src/components/Markdown/Editor/CellWrapper.vue b/client/src/components/Markdown/Editor/CellWrapper.vue
+index 1e52d80962ad..05977b7bf4a0 100644
+--- a/client/src/components/Markdown/Editor/CellWrapper.vue
++++ b/client/src/components/Markdown/Editor/CellWrapper.vue
+@@ -1,13 +1,18 @@
+ <template>
+-    <div @mouseenter="hover = true" @mouseleave="hover = false">
++    <div
++        tabindex="0"
++        role="presentation"
++        @mouseenter="hover = true"
++        @mouseleave="hover = false"
++        @focusin="hover = true"
++        @focusout="hover = false">
+         <div class="d-flex">
+-            <div
+-                class="d-flex flex-column cursor-pointer"
+-                :class="{ 'cell-wrapper-hover': hover }"
+-                @click="$emit('toggle')">
+-                <CellButton v-if="toggle" title="Collapse" :icon="faAngleDoubleUp" />
+-                <CellButton v-else title="Expand" :icon="faAngleDoubleDown" />
+-            </div>
++            <ButtonPlain class="d-flex" :class="{ 'cell-wrapper-hover': hover }" @click="$emit('toggle')">
++                <div class="align-self-end">
++                    <CellButton v-if="toggle" title="Collapse" :icon="faAngleDoubleUp" />
++                    <CellButton v-else title="Expand" :icon="faAngleDoubleDown" />
++                </div>
++            </ButtonPlain>
+             <SectionWrapper
+                 class="m-2 w-100"
+                 :name="name"
+@@ -17,33 +22,35 @@
+         </div>
+         <div v-if="toggle" class="d-flex">
+             <div class="d-flex flex-column" :class="{ 'cell-wrapper-hover': hover }">
++                <CellButton
++                    v-if="configurable"
++                    title="Attach Data"
++                    :icon="faPaperclip"
++                    :active="configure"
++                    @click="$emit('configure')" />
+                 <CellAction
+                     :name="name"
+-                    :show="hover"
+                     :cell-index="cellIndex"
+                     :cell-total="cellTotal"
++                    :configurable="configurable"
+                     @clone="$emit('clone')"
+                     @configure="$emit('configure')"
+                     @delete="$emit('delete')"
+                     @move="$emit('move', $event)" />
+             </div>
+             <div class="w-100 position-relative">
+-                <hr class="solid m-0" />
+-                <ConfigureGalaxy
+-                    v-if="name === 'galaxy' && configure"
+-                    :name="name"
+-                    :content="content"
+-                    :labels="labels"
+-                    @cancel="$emit('configure')"
+-                    @change="handleConfigure($event)" />
+-                <ConfigureVisualization
+-                    v-else-if="name === 'visualization' && configure"
++                <hr v-if="!configure" class="solid m-0" />
++                <component
++                    :is="configureComponent"
++                    v-if="configure"
++                    :class="{ 'cell-wrapper-hover': hover }"
+                     :name="name"
+                     :content="content"
+                     :labels="labels"
+                     @cancel="$emit('configure')"
+                     @change="handleConfigure($event)" />
+                 <CellCode
++                    v-else
+                     :key="name"
+                     class="mt-1"
+                     :value="content"
+@@ -59,7 +66,7 @@
+ </template>
+ 
+ <script setup lang="ts">
+-import { faAngleDoubleDown, faAngleDoubleUp } from "@fortawesome/free-solid-svg-icons";
++import { faAngleDoubleDown, faAngleDoubleUp, faPaperclip } from "@fortawesome/free-solid-svg-icons";
+ import { computed, ref } from "vue";
+ 
+ import type { WorkflowLabel } from "./types";
+@@ -68,6 +75,8 @@ import CellAction from "./CellAction.vue";
+ import CellButton from "./CellButton.vue";
+ import ConfigureGalaxy from "./Configurations/ConfigureGalaxy.vue";
+ import ConfigureVisualization from "./Configurations/ConfigureVisualization.vue";
++import ConfigureVitessce from "./Configurations/ConfigureVitessce.vue";
++import ButtonPlain from "@/components/Common/ButtonPlain.vue";
+ import SectionWrapper from "@/components/Markdown/Sections/SectionWrapper.vue";
+ 
+ const CellCode = () => import("./CellCode.vue");
+@@ -88,6 +97,20 @@ const emit = defineEmits(["change", "clone", "configure", "delete", "move", "tog
+ 
+ const hover = ref(false);
+ 
++const configurable = computed(() => configureComponent.value !== undefined);
++
++const configureComponent = computed(() => {
++    switch (props.name) {
++        case "galaxy":
++            return ConfigureGalaxy;
++        case "visualization":
++            return ConfigureVisualization;
++        case "vitessce":
++            return ConfigureVitessce;
++    }
++    return undefined;
++});
++
+ const mode = computed(() => {
+     switch (props.name) {
+         case "galaxy":
+diff --git a/client/src/components/Markdown/Editor/Configurations/ConfigureGalaxy.vue b/client/src/components/Markdown/Editor/Configurations/ConfigureGalaxy.vue
+index 74cfe23c07b6..06345891df1f 100644
+--- a/client/src/components/Markdown/Editor/Configurations/ConfigureGalaxy.vue
++++ b/client/src/components/Markdown/Editor/Configurations/ConfigureGalaxy.vue
+@@ -1,34 +1,31 @@
+ <template>
+-    <b-alert v-if="errorMessage" variant="warning" show>{{ errorMessage }}</b-alert>
+-    <MarkdownDialog
+-        v-else-if="requirement"
+-        :argument-type="requirement"
+-        :argument-name="contentObject?.name"
+-        :argument-payload="contentObject?.args"
+-        :labels="labels"
+-        @onInsert="$emit('change', $event)"
+-        @onCancel="$emit('cancel')" />
+-    <b-alert v-else v-localize variant="info" show>
+-        No inputs available for <b>`{{ contentObject?.name }}`</b>.
+-    </b-alert>
++    <div class="p-2">
++        <ConfigureHeader @cancel="$emit('cancel')" />
++        <BAlert v-if="errorMessage" variant="warning" show>{{ errorMessage }}</BAlert>
++        <BAlert v-else-if="!requiredObject || requirementFulfilled" v-localize variant="info" show>
++            No inputs required for <b>`{{ contentName }}`</b>.
++        </BAlert>
++        <ConfigureSelector v-else :labels="labels" :object-type="requiredObject" @change="onChange" />
++    </div>
+ </template>
+ 
+ <script setup lang="ts">
++import { BAlert } from "bootstrap-vue";
+ import { computed, type Ref, ref, watch } from "vue";
+ 
+-import type { WorkflowLabel } from "@/components/Markdown/Editor/types";
++import type { OptionType, WorkflowLabel } from "@/components/Markdown/Editor/types";
+ import { getArgs } from "@/components/Markdown/parse";
++import { getRequiredObject } from "@/components/Markdown/Utilities/requirements";
+ 
+-import REQUIREMENTS from "./requirements.yml";
+-
+-import MarkdownDialog from "@/components/Markdown/MarkdownDialog.vue";
++import ConfigureHeader from "./ConfigureHeader.vue";
++import ConfigureSelector from "./ConfigureSelector.vue";
+ 
+ const props = defineProps<{
+     content: string;
+     labels?: Array<WorkflowLabel>;
+ }>();
+ 
+-defineEmits<{
++const emit = defineEmits<{
+     (e: "cancel"): void;
+     (e: "change", content: string): void;
+ }>();
+@@ -39,23 +36,38 @@ interface contentType {
+ }
+ 
+ const contentObject: Ref<contentType | undefined> = ref();
++const contentName: Ref<string | undefined> = ref();
+ const errorMessage = ref("");
+ 
+-const requirement = computed(() => {
+-    const name = contentObject.value?.name || "";
+-    if (name) {
+-        for (const [key, values] of Object.entries(REQUIREMENTS)) {
+-            if (Array.isArray(values) && values.includes(name)) {
+-                return key;
+-            }
++const hasLabels = computed(() => props.labels !== undefined);
++
++const requiredObject = computed(() => getRequiredObject(contentName.value));
++
++const requirementFulfilled = computed(
++    () =>
++        hasLabels.value &&
++        requiredObject.value &&
++        ["history_id", "invocation_id", "workflow_id"].includes(requiredObject.value)
++);
++
++function onChange(option: OptionType) {
++    if (contentName.value) {
++        if (hasLabels.value && option.label) {
++            const values = Object.entries(option.label)
++                .filter(([_, value]) => !!value)
++                .map(([key, value]) => `${key}="${value}"`)
++                .join(", ");
++            emit("change", `${contentName.value}(${values})`);
++        } else if (option.id) {
++            emit("change", `${contentName.value}(${requiredObject.value}=${option.id})`);
+         }
+     }
+-    return null;
+-});
++}
+ 
+ function parseContent() {
+     try {
+         contentObject.value = getArgs(props.content);
++        contentName.value = contentObject.value.name;
+         errorMessage.value = "";
+     } catch (e) {
+         errorMessage.value = `Failed to parse: ${e}`;
+diff --git a/client/src/components/Markdown/Editor/Configurations/ConfigureHeader.test.js b/client/src/components/Markdown/Editor/Configurations/ConfigureHeader.test.js
+new file mode 100644
+index 000000000000..b83a608c378f
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/Configurations/ConfigureHeader.test.js
+@@ -0,0 +1,92 @@
++import { mount } from "@vue/test-utils";
++import { getLocalVue } from "tests/jest/helpers";
++
++import ConfigureHeader from "./ConfigureHeader.vue";
++import CellButton from "@/components/Markdown/Editor/CellButton.vue";
++
++const localVue = getLocalVue();
++
++function mountComponent(props = {}) {
++    return mount(ConfigureHeader, {
++        localVue,
++        propsData: { hasChanged: undefined, ...props },
++        stubs: {
++            BModal: {
++                template: "<div><slot></slot><slot name='modal-header'></slot><slot name='modal-footer'></slot></div>",
++                props: ["visible"],
++            },
++            BButton: {
++                template: "<button @click=\"$emit('click')\"><slot /></button>",
++            },
++            FontAwesomeIcon: true,
++            Heading: {
++                template: "<div><slot /></div>",
++            },
++        },
++    });
++}
++
++describe("ConfigureHeader.vue", () => {
++    it("renders headings and instructions", () => {
++        const wrapper = mountComponent({ hasChanged: false });
++        expect(wrapper.text()).toContain("Attach Data");
++        expect(wrapper.text()).toContain("Fill in the fields below to map required inputs to this cell.");
++    });
++
++    it("renders Apply Changes and Cancel buttons when hasChanged is defined", () => {
++        const wrapper = mountComponent({ hasChanged: false });
++        const buttons = wrapper.findAllComponents(CellButton);
++        expect(buttons.length).toBe(2);
++        expect(buttons.at(0).props("title")).toBe("Apply Changes");
++        expect(buttons.at(1).props("title")).toBe("Cancel");
++    });
++
++    it("always renders Cancel button", () => {
++        const wrapper = mountComponent({ hasChanged: undefined });
++        const buttons = wrapper.findAllComponents(CellButton);
++        const cancelBtn = buttons.at(buttons.length - 1);
++        expect(cancelBtn.exists()).toBe(true);
++        expect(cancelBtn.props("title")).toBe("Cancel");
++    });
++
++    it("emits ok when Apply Changes is clicked", async () => {
++        const wrapper = mountComponent({ hasChanged: true });
++        const applyBtn = wrapper.findAllComponents(CellButton).at(0);
++        await applyBtn.trigger("click");
++        expect(wrapper.emitted("ok")).toBeTruthy();
++    });
++
++    it("emits cancel immediately if hasChanged is false", async () => {
++        const wrapper = mountComponent({ hasChanged: false });
++        const cancelBtn = wrapper.findAllComponents(CellButton).at(1);
++        await cancelBtn.trigger("click");
++        expect(wrapper.emitted("cancel")).toBeTruthy();
++    });
++
++    it("shows modal if hasChanged is true and Cancel is clicked", async () => {
++        const wrapper = mountComponent({ hasChanged: true });
++        const cancelBtn = wrapper.findAllComponents(CellButton).at(1);
++        await cancelBtn.trigger("click");
++        expect(wrapper.vm.showModal).toBe(true);
++    });
++
++    it("emits cancel from modal Discard Changes button", async () => {
++        const wrapper = mountComponent({ hasChanged: true });
++        wrapper.vm.showModal = true;
++        await wrapper.vm.$nextTick();
++        const buttons = wrapper.findAll("button").wrappers;
++        const discardBtn = buttons.find((b) => b.text().includes("Discard Changes"));
++        await discardBtn.trigger("click");
++        expect(wrapper.emitted("cancel")).toBeTruthy();
++    });
++
++    it("emits ok from modal Apply Changes button", async () => {
++        const wrapper = mountComponent({ hasChanged: true });
++        wrapper.vm.showModal = true;
++        await wrapper.vm.$nextTick();
++        const buttons = wrapper.findAll("button").wrappers;
++        const applyBtn = buttons.find((b) => b.text().includes("Apply Changes"));
++        await applyBtn.trigger("click");
++        expect(wrapper.emitted("ok")).toBeTruthy();
++    });
++});
+diff --git a/client/src/components/Markdown/Editor/Configurations/ConfigureHeader.vue b/client/src/components/Markdown/Editor/Configurations/ConfigureHeader.vue
+new file mode 100644
+index 000000000000..35bafc924579
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/Configurations/ConfigureHeader.vue
+@@ -0,0 +1,71 @@
++<template>
++    <div class="d-flex justify-content-between align-items-start w-100">
++        <div class="flex-grow-1 me-3">
++            <Heading size="sm" separator>Attach Data</Heading>
++            <div class="small mb-2">Fill in the fields below to map required inputs to this cell.</div>
++        </div>
++        <div class="d-flex gap-1">
++            <CellButton
++                v-if="hasChanged !== undefined"
++                title="Apply Changes"
++                tooltip-placement="bottom"
++                :icon="faCheck"
++                @click="$emit('ok')" />
++            <CellButton title="Cancel" tooltip-placement="bottom" :icon="faTimes" @click="onCancel" />
++        </div>
++        <BModal :visible="showModal">
++            <template v-slot:modal-header>
++                <Heading size="md">You have pending changes</Heading>
++            </template>
++            <span v-localize>
++                If you proceed without applying these changes, your modifications will be lost. Would you like to apply
++                the changes now, or discard them and keep the previous configuration?
++            </span>
++            <template v-slot:modal-footer>
++                <BButton variant="secondary" @click="$emit('cancel')">
++                    <FontAwesomeIcon :icon="faTimes" />
++                    <span v-localize>Discard Changes</span>
++                </BButton>
++                <BButton variant="danger" @click="$emit('ok')">
++                    <FontAwesomeIcon :icon="faCheck" />
++                    <span v-localize>Apply Changes</span>
++                </BButton>
++            </template>
++        </BModal>
++    </div>
++</template>
++
++<script setup lang="ts">
++import { faCheck, faTimes } from "@fortawesome/free-solid-svg-icons";
++import { BModal } from "bootstrap-vue";
++import { ref } from "vue";
++
++import Heading from "@/components/Common/Heading.vue";
++import CellButton from "@/components/Markdown/Editor/CellButton.vue";
++
++const props = withDefaults(
++    defineProps<{
++        hasChanged?: boolean;
++    }>(),
++    {
++        hasChanged: undefined,
++    }
++);
++
++const emit = defineEmits<{
++    (e: "ok"): void;
++    (e: "cancel"): void;
++}>();
++
++const showModal = ref(false);
++
++function onCancel() {
++    if (props.hasChanged) {
++        showModal.value = true;
++    } else {
++        emit("cancel");
++    }
++}
++
++defineExpose({ showModal });
++</script>
+diff --git a/client/src/components/Markdown/Editor/Configurations/ConfigureSelector.test.js b/client/src/components/Markdown/Editor/Configurations/ConfigureSelector.test.js
+new file mode 100644
+index 000000000000..5f8e1cbbf5d1
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/Configurations/ConfigureSelector.test.js
+@@ -0,0 +1,96 @@
++import { mount } from "@vue/test-utils";
++import { createPinia, defineStore, setActivePinia } from "pinia";
++import { getLocalVue } from "tests/jest/helpers";
++import Multiselect from "vue-multiselect";
++
++import { getDataset } from "@/components/Markdown/services";
++
++import ConfigureSelector from "./ConfigureSelector.vue";
++
++jest.mock("@/stores/eventStore", () => ({
++    useEventStore: () => ({
++        getDragItems: jest.fn(() => [{ id: "item1", name: "Item One", history_content_type: "dataset" }]),
++    }),
++}));
++
++jest.mock("@/components/Markdown/services", () => ({
++    getHistories: jest.fn(() => Promise.resolve([{ id: "1", name: "History One" }])),
++    getDataset: jest.fn(() => Promise.resolve([{ id: "ds1", name: "Dataset A" }])),
++    getInvocations: jest.fn(),
++    getJobs: jest.fn(),
++    getWorkflows: jest.fn(),
++}));
++
++const localVue = getLocalVue();
++let mockedStore;
++
++jest.mock("@/stores/historyStore", () => {
++    return {
++        useHistoryStore: () => mockedStore,
++    };
++});
++
++function mountComponent(props = {}) {
++    return mount(ConfigureSelector, {
++        localVue,
++        propsData: {
++            objectType: "history_dataset_id",
++            ...props,
++        },
++    });
++}
++
++beforeEach(() => {
++    setActivePinia(createPinia());
++    const useFakeHistoryStore = defineStore("history", {
++        state: () => ({
++            currentHistoryId: "history123",
++        }),
++    });
++    mockedStore = useFakeHistoryStore();
++});
++
++describe("ConfigureSelector.vue", () => {
++    it("renders label and multiselect when ready", async () => {
++        const wrapper = mountComponent({ objectName: "My Dataset", objectId: "ds1" });
++        expect(wrapper.find("label").text()).toContain("Select a History Dataset Id");
++        expect(wrapper.findComponent(Multiselect).exists()).toBeTruthy();
++    });
++
++    it("renders empty state when no data found", async () => {
++        const wrapper = mountComponent();
++        expect(wrapper.text()).toContain("No elements found");
++    });
++
++    it("triggers search when input changes", async () => {
++        const wrapper = mountComponent();
++        await wrapper.vm.$nextTick();
++        const multiselect = wrapper.findComponent(Multiselect);
++        expect(multiselect.exists()).toBe(true);
++        multiselect.vm.$emit("search-change", "abc");
++        await new Promise((resolve) => setTimeout(resolve, 400));
++        expect(getDataset).toHaveBeenCalledWith("abc", "history123");
++    });
++
++    it("shows error if service throws", async () => {
++        const original = getDataset.mockImplementation;
++        getDataset.mockImplementationOnce(() => {
++            throw new Error("Oops!");
++        });
++        const wrapper = mountComponent();
++        await wrapper.vm.$nextTick();
++        await new Promise((resolve) => setTimeout(resolve, 400));
++        expect(wrapper.text()).toContain("Oops!");
++        getDataset.mockImplementation = original;
++    });
++
++    it("handles dragenter and drop", async () => {
++        const wrapper = mountComponent();
++        expect(wrapper.classes()).not.toContain("ui-dragover-success");
++        await wrapper.trigger("dragenter");
++        expect(wrapper.classes()).toContain("ui-dragover-success");
++        await wrapper.trigger("drop");
++        expect(wrapper.classes()).not.toContain("ui-dragover-success");
++        expect(wrapper.emitted("change")).toEqual([[{ id: "item1", name: "Item One" }]]);
++    });
++});
+diff --git a/client/src/components/Markdown/Editor/Configurations/ConfigureSelector.vue b/client/src/components/Markdown/Editor/Configurations/ConfigureSelector.vue
+new file mode 100644
+index 000000000000..909759d171fe
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/Configurations/ConfigureSelector.vue
+@@ -0,0 +1,189 @@
++<template>
++    <BAlert v-if="errorMessage" variant="danger" show>{{ errorMessage }}</BAlert>
++    <LoadingSpan v-else-if="!currentHistoryId" />
++    <div
++        v-else
++        class="mb-2"
++        :class="droppable && dragState && `ui-dragover-${dragState}`"
++        role="presentation"
++        aria-roledescription="drop zone"
++        tabindex="0"
++        @dragenter.prevent="onDragEnter"
++        @dragleave.prevent="onDragLeave"
++        @dragover.prevent
++        @drop.prevent="onDrop">
++        <label class="form-label font-weight-bold" for="multiselect">{{ title }}:</label>
++        <Multiselect id="multiselect" v-model="currentValue" label="name" :options="options" @search-change="search" />
++    </div>
++</template>
++
++<script setup lang="ts">
++import { BAlert } from "bootstrap-vue";
++import { debounce } from "lodash";
++import { storeToRefs } from "pinia";
++import { computed, type Ref, ref, watch } from "vue";
++import Multiselect from "vue-multiselect";
++
++import type { ApiResponse, OptionType, WorkflowLabel } from "@/components/Markdown/Editor/types";
++import {
++    getDataset,
++    getDatasetCollection,
++    getHistories,
++    getInvocations,
++    getJobs,
++    getWorkflows,
++} from "@/components/Markdown/services";
++import { getRequiredLabels } from "@/components/Markdown/Utilities/requirements";
++import { type EventData, useEventStore } from "@/stores/eventStore";
++import { useHistoryStore } from "@/stores/historyStore";
++
++import LoadingSpan from "@/components/LoadingSpan.vue";
++
++const eventStore = useEventStore();
++
++const { currentHistoryId } = storeToRefs(useHistoryStore());
++
++const DELAY = 300;
++
++const props = withDefaults(
++    defineProps<{
++        labels?: Array<WorkflowLabel>;
++        objectId?: string;
++        objectName?: string;
++        objectTitle?: string;
++        objectType: string;
++    }>(),
++    {
++        labels: undefined,
++        objectId: "",
++        objectName: "...",
++        objectTitle: undefined,
++    }
++);
++
++const emit = defineEmits<{
++    (e: "change", newValue: OptionType): void;
++}>();
++
++const errorMessage = ref("");
++const dragData: Ref<EventData[]> = ref([]);
++const dragTarget: Ref<EventTarget | null> = ref(null);
++const dragState: Ref<"danger" | "success" | "warning" | null> = ref(null);
++const options: Ref<Array<OptionType>> = ref([]);
++
++const currentValue = computed({
++    get: () => ({
++        id: props.objectId,
++        name: props.objectName,
++    }),
++    set: (newValue: OptionType) => {
++        emit("change", newValue);
++    },
++});
++
++const droppable = computed(
++    () => !hasLabels.value && ["history_dataset_id", "history_dataset_collection_id"].includes(props.objectType)
++);
++
++const hasLabels = computed(() => props.labels !== undefined);
++
++const mappedLabels = computed(() =>
++    props.labels
++        ?.filter((workflowLabel) => getRequiredLabels(props.objectType).includes(workflowLabel.type))
++        .map((workflowLabel) => ({
++            name: `${workflowLabel.label} (${workflowLabel.type})`,
++            label: {
++                invocation_id: "",
++                [workflowLabel.type]: workflowLabel.label,
++            },
++        }))
++);
++
++const title = computed(
++    () =>
++        props.objectTitle || `Select a ${props.objectType.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase())}`
++);
++
++const search = debounce(async (query: string = "") => {
++    if (!errorMessage.value) {
++        try {
++            const data = hasLabels.value ? mappedLabels.value : await doQuery(query);
++            errorMessage.value = "";
++            if (data) {
++                options.value = data.map((d: any) => ({ id: d.id, name: d.name ?? d.id, label: d.label }));
++            } else {
++                options.value = [];
++            }
++        } catch (e) {
++            errorMessage.value = String(e);
++        }
++    }
++}, DELAY);
++
++async function doQuery(query: string = ""): Promise<ApiResponse> {
++    switch (props.objectType) {
++        case "history_id":
++            return getHistories();
++        case "history_dataset_id":
++            return getDataset(query, currentHistoryId.value);
++        case "history_dataset_collection_id":
++            return getDatasetCollection(query, currentHistoryId.value);
++        case "invocation_id":
++            return getInvocations();
++        case "job_id":
++            return getJobs();
++        case "workflow_id":
++            return getWorkflows();
++    }
++}
++
++function onDragEnter(evt: DragEvent) {
++    dragState.value = "warning";
++    dragTarget.value = evt.target;
++    const eventData = eventStore.getDragItems();
++    if (eventData?.length) {
++        const item = eventData[0];
++        if (item) {
++            const { id, name, history_content_type } = item;
++            if (id && name && isValidContent(history_content_type as string)) {
++                dragTarget.value = evt.target;
++                dragData.value = eventData;
++                dragState.value = "success";
++            } else {
++                dragState.value = "danger";
++            }
++        }
++    }
++}
++
++function onDragLeave(evt: DragEvent) {
++    if (dragTarget.value === evt.target) {
++        dragData.value = [];
++        dragState.value = null;
++    }
++}
++
++function onDrop() {
++    if (droppable.value && dragData.value.length > 0) {
++        const item = dragData.value[0];
++        if (item) {
++            const { id, name } = item;
++            emit("change", { id, name } as OptionType);
++        }
++    }
++    dragState.value = null;
++}
++
++function isValidContent(historyContentType: string) {
++    const isDataset = props.objectType === "history_dataset_id" && historyContentType === "dataset";
++    const isCollection =
++        props.objectType === "history_dataset_collection_id" && historyContentType === "dataset_collection";
++    return isDataset || isCollection;
++}
++
++watch(
++    () => [props.objectType, currentHistoryId.value],
++    () => search(),
++    { immediate: true }
++);
++</script>
+diff --git a/client/src/components/Markdown/Editor/Configurations/ConfigureVisualization.vue b/client/src/components/Markdown/Editor/Configurations/ConfigureVisualization.vue
+index 552571a9aac6..737a6deb788e 100644
+--- a/client/src/components/Markdown/Editor/Configurations/ConfigureVisualization.vue
++++ b/client/src/components/Markdown/Editor/Configurations/ConfigureVisualization.vue
+@@ -1,27 +1,20 @@
+ <template>
+-    <b-alert v-if="errorMessage" variant="warning" show>{{ errorMessage }}</b-alert>
+-    <MarkdownSelector v-else-if="labels !== undefined" argument-name="Dataset" :labels="labels" @onOk="onLabel" />
+-    <DataDialog
+-        v-else-if="currentHistoryId !== null"
+-        :history="currentHistoryId"
+-        format="id"
+-        @onOk="onData"
+-        @onCancel="$emit('cancel')" />
+-    <b-alert v-else v-localize variant="info" show> No history available to choose from. </b-alert>
++    <BAlert v-if="errorMessage" variant="warning" show>{{ errorMessage }}</BAlert>
++    <div v-else class="p-2">
++        <ConfigureHeader @cancel="$emit('cancel')" />
++        <ConfigureSelector :labels="labels" object-type="history_dataset_id" @change="onChange" />
++    </div>
+ </template>
+ 
+ <script setup lang="ts">
+-import { storeToRefs } from "pinia";
+-import { type Ref, ref, watch } from "vue";
++import { BAlert } from "bootstrap-vue";
++import { computed, type Ref, ref, watch } from "vue";
+ 
+-import type { DatasetLabel, WorkflowLabel } from "@/components/Markdown/Editor/types";
++import type { DatasetLabel, OptionType, WorkflowLabel } from "@/components/Markdown/Editor/types";
+ import { stringify } from "@/components/Markdown/Utilities/stringify";
+-import { useHistoryStore } from "@/stores/historyStore";
+ 
+-import DataDialog from "@/components/DataDialog/DataDialog.vue";
+-import MarkdownSelector from "@/components/Markdown/MarkdownSelector.vue";
+-
+-const { currentHistoryId } = storeToRefs(useHistoryStore());
++import ConfigureHeader from "./ConfigureHeader.vue";
++import ConfigureSelector from "./ConfigureSelector.vue";
+ 
+ const props = defineProps<{
+     content: string;
+@@ -37,33 +30,26 @@ interface contentType {
+     dataset_id?: string;
+     dataset_label?: DatasetLabel;
+     dataset_url?: string;
++    [key: string]: unknown;
+ }
+ 
+ const contentObject: Ref<contentType | undefined> = ref();
+ const errorMessage = ref("");
+ 
+-function onData(datasetId: any) {
+-    if (contentObject.value) {
+-        contentObject.value.dataset_id = datasetId;
+-        contentObject.value.dataset_label = undefined;
+-        contentObject.value.dataset_url = undefined;
+-        emit("change", stringify(contentObject.value));
+-    }
+-}
++const hasLabels = computed(() => props.labels !== undefined);
+ 
+-function onLabel(selectedLabel: any) {
+-    if (selectedLabel !== undefined) {
+-        const labelType = selectedLabel.type;
+-        const label = selectedLabel.label;
+-        if (contentObject.value && label && labelType) {
+-            contentObject.value.dataset_label = {
+-                invocation_id: "",
+-                [labelType]: label,
+-            };
++function onChange(option: OptionType) {
++    if (contentObject.value) {
++        if (hasLabels.value) {
++            contentObject.value.dataset_label = option.label;
+             contentObject.value.dataset_id = undefined;
+             contentObject.value.dataset_url = undefined;
+-            emit("change", stringify(contentObject.value));
++        } else {
++            contentObject.value.dataset_id = option.id;
++            contentObject.value.dataset_label = undefined;
++            contentObject.value.dataset_url = undefined;
+         }
++        emit("change", stringify(contentObject.value));
+     }
+ }
+ 
+diff --git a/client/src/components/Markdown/Editor/Configurations/ConfigureVitessce.test.js b/client/src/components/Markdown/Editor/Configurations/ConfigureVitessce.test.js
+new file mode 100644
+index 000000000000..a604ed606088
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/Configurations/ConfigureVitessce.test.js
+@@ -0,0 +1,127 @@
++import { mount } from "@vue/test-utils";
++import { createPinia, defineStore, setActivePinia } from "pinia";
++import { getLocalVue } from "tests/jest/helpers";
++
++import ConfigureHeader from "./ConfigureHeader.vue";
++import ConfigureSelector from "./ConfigureSelector.vue";
++import ConfigureVitessce from "./ConfigureVitessce.vue";
++
++const localVue = getLocalVue();
++
++let mockedStore;
++
++jest.mock("@/stores/historyStore", () => {
++    return {
++        useHistoryStore: () => mockedStore,
++    };
++});
++
++beforeEach(() => {
++    setActivePinia(createPinia());
++    mockedStore = defineStore("history", {
++        state: () => ({
++            currentHistoryId: "history123",
++        }),
++    })();
++});
++
++function mountComponent(content = {}) {
++    return mount(ConfigureVitessce, {
++        localVue,
++        propsData: {
++            name: "vitessce-view",
++            content: JSON.stringify(content),
++            labels: [],
++        },
++        stubs: {
++            ConfigureSelector: true,
++            ConfigureHeader: true,
++            Heading: true,
++        },
++    });
++}
++
++describe("ConfigureVitessce.vue", () => {
++    it("renders error alert on invalid content", () => {
++        const wrapper = mount(ConfigureVitessce, {
++            localVue,
++            propsData: {
++                name: "vitessce-view",
++                content: "{invalid-json",
++            },
++            stubs: {
++                ConfigureSelector: true,
++                ConfigureHeader: true,
++                Heading: true,
++            },
++        });
++        expect(wrapper.text()).toContain("Failed to parse:");
++        expect(wrapper.findComponent({ name: "BAlert" }).exists()).toBe(true);
++    });
++
++    it("shows warning alert if no datasets are found", () => {
++        const wrapper = mountComponent({});
++        expect(wrapper.text()).toContain("No datasets found");
++        expect(wrapper.findComponent({ name: "BAlert" }).exists()).toBe(true);
++    });
++
++    it("renders ConfigureHeader and ConfigureSelector for each dataset/file", () => {
++        const wrapper = mountComponent({
++            datasets: [
++                {
++                    name: "Dataset 1",
++                    uid: "ds1",
++                    files: [
++                        {
++                            fileType: "obs",
++                            url: "some_url_1",
++                            options: { obsType: "cell", obsIndex: "cell_id" },
++                        },
++                        {
++                            fileType: "var",
++                            url: "some_url_2",
++                            options: { obsType: "gene" },
++                        },
++                    ],
++                },
++                {
++                    name: "Dataset 2",
++                    uid: "ds2",
++                    files: [
++                        {
++                            fileType: "spatial",
++                            url: "some_url_3",
++                        },
++                    ],
++                },
++            ],
++        });
++        expect(wrapper.findComponent(ConfigureHeader).exists()).toBe(true);
++        expect(wrapper.findAllComponents(ConfigureSelector)).toHaveLength(3);
++    });
++
++    it("emits cancel when ConfigureHeader triggers it", async () => {
++        const wrapper = mountComponent({});
++        wrapper.findComponent(ConfigureHeader).vm.$emit("cancel");
++        expect(wrapper.emitted("cancel")).toBeTruthy();
++    });
++
++    it("emits change with updated JSON when OK is clicked", async () => {
++        const wrapper = mountComponent({
++            datasets: [
++                {
++                    name: "Dataset 1",
++                    uid: "ds1",
++                    files: [{ fileType: "obs", url: "url" }],
++                },
++            ],
++        });
++        wrapper.findComponent(ConfigureHeader).vm.$emit("ok");
++        expect(wrapper.emitted("change")).toBeTruthy();
++        const emittedJson = wrapper.emitted("change")[0][0];
++        expect(typeof emittedJson).toBe("string");
++        expect(JSON.parse(emittedJson)).toMatchObject({
++            datasets: [{ name: "Dataset 1", uid: "ds1" }],
++        });
++    });
++});
+diff --git a/client/src/components/Markdown/Editor/Configurations/ConfigureVitessce.vue b/client/src/components/Markdown/Editor/Configurations/ConfigureVitessce.vue
+new file mode 100644
+index 000000000000..45c0a8725893
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/Configurations/ConfigureVitessce.vue
+@@ -0,0 +1,116 @@
++<template>
++    <BAlert v-if="errorMessage" variant="warning" show>{{ errorMessage }}</BAlert>
++    <div v-else class="p-2">
++        <ConfigureHeader :has-changed="hasChanged" @ok="onOk" @cancel="$emit('cancel')" />
++        <div v-if="contentObject.datasets && contentObject.datasets.length > 0">
++            <div v-for="(dataset, datasetIndex) in contentObject.datasets" :key="datasetIndex">
++                <Heading size="sm">{{ dataset.name }} ({{ dataset.uid || "n/a" }})</Heading>
++                <div v-for="(file, fileIndex) in dataset.files" :key="fileIndex">
++                    <ConfigureSelector
++                        :labels="labels"
++                        :object-name="getObjectName(file)"
++                        :object-title="`${fileIndex + 1}: ${getFileName(file)}`"
++                        object-type="history_dataset_id"
++                        @change="onChange(file, $event)" />
++                </div>
++            </div>
++        </div>
++        <BAlert v-else variant="warning" show>No datasets found.</BAlert>
++    </div>
++</template>
++
++<script setup lang="ts">
++import { BAlert } from "bootstrap-vue";
++import Vue, { computed, type Ref, ref, watch } from "vue";
++
++import type { DatasetLabel, OptionType, WorkflowLabel } from "@/components/Markdown/Editor/types";
++import { stringify } from "@/components/Markdown/Utilities/stringify";
++
++import ConfigureHeader from "./ConfigureHeader.vue";
++import ConfigureSelector from "./ConfigureSelector.vue";
++import Heading from "@/components/Common/Heading.vue";
++
++interface DatasetEntryType {
++    files?: Array<FileEntryType>;
++    name: string;
++    uid: string;
++}
++
++interface FileEntryType {
++    __gx_dataset_id?: string;
++    __gx_dataset_label?: DatasetLabel;
++    __gx_dataset_name?: string;
++    fileType: string;
++    url: string;
++    options?: {
++        obsIndex?: string;
++        obsType?: string;
++    };
++}
++
++interface VitessceType {
++    datasets?: Array<DatasetEntryType>;
++    [key: string]: unknown;
++}
++
++const props = defineProps<{
++    name: string;
++    content: string;
++    labels?: Array<WorkflowLabel>;
++}>();
++
++const emit = defineEmits<{
++    (e: "cancel"): void;
++    (e: "change", content: string): void;
++}>();
++
++const contentObject: Ref<VitessceType> = ref({});
++const errorMessage = ref();
++const hasChanged = ref(false);
++
++const hasLabels = computed(() => props.labels !== undefined);
++
++function getFileName(file: FileEntryType) {
++    const fileDetailsParts = [file.options?.obsType, file.options?.obsIndex].filter(Boolean);
++    const fileDetails = fileDetailsParts.length ? `(${fileDetailsParts.join(", ")})` : "";
++    return `${file.fileType} ${fileDetails}`;
++}
++
++function getObjectName(file: FileEntryType) {
++    return file.__gx_dataset_label?.input || file.__gx_dataset_label?.output || file.__gx_dataset_name || file.url;
++}
++
++function onChange(file: FileEntryType, option: OptionType) {
++    if (hasLabels.value && option.label) {
++        Vue.set(file, "url", undefined);
++        Vue.set(file, "__gx_dataset_id", undefined);
++        Vue.set(file, "__gx_dataset_name", undefined);
++        Vue.set(file, "__gx_dataset_label", option.label);
++    } else if (option.id) {
++        Vue.set(file, "url", undefined);
++        Vue.set(file, "__gx_dataset_id", option.id);
++        Vue.set(file, "__gx_dataset_name", option.name);
++        Vue.set(file, "__gx_dataset_label", undefined);
++    }
++    hasChanged.value = true;
++}
++
++function onOk() {
++    emit("change", stringify(contentObject.value));
++}
++
++function parseContent() {
++    try {
++        contentObject.value = JSON.parse(props.content);
++        errorMessage.value = "";
++    } catch (e) {
++        errorMessage.value = `Failed to parse: ${e}`;
++    }
++}
++
++watch(
++    () => props.content,
++    () => parseContent(),
++    { immediate: true }
++);
++</script>
+diff --git a/client/src/components/Markdown/Editor/TextEditor.vue b/client/src/components/Markdown/Editor/TextEditor.vue
+index e633345dc450..933911375e7e 100644
+--- a/client/src/components/Markdown/Editor/TextEditor.vue
++++ b/client/src/components/Markdown/Editor/TextEditor.vue
+@@ -7,6 +7,7 @@
+             id="workflow-report-editor"
+             ref="textArea"
+             v-model="content"
++            aria-label="markdown text editor"
+             class="markdown-textarea w-100 p-4"
+             @input="onUpdate" />
+     </div>
+diff --git a/client/src/components/Markdown/Editor/templates.yml b/client/src/components/Markdown/Editor/templates.yml
+index e54ab6e5f5a1..73f0ebc315bb 100644
+--- a/client/src/components/Markdown/Editor/templates.yml
++++ b/client/src/components/Markdown/Editor/templates.yml
+@@ -236,14 +236,14 @@ Vega:
+         }
+ 
+ Vitessce:
+-  - title: "Hello World"
+-    description: "A simple vitessce example"
++  - title: "Vitessce Template"
++    description: "Use this to insert a Vitessce configuration"
+     cell:
+       name: "vitessce"
+       content: |
+         {
+           "version": "1.0.16",
+-          "name": "Example configuration",
++          "name": "Vitessce Template",
+           "description": "",
+           "datasets": [],
+           "initStrategy": "auto",
+@@ -251,7 +251,7 @@ Vitessce:
+           "layout": [{
+             "component": "description",
+             "props": {
+-                "description": "Hello, world!"
++                "description": "Insert your Vitessce configuration into the code block."
+             },
+             "x": 0,
+             "y": 0,
+diff --git a/client/src/components/Markdown/Editor/types.ts b/client/src/components/Markdown/Editor/types.ts
+index bc00bce83ffb..1d8f7bb826a1 100644
+--- a/client/src/components/Markdown/Editor/types.ts
++++ b/client/src/components/Markdown/Editor/types.ts
+@@ -1,3 +1,5 @@
++export type ApiResponse = Array<any> | undefined;
++
+ export interface CellType {
+     name: string;
+     content: string;
+@@ -19,6 +21,12 @@ export interface Invocation {
+     workflow_id: string;
+ }
+ 
++export interface OptionType {
++    id: string;
++    name: string;
++    label?: DatasetLabel;
++}
++
+ export interface TemplateEntry {
+     title: string;
+     description: string;
+diff --git a/client/src/components/Markdown/MarkdownDialog.vue b/client/src/components/Markdown/MarkdownDialog.vue
+index aa5a537eaa96..73c5a047cae0 100644
+--- a/client/src/components/Markdown/MarkdownDialog.vue
++++ b/client/src/components/Markdown/MarkdownDialog.vue
+@@ -9,7 +9,6 @@ import { type WorkflowLabel } from "./Editor/types";
+ import { getHistories, getInvocations, getJobs, getWorkflows } from "./services";
+ 
+ import MarkdownSelector from "./MarkdownSelector.vue";
+-import MarkdownVisualization from "./MarkdownVisualization.vue";
+ import DataDialog from "@/components/DataDialog/DataDialog.vue";
+ import BasicSelectionDialog from "@/components/SelectionDialog/BasicSelectionDialog.vue";
+ import DatasetCollectionDialog from "@/components/SelectionDialog/DatasetCollectionDialog.vue";
+@@ -75,7 +74,6 @@ const selectorConfig = {
+ };
+ 
+ const selectedShow = ref(false);
+-const visualizationShow = ref(false);
+ const workflowShow = ref(false);
+ const historyShow = ref(false);
+ const jobShow = ref(false);
+@@ -123,11 +121,6 @@ function onWorkflow(response: ObjectReference) {
+     emit("onInsert", `${props.argumentName}(workflow_id=${response.id})`);
+ }
+ 
+-function onVisualization(response: string) {
+-    visualizationShow.value = false;
+-    emit("onInsert", response);
+-}
+-
+ function onOk(selectedLabel: WorkflowLabel | undefined) {
+     const argumentType = props.argumentType ?? "";
+     const defaultLabelType: string =
+@@ -171,7 +164,6 @@ function onCancel() {
+     dataCollectionShow.value = false;
+     selectedShow.value = false;
+     workflowShow.value = false;
+-    visualizationShow.value = false;
+     jobShow.value = false;
+     invocationShow.value = false;
+     dataShow.value = false;
+@@ -206,8 +198,6 @@ if (props.argumentType == "workflow_id") {
+     } else {
+         jobShow.value = true;
+     }
+-} else if (props.argumentType == "visualization_id") {
+-    visualizationShow.value = true;
+ }
+ </script>
+ 
+@@ -221,15 +211,6 @@ if (props.argumentType == "workflow_id") {
+             :label-title="selectedLabelTitle"
+             @onOk="onOk"
+             @onCancel="onCancel" />
+-        <MarkdownVisualization
+-            v-else-if="visualizationShow && currentHistoryId !== null"
+-            :argument-name="argumentName"
+-            :argument-payload="argumentPayload"
+-            :labels="effectiveLabels"
+-            :use-labels="hasLabels"
+-            :history="currentHistoryId"
+-            @onOk="onVisualization"
+-            @onCancel="onCancel" />
+         <DataDialog
+             v-else-if="dataShow && currentHistoryId !== null"
+             :history="currentHistoryId"
+diff --git a/client/src/components/Markdown/MarkdownToolBox.vue b/client/src/components/Markdown/MarkdownToolBox.vue
+index 92b7e5d2cc19..1a2943f1e93a 100644
+--- a/client/src/components/Markdown/MarkdownToolBox.vue
++++ b/client/src/components/Markdown/MarkdownToolBox.vue
+@@ -11,11 +11,6 @@
+             <ToolSection v-else :category="workflowSection" :expanded="true" @onClick="onClick" />
+             <ToolSection :category="linksSection" :expanded="false" @onClick="onClick" />
+             <ToolSection :category="otherSection" :expanded="true" @onClick="onClick" />
+-            <ToolSection
+-                v-if="hasVisualizations"
+-                :category="visualizationSection"
+-                :expanded="true"
+-                @onClick="onClick" />
+         </div>
+         <MarkdownDialog
+             v-if="selectedShow"
+@@ -30,10 +25,8 @@
+ </template>
+ 
+ <script>
+-import axios from "axios";
+ import BootstrapVue from "bootstrap-vue";
+ import ToolSection from "components/Panels/Common/ToolSection";
+-import { getAppRoot } from "onload/loadConfig";
+ import Vue from "vue";
+ 
+ import { fromSteps } from "@/components/Workflow/Editor/modules/labels";
+@@ -189,12 +182,6 @@ export default {
+                     },
+                 ],
+             },
+-
+-            visualizationSection: {
+-                title: "Visualizations",
+-                name: "visualizations",
+-                elems: [],
+-            },
+         };
+     },
+     computed: {
+@@ -204,9 +191,6 @@ export default {
+         mode() {
+             return this.isWorkflow ? "report" : "page";
+         },
+-        hasVisualizations() {
+-            return this.visualizationSection.elems.length > 0;
+-        },
+         otherSection() {
+             return {
+                 title: "Miscellaneous",
+@@ -241,9 +225,6 @@ export default {
+             return this.isWorkflow ? fromSteps(this.steps) : undefined;
+         },
+     },
+-    created() {
+-        this.getVisualizations();
+-    },
+     methods: {
+         getSteps() {
+             const steps = [];
+@@ -357,28 +338,6 @@ export default {
+             this.selectedType = "invocation_id";
+             this.selectedShow = true;
+         },
+-        async getVisualizations() {
+-            axios
+-                .get(`${getAppRoot()}api/plugins?embeddable=True`)
+-                .then(({ data }) => {
+-                    this.visualizationSection.elems = data.map((x) => {
+-                        return {
+-                            id: x.name,
+-                            name: x.html,
+-                            description: x.description,
+-                            logo: x.logo ? `${getAppRoot()}${x.logo}` : null,
+-                            emitter: "onVisualizationId",
+-                        };
+-                    });
+-                    this.visualizationIndex = {};
+-                    data.forEach((element) => {
+-                        this.visualizationIndex[element.name] = element;
+-                    });
+-                })
+-                .catch((e) => {
+-                    this.error = "Failed to load Visualizations.";
+-                });
+-        },
+     },
+ };
+ </script>
+diff --git a/client/src/components/Markdown/MarkdownVisualization.test.js b/client/src/components/Markdown/MarkdownVisualization.test.js
+deleted file mode 100644
+index da48cf495b37..000000000000
+--- a/client/src/components/Markdown/MarkdownVisualization.test.js
++++ /dev/null
+@@ -1,42 +0,0 @@
+-import { shallowMount } from "@vue/test-utils";
+-
+-import MarkdownVisualization from "./MarkdownVisualization";
+-
+-describe("Markdown/MarkdownVisualization", () => {
+-    it("test wizard", async () => {
+-        const wrapper = shallowMount(MarkdownVisualization, {
+-            propsData: {
+-                argumentName: "name",
+-                argumentPayload: {
+-                    settings: [{}, {}],
+-                    tracks: [{}],
+-                },
+-                history: "history_id",
+-                labels: [],
+-                useLabels: false,
+-            },
+-        });
+-        await wrapper.vm.$nextTick();
+-        expect(wrapper.vm.labelShow).toBe(false);
+-        expect(Object.keys(wrapper.vm.formInputs).length).toBe(3);
+-        wrapper.vm.onData("history_dataset_id");
+-        expect(wrapper.vm.dataShow).toBe(false);
+-        expect(wrapper.vm.dataTag).toBe("history_dataset_id=history_dataset_id");
+-        expect(wrapper.vm.formShow).toBe(true);
+-    });
+-
+-    it("test wizard", async () => {
+-        const wrapper = shallowMount(MarkdownVisualization, {
+-            propsData: {
+-                argumentName: "name",
+-                argumentPayload: {},
+-                history: "history_id",
+-                labels: [],
+-                useLabels: true,
+-            },
+-        });
+-        await wrapper.vm.$nextTick();
+-        expect(wrapper.vm.labelShow).toBe(true);
+-        expect(wrapper.vm.formInputs).toBe(null);
+-    });
+-});
+diff --git a/client/src/components/Markdown/MarkdownVisualization.vue b/client/src/components/Markdown/MarkdownVisualization.vue
+deleted file mode 100644
+index 02fd69bb6439..000000000000
+--- a/client/src/components/Markdown/MarkdownVisualization.vue
++++ /dev/null
+@@ -1,144 +0,0 @@
+-<template>
+-    <span>
+-        <MarkdownSelector
+-            v-if="labelShow"
+-            :argument-name="argumentName"
+-            :labels="labels"
+-            @onOk="onLabel"
+-            @onCancel="onCancel" />
+-        <DataDialog v-if="dataShow" :history="history" format="id" @onOk="onData" @onCancel="onCancel" />
+-        <b-modal
+-            v-if="formShow"
+-            v-model="formShow"
+-            modal-class="visualization-dialog-modal"
+-            title="Configure Visualization"
+-            ok-title="Continue"
+-            @ok="onOk"
+-            @cancel="onCancel">
+-            <FormDisplay :inputs="formInputs" @onChange="onChange" />
+-        </b-modal>
+-    </span>
+-</template>
+-
+-<script>
+-import BootstrapVue from "bootstrap-vue";
+-import DataDialog from "components/DataDialog/DataDialog";
+-import FormDisplay from "components/Form/FormDisplay";
+-import Vue from "vue";
+-
+-import MarkdownSelector from "./MarkdownSelector";
+-
+-Vue.use(BootstrapVue);
+-
+-export default {
+-    components: {
+-        MarkdownSelector,
+-        DataDialog,
+-        FormDisplay,
+-    },
+-    props: {
+-        argumentName: {
+-            type: String,
+-            required: true,
+-        },
+-        argumentPayload: {
+-            type: Object,
+-            default: null,
+-        },
+-        history: {
+-            type: String,
+-            required: true,
+-        },
+-        labels: {
+-            type: Array,
+-            default: null,
+-        },
+-        useLabels: {
+-            type: Boolean,
+-            required: true,
+-        },
+-    },
+-    data() {
+-        return {
+-            dataTag: null,
+-            formData: {},
+-            formShow: false,
+-            labelShow: false,
+-            dataShow: false,
+-        };
+-    },
+-    computed: {
+-        formInputs() {
+-            let settings = null;
+-            if (this.argumentPayload.settings && this.argumentPayload.settings.length > 0) {
+-                settings = this.argumentPayload.settings.slice();
+-            }
+-            if (this.argumentPayload.tracks && this.argumentPayload.tracks.length > 0) {
+-                settings = settings || [];
+-                settings.push({
+-                    type: "repeat",
+-                    title: "Columns",
+-                    name: "tracks",
+-                    min: 1,
+-                    inputs: this.argumentPayload.tracks.map((x) => {
+-                        if (x.type == "data_column") {
+-                            x.is_workflow = true;
+-                        }
+-                        return x;
+-                    }),
+-                });
+-            }
+-            return settings;
+-        },
+-    },
+-    created() {
+-        if (this.useLabels) {
+-            this.labelShow = true;
+-        } else {
+-            this.dataShow = true;
+-        }
+-    },
+-    methods: {
+-        onChange(formDataNew) {
+-            this.formData = formDataNew;
+-        },
+-        onLabel(response) {
+-            this.dataTag = `output="${response}"`;
+-            this.labelShow = false;
+-            if (this.formInputs) {
+-                this.formShow = true;
+-            } else {
+-                this.onOk();
+-            }
+-        },
+-        onData(response) {
+-            this.dataTag = `history_dataset_id=${response}`;
+-            this.dataShow = false;
+-            if (this.formInputs) {
+-                this.formShow = true;
+-            } else {
+-                this.onOk();
+-            }
+-        },
+-        onOk() {
+-            let paramString = "";
+-            Object.entries(this.formData).forEach(([k, v]) => {
+-                if (v) {
+-                    paramString += `, ${k}="${v}"`;
+-                }
+-            });
+-            this.$emit("onOk", `visualization(visualization_id=${this.argumentName}, ${this.dataTag}${paramString})`);
+-        },
+-        onCancel() {
+-            this.$emit("onCancel");
+-        },
+-    },
+-};
+-</script>
+-<style>
+-.visualization-dialog-modal .modal-body {
+-    max-height: 50vh;
+-    height: 50vh;
+-    overflow-y: auto;
+-}
+-</style>
+diff --git a/client/src/components/Markdown/Sections/Elements/TextContent.vue b/client/src/components/Markdown/Sections/Elements/TextContent.vue
+new file mode 100644
+index 000000000000..58a716d09ad3
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/Elements/TextContent.vue
+@@ -0,0 +1,9 @@
++<template>
++    <pre class="m-0">{{ content }}</pre>
++</template>
++
++<script setup lang="ts">
++defineProps<{
++    content?: string;
++}>();
++</script>
+diff --git a/client/src/components/Markdown/Sections/Elements/Visualization.vue b/client/src/components/Markdown/Sections/Elements/VisualizationFrame.vue
+similarity index 100%
+rename from client/src/components/Markdown/Sections/Elements/Visualization.vue
+rename to client/src/components/Markdown/Sections/Elements/VisualizationFrame.vue
+diff --git a/client/src/components/Markdown/Sections/MarkdownGalaxy.test.js b/client/src/components/Markdown/Sections/MarkdownGalaxy.test.js
+index b8be05d5da9c..aecc23ea3c3e 100644
+--- a/client/src/components/Markdown/Sections/MarkdownGalaxy.test.js
++++ b/client/src/components/Markdown/Sections/MarkdownGalaxy.test.js
+@@ -121,4 +121,99 @@ describe("MarkdownContainer", () => {
+         const message = error.find("span");
+         expect(message.text()).toBe("Failed to handle History: history_name!");
+     });
++
++    it("Renders error for invalid directive syntax", async () => {
++        const wrapper = mountComponent({
++            content: "not_valid_content(",
++        });
++        const alert = wrapper.find(".alert-danger");
++        expect(alert.exists()).toBe(true);
++        expect(alert.text()).toContain("The directive provided below is invalid");
++    });
++
++    it("Renders error for invalid component type", async () => {
++        const wrapper = mountComponent({
++            content: "unknown_component()",
++        });
++        const alert = wrapper.find(".alert-danger");
++        expect(alert.text()).toContain("Invalid component type");
++    });
++
++    it("Renders error for missing required label", async () => {
++        const wrapper = mountComponent({
++            content: "tool_a(input=foo)",
++            labels: [{ type: "input", label: "NotFoo" }],
++        });
++        const alert = wrapper.find(".alert-danger");
++        expect(alert.text()).toContain("Invalid component type tool_a");
++    });
++
++    it("Renders info alert if labels exist but no invocation_id is present", async () => {
++        const wrapper = mountComponent({
++            content: "history_dataset_display(input=foo)",
++            labels: [
++                { type: "input", label: "foo" },
++                { type: "output", label: "bar" },
++            ],
++        });
++        await flushPromises();
++        const alert = wrapper.find(".alert-info");
++        expect(alert.text()).toContain("Data for rendering not yet available for");
++    });
++
++    it("Renders danger alert if more than one label exists", async () => {
++        const wrapper = mountComponent({
++            content: "history_dataset_display(input=foo, output=bar)",
++            labels: [
++                { type: "input", label: "foo" },
++                { type: "output", label: "bar" },
++            ],
++        });
++        await flushPromises();
++        const alert = wrapper.find(".alert-danger");
++        expect(alert.text()).toContain("Invalid or missing label for history_dataset_display");
++    });
++
++    it("Renders loading span while invocation is loading", async () => {
++        const mockInvocationStore = require("@/stores/invocationStore");
++        mockInvocationStore.useInvocationStore = jest.fn(() => ({
++            getInvocationById: () => null,
++            getInvocationLoadError: () => null,
++            isLoadingInvocation: jest.fn(() => true),
++        }));
++        const wrapper = mountComponent({
++            content: "history_dataset_display(invocation_id=123, input=foo)",
++            labels: [
++                { type: "input", label: "foo" },
++                { type: "output", label: "bar" },
++            ],
++        });
++        await flushPromises();
++        expect(wrapper.findComponent({ name: "LoadingSpan" }).exists()).toBe(true);
++    });
++
++    it("Handles invocation fetching and workflow ID resolution", async () => {
++        const invocation = { workflow_id: "wf123", inputs: {}, outputs: {} };
++        const mockInvocationStore = require("@/stores/invocationStore");
++        const mockWorkflowStore = require("@/stores/workflowStore");
++        mockInvocationStore.useInvocationStore = jest.fn(() => ({
++            getInvocationById: () => invocation,
++            getInvocationLoadError: () => null,
++            isLoadingInvocation: () => false,
++        }));
++        const fetchWorkflowMock = jest.fn(() => Promise.resolve());
++        mockWorkflowStore.useWorkflowStore = jest.fn(() => ({
++            fetchWorkflowForInstanceIdCached: fetchWorkflowMock,
++            getStoredWorkflowIdByInstanceId: () => "wf123",
++        }));
++        mountComponent({
++            content: "tool_a(invocation_id=123, input=foo, output=bar)",
++            labels: [
++                { type: "input", label: "foo" },
++                { type: "output", label: "bar" },
++            ],
++        });
++        await flushPromises();
++        expect(fetchWorkflowMock).toHaveBeenCalledWith("wf123");
++    });
+ });
+diff --git a/client/src/components/Markdown/Sections/MarkdownGalaxy.vue b/client/src/components/Markdown/Sections/MarkdownGalaxy.vue
+index eca6be18d66b..332a9dc8f41f 100644
+--- a/client/src/components/Markdown/Sections/MarkdownGalaxy.vue
++++ b/client/src/components/Markdown/Sections/MarkdownGalaxy.vue
+@@ -4,6 +4,12 @@ import { computed, ref, watch } from "vue";
+ 
+ import { getArgs } from "@/components/Markdown/parse";
+ import { parseInvocation } from "@/components/Markdown/Utilities/parseInvocation";
++import {
++    getRequiredObject,
++    hasValidLabel,
++    hasValidName,
++    hasValidObject,
++} from "@/components/Markdown/Utilities/requirements";
+ import { useConfig } from "@/composables/config";
+ import { useInvocationStore } from "@/stores/invocationStore";
+ import { useWorkflowStore } from "@/stores/workflowStore";
+@@ -20,8 +26,9 @@ import InstanceUrl from "./Elements/InstanceUrl.vue";
+ import InvocationTime from "./Elements/InvocationTime.vue";
+ import JobMetrics from "./Elements/JobMetrics.vue";
+ import JobParameters from "./Elements/JobParameters.vue";
++import TextContent from "./Elements/TextContent.vue";
+ import ToolStd from "./Elements/ToolStd.vue";
+-import Visualization from "./Elements/Visualization.vue";
++import VisualizationFrame from "./Elements/VisualizationFrame.vue";
+ import WorkflowDisplay from "./Elements/Workflow/WorkflowDisplay.vue";
+ import WorkflowImage from "./Elements/Workflow/WorkflowImage.vue";
+ import WorkflowLicense from "./Elements/Workflow/WorkflowLicense.vue";
+@@ -38,7 +45,7 @@ const props = defineProps({
+     },
+     labels: {
+         type: Array,
+-        required: false,
++        default: undefined,
+     },
+ });
+ 
+@@ -106,36 +113,57 @@ watch(
+     <BAlert v-if="error" v-localize variant="danger" class="m-0" show>
+         {{ error }}
+     </BAlert>
+-    <BAlert v-else-if="hasLabels && !invocationId" v-localize variant="info" class="m-0" show>
+-        Data for rendering this <b>{{ name }}</b> is not yet available.
+-    </BAlert>
+     <BAlert v-else-if="invocationLoadError" v-localize variant="danger" class="m-0" show>
+         {{ invocationLoadError }}
+     </BAlert>
++    <BAlert v-else-if="!hasValidName(name)" v-localize variant="danger" class="m-0" show>
++        <span v-localize>Invalid component type </span>
++        <b>{{ name }}</b>
++    </BAlert>
++    <BAlert v-else-if="!hasValidLabel(name, args, labels)" v-localize variant="danger" class="m-0" show>
++        <span v-localize>Invalid or missing label for</span>
++        <b>{{ name }}</b>
++    </BAlert>
++    <BAlert
++        v-else-if="hasLabels && !invocationId && getRequiredObject(name)"
++        v-localize
++        variant="info"
++        class="m-0"
++        show>
++        <span v-localize>Data for rendering not yet available for</span>
++        <b>{{ name }}</b>
++    </BAlert>
+     <LoadingSpan v-else-if="isLoading" />
++    <BAlert v-else-if="!hasValidObject(name, args)" v-localize variant="warning" class="m-0" show>
++        <span v-localize>Missing</span>
++        <b>{{ getRequiredObject(name) }}</b>
++        <span v-localize>for</span>
++        <b>{{ name }}</b>
++    </BAlert>
+     <div v-else>
+         <BLink v-if="isCollapsible" class="font-weight-bold" @click="toggle = !toggle">
+             {{ args.collapse }}
+         </BLink>
+         <BCollapse :visible="isVisible">
+-            <pre v-if="name == 'generate_galaxy_version'" class="galaxy-version m-0">
+-Galaxy Version {{ config.version_major }}</pre
+-            >
+-            <pre v-else-if="name == 'generate_time'" class="galaxy-time m-0">{{ new Date().toUTCString() }}</pre>
++            <TextContent
++                v-if="name == 'generate_galaxy_version'"
++                class="galaxy-version"
++                :content="`Galaxy Version ${config.version_major}`" />
++            <TextContent v-else-if="name == 'generate_time'" class="galaxy-time" :content="new Date().toUTCString()" />
+             <HistoryDatasetAsImage
+                 v-else-if="name == 'history_dataset_as_image'"
+-                :dataset-id="args.history_target_id || args.history_dataset_id"
++                :dataset-id="args.history_dataset_id"
+                 :path="args.path" />
+             <HistoryDatasetAsTable
+                 v-else-if="name == 'history_dataset_as_table'"
+                 :compact="argToBoolean(args, 'compact', false)"
+-                :dataset-id="args.history_target_id || args.history_dataset_id"
++                :dataset-id="args.history_dataset_id"
+                 :footer="args.footer"
+                 :show-column-headers="argToBoolean(args, 'show_column_headers', true)"
+                 :title="args.title" />
+             <HistoryDatasetCollectionDisplay
+                 v-else-if="name == 'history_dataset_collection_display'"
+-                :collection-id="args.history_target_id || args.history_dataset_collection_id" />
++                :collection-id="args.history_dataset_collection_id" />
+             <HistoryDatasetDetails
+                 v-else-if="
+                     [
+@@ -145,11 +173,11 @@ Galaxy Version {{ config.version_major }}</pre
+                         'history_dataset_type',
+                     ].includes(name)
+                 "
+-                :dataset-id="args.history_target_id || args.history_dataset_id"
++                :dataset-id="args.history_dataset_id"
+                 :name="name" />
+             <HistoryDatasetDisplay
+                 v-else-if="['history_dataset_embedded', 'history_dataset_display'].includes(name)"
+-                :dataset-id="args.history_target_id || args.history_dataset_id"
++                :dataset-id="args.history_dataset_id"
+                 :embedded="name == 'history_dataset_embedded'" />
+             <HistoryDatasetIndex v-else-if="name == 'history_dataset_index'" :args="args" />
+             <HistoryDatasetLink v-else-if="name == 'history_dataset_link'" :args="args" />
+@@ -212,7 +240,7 @@ Galaxy Version {{ config.version_major }}</pre
+                 :job-id="args.job_id"
+                 :implicit-collection-jobs-id="args.implicit_collection_jobs_id"
+                 :name="name" />
+-            <Visualization v-else-if="name == 'visualization'" :args="args" />
++            <VisualizationFrame v-else-if="name == 'visualization'" :args="args" />
+             <WorkflowDisplay
+                 v-else-if="name == 'workflow_display'"
+                 :workflow-id="args.workflow_id"
+diff --git a/client/src/components/Markdown/Sections/MarkdownVisualization.vue b/client/src/components/Markdown/Sections/MarkdownVisualization.vue
+index 7140da68ea93..2b7e3f784d16 100644
+--- a/client/src/components/Markdown/Sections/MarkdownVisualization.vue
++++ b/client/src/components/Markdown/Sections/MarkdownVisualization.vue
+@@ -3,28 +3,26 @@ import { BAlert } from "bootstrap-vue";
+ import { computed, type Ref, ref, watch } from "vue";
+ 
+ import type { DatasetLabel, Invocation } from "@/components/Markdown/Editor/types";
++import { parseInput, parseOutput } from "@/components/Markdown/Utilities/parseInvocation";
+ import { stringify } from "@/components/Markdown/Utilities/stringify";
+ import { useInvocationStore } from "@/stores/invocationStore";
+ 
+-import { parseInput, parseOutput } from "../Utilities/parseInvocation";
+-
+ import LoadingSpan from "@/components/LoadingSpan.vue";
+ import VisualizationWrapper from "@/components/Visualizations/VisualizationWrapper.vue";
+ 
+ const props = defineProps<{
+-    attribute?: string;
+     content: string;
+     name?: string;
+ }>();
+ 
+ const emit = defineEmits(["change"]);
+ 
++const datasetLabel: Ref<DatasetLabel | undefined> = ref();
+ const errorMessage = ref("");
+ const visualizationConfig = ref();
+ const visualizationKey = ref(0);
+ const visualizationName = ref();
+ const visualizationTitle = ref("");
+-const datasetLabel: Ref<DatasetLabel | undefined> = ref();
+ 
+ const { getInvocationById, getInvocationLoadError, isLoadingInvocation } = useInvocationStore();
+ 
+@@ -50,21 +48,14 @@ function processContent() {
+     try {
+         errorMessage.value = "";
+         const parsedContent = { ...JSON.parse(props.content) };
+-
+         datasetLabel.value = parsedContent.dataset_label;
+-
+-        if (props.attribute) {
+-            visualizationConfig.value = {};
+-            visualizationConfig.value[props.attribute] = parsedContent;
+-        } else {
+-            visualizationConfig.value = {
+-                dataset_id: parsedContent.dataset_id,
+-                dataset_url: parsedContent.dataset_url,
+-                settings: parsedContent.settings,
+-                tracks: parsedContent.tracks,
+-            };
+-            visualizationTitle.value = parsedContent.visualization_title || "";
+-        }
++        visualizationConfig.value = {
++            dataset_id: parsedContent.dataset_id,
++            dataset_url: parsedContent.dataset_url,
++            settings: parsedContent.settings,
++            tracks: parsedContent.tracks,
++        };
++        visualizationTitle.value = parsedContent.visualization_title || "";
+         visualizationName.value = props.name || parsedContent.visualization_name;
+         if (!visualizationName.value) {
+             throw new Error("Please add a 'visualization_name` to the dictionary.");
+diff --git a/client/src/components/Markdown/Sections/MarkdownVitessce.test.js b/client/src/components/Markdown/Sections/MarkdownVitessce.test.js
+new file mode 100644
+index 000000000000..94122e4ed316
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/MarkdownVitessce.test.js
+@@ -0,0 +1,124 @@
++import { createTestingPinia } from "@pinia/testing";
++import { getLocalVue } from "@tests/jest/helpers";
++import { mount } from "@vue/test-utils";
++import Vue from "vue";
++
++import { useServerMock } from "@/api/client/__mocks__";
++
++import MarkdownVitessce from "./MarkdownVitessce.vue";
++
++jest.mock("@/onload", () => ({
++    getAppRoot: () => "/",
++}));
++
++Vue.directive("localize", {});
++
++const { server, http } = useServerMock();
++
++describe("MarkdownVitessce.vue", () => {
++    it("displays error on invalid JSON", async () => {
++        const wrapper = mount(MarkdownVitessce, {
++            propsData: {
++                content: "{invalid",
++            },
++            pinia: createTestingPinia(),
++        });
++        expect(wrapper.text()).toContain("SyntaxError");
++    });
++
++    it("shows info alert when invocation is missing", async () => {
++        const content = {
++            datasets: [
++                {
++                    name: "DS1",
++                    files: [
++                        {
++                            fileType: "obs",
++                            __gx_dataset_label: {
++                                input: "a",
++                                invocation_id: null,
++                            },
++                        },
++                    ],
++                },
++            ],
++        };
++        const wrapper = mount(MarkdownVitessce, {
++            propsData: {
++                content: JSON.stringify(content),
++            },
++        });
++        expect(wrapper.text()).toContain("Data for rendering this Vitessce Dashboard is not yet available.");
++    });
++
++    it("uses dataset ID directly when __gx_dataset_id is present", async () => {
++        const content = {
++            datasets: [
++                {
++                    name: "DS1",
++                    files: [
++                        {
++                            fileType: "obs",
++                            __gx_dataset_id: "123",
++                        },
++                    ],
++                },
++            ],
++        };
++        const wrapper = mount(MarkdownVitessce, {
++            propsData: {
++                content: JSON.stringify(content),
++            },
++        });
++        const config = wrapper.vm.visualizationConfig;
++        expect(config.dataset_content.datasets[0].files[0].url).toBe("/api/datasets/123/display");
++        expect(config.dataset_content.datasets[0].files[0].__gx_dataset_id).toBeUndefined();
++    });
++
++    it("resolves __gx_dataset_label via invocation and uses dataset URL", async () => {
++        server.use(
++            http.get("/api/invocations/{invocation_id}", ({ response }) =>
++                response(200).json({
++                    inputs: [
++                        {
++                            label: "some_input",
++                            id: "label_id",
++                        },
++                    ],
++                })
++            )
++        );
++        const content = {
++            datasets: [
++                {
++                    name: "DS1",
++                    files: [
++                        {
++                            fileType: "obs",
++                            __gx_dataset_label: {
++                                input: "some_input",
++                                invocation_id: "inv123",
++                            },
++                        },
++                    ],
++                },
++            ],
++        };
++        const localVue = getLocalVue(true);
++        localVue.component("VisualizationWrapper", {
++            template: "<div class='viz-wrapper-stub' />",
++        });
++        const pinia = createTestingPinia({ stubActions: false });
++        const wrapper = mount(MarkdownVitessce, {
++            propsData: {
++                content: JSON.stringify(content),
++            },
++            localVue,
++            pinia,
++        });
++        await new Promise((resolve) => setTimeout(resolve));
++        const file = wrapper.vm.visualizationConfig.dataset_content.datasets[0].files[0];
++        expect(file.url).toBe("/api/datasets/label_id/display");
++        expect(file.__gx_dataset_label).toBeUndefined();
++    });
++});
+diff --git a/client/src/components/Markdown/Sections/MarkdownVitessce.vue b/client/src/components/Markdown/Sections/MarkdownVitessce.vue
+new file mode 100644
+index 000000000000..6446be90dad3
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/MarkdownVitessce.vue
+@@ -0,0 +1,124 @@
++<script setup lang="ts">
++import { BAlert } from "bootstrap-vue";
++import { ref, watch } from "vue";
++
++import type { DatasetLabel, Invocation } from "@/components/Markdown/Editor/types";
++import { parseInput, parseOutput } from "@/components/Markdown/Utilities/parseInvocation";
++import { getAppRoot } from "@/onload";
++import { useInvocationStore } from "@/stores/invocationStore";
++
++import LoadingSpan from "@/components/LoadingSpan.vue";
++import VisualizationWrapper from "@/components/Visualizations/VisualizationWrapper.vue";
++
++const props = defineProps<{
++    content: string;
++}>();
++
++const errorMessage = ref("");
++const loading = ref(false);
++const missingInvocation = ref(false);
++const visualizationConfig = ref();
++const visualizationKey = ref(0);
++const visualizationName = ref("");
++const visualizationTitle = ref("");
++
++const { fetchInvocationById } = useInvocationStore();
++
++const currentContent = ref(props.content);
++
++async function processContent() {
++    try {
++        errorMessage.value = "";
++        const parsedContent = { ...JSON.parse(props.content) };
++
++        // Evaluate __gx_dataset entries before rendering vitessce
++        missingInvocation.value = false;
++        if (Array.isArray(parsedContent.datasets)) {
++            for (const dataset of parsedContent.datasets) {
++                if (Array.isArray(dataset.files)) {
++                    for (const file of dataset.files) {
++                        if ("__gx_dataset_id" in file) {
++                            file.url = `${getAppRoot()}api/datasets/${file.__gx_dataset_id}/display`;
++                            delete file.__gx_dataset_id;
++                        }
++                        if ("__gx_dataset_label" in file) {
++                            const datasetLabel = file.__gx_dataset_label;
++                            const invocationId = datasetLabel.invocation_id;
++                            if (invocationId) {
++                                const invocation = await fetchInvocationById(invocationId);
++                                const datasetId = getDatasetId(invocation as Invocation, datasetLabel);
++                                if (datasetId) {
++                                    const datasetId = getDatasetId(invocation as Invocation, datasetLabel);
++                                    file.url = `${getAppRoot()}api/datasets/${datasetId}/display`;
++                                    delete file.__gx_dataset_label;
++                                } else {
++                                    throw new Error(`Failed to retrieve dataset id for '${invocationId}'.`);
++                                }
++                            } else {
++                                missingInvocation.value = true;
++                                break;
++                            }
++                        }
++                        if ("__gx_dataset_name" in file) {
++                            delete file.__gx_dataset_name;
++                        }
++                    }
++                }
++            }
++        }
++
++        // Build visualization config for vitessce
++        visualizationConfig.value = {};
++        visualizationConfig.value["dataset_content"] = parsedContent;
++        visualizationName.value = "vitessce";
++
++        // Trigger update counter
++        if (currentContent.value !== props.content) {
++            currentContent.value = props.content;
++            visualizationKey.value++;
++        }
++    } catch (e) {
++        errorMessage.value = String(e);
++    }
++}
++
++function getDatasetId(invocation: Invocation, datasetLabel: DatasetLabel) {
++    const inputId = parseInput(invocation, datasetLabel?.input);
++    const outputId = parseOutput(invocation, datasetLabel?.output);
++    return inputId || outputId;
++}
++
++watch(
++    () => props.content,
++    () => processContent(),
++    { immediate: true }
++);
++
++defineExpose({ visualizationConfig });
++</script>
++
++<template>
++    <BAlert v-if="missingInvocation" v-localize class="m-0" variant="info" show>
++        Data for rendering this <b>Vitessce Dashboard</b> is not yet available.
++    </BAlert>
++    <div v-else class="markdown-visualization">
++        <BAlert v-if="errorMessage" v-localize class="m-0" variant="danger" show>
++            {{ errorMessage }}
++        </BAlert>
++        <LoadingSpan v-else-if="loading" />
++        <VisualizationWrapper
++            v-else-if="visualizationConfig"
++            :key="visualizationKey"
++            class="markdown-vitessce"
++            :config="visualizationConfig"
++            :name="visualizationName"
++            :title="visualizationTitle" />
++    </div>
++</template>
++
++<style>
++.markdown-vitessce {
++    min-height: 400px;
++    max-height: 400px;
++}
++</style>
+diff --git a/client/src/components/Markdown/Sections/SectionWrapper.vue b/client/src/components/Markdown/Sections/SectionWrapper.vue
+index 11afb04beb0f..4074ca3f5b88 100644
+--- a/client/src/components/Markdown/Sections/SectionWrapper.vue
++++ b/client/src/components/Markdown/Sections/SectionWrapper.vue
+@@ -3,21 +3,20 @@
+     <MarkdownGalaxy v-else-if="name === 'galaxy'" :content="content" :labels="labels" />
+     <MarkdownVega v-else-if="name === 'vega'" :content="content" />
+     <MarkdownVisualization v-else-if="name === 'visualization'" :content="content" @change="$emit('change', $event)" />
+-    <MarkdownVisualization
+-        v-else-if="name === 'vitessce'"
+-        attribute="dataset_content"
+-        name="vitessce"
+-        :content="content" />
+-    <b-alert v-else variant="danger" show> This cell type `{{ name }}` is not available. </b-alert>
++    <MarkdownVitessce v-else-if="name === 'vitessce'" :content="content" />
++    <BAlert v-else variant="danger" show> This cell type `{{ name }}` is not available. </BAlert>
+ </template>
+ 
+ <script setup lang="ts">
++import { BAlert } from "bootstrap-vue";
++
+ import type { WorkflowLabel } from "@/components/Markdown/Editor/types";
+ 
+ import MarkdownDefault from "./MarkdownDefault.vue";
+ import MarkdownGalaxy from "./MarkdownGalaxy.vue";
+ import MarkdownVega from "./MarkdownVega.vue";
+ import MarkdownVisualization from "./MarkdownVisualization.vue";
++import MarkdownVitessce from "./MarkdownVitessce.vue";
+ 
+ defineProps<{
+     content: string;
+diff --git a/client/src/components/Markdown/Utilities/parseInvocation.test.js b/client/src/components/Markdown/Utilities/parseInvocation.test.js
+index 471a77071470..c3b9c6d14bd7 100644
+--- a/client/src/components/Markdown/Utilities/parseInvocation.test.js
++++ b/client/src/components/Markdown/Utilities/parseInvocation.test.js
+@@ -54,19 +54,19 @@ describe("parseInvocation.ts", () => {
+                 "workflow_id_1"
+             );
+             expect(
+-                parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "", {
++                parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "history_dataset_display", {
+                     input: "input_3",
+-                }).history_target_id
++                }).history_dataset_id
+             ).toBe("input_id_3");
+             expect(
+-                parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "", {
++                parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "history_dataset_display", {
+                     output: "unavailable_output",
+-                }).history_target_id
++                }).history_dataset_id
+             ).toBeUndefined();
+             expect(
+-                parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "", {
++                parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "history_dataset_collection_display", {
+                     output: "output_2",
+-                }).history_target_id
++                }).history_dataset_collection_id
+             ).toBe("output_id_2");
+             expect(
+                 parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "", {
+diff --git a/client/src/components/Markdown/Utilities/parseInvocation.ts b/client/src/components/Markdown/Utilities/parseInvocation.ts
+index a6536fbd56d7..22191dfe7bf3 100644
+--- a/client/src/components/Markdown/Utilities/parseInvocation.ts
++++ b/client/src/components/Markdown/Utilities/parseInvocation.ts
+@@ -1,8 +1,12 @@
+ import type { Invocation } from "@/components/Markdown/Editor/types";
+ 
++import { getRequiredObject } from "./requirements";
++
+ interface ParsedAttributes {
+     history_id?: string;
+     history_target_id?: string;
++    history_dataset_id?: string;
++    history_dataset_collection_id?: string;
+     input?: string;
+     invocation: Invocation;
+     implicit_collection_jobs_id?: string;
+@@ -50,14 +54,19 @@ export function parseInvocation(
+     const inputId = parseInput(invocation, result.input);
+     const outputId = parseOutput(invocation, result.output);
+     const step = parseStep(invocation, result.step);
++    const requiredObject = getRequiredObject(name);
+     if (name === "history_link") {
+         result.history_id = invocation.history_id;
+     } else if (["workflow_display", "workflow_image", "workflow_license"].includes(name)) {
+         result.workflow_id = workflowId;
+-    } else if (inputId) {
+-        result.history_target_id = inputId;
+-    } else if (outputId) {
+-        result.history_target_id = outputId;
++    } else if (inputId && "history_dataset_id" === requiredObject) {
++        result.history_dataset_id = inputId;
++    } else if (inputId && "history_dataset_collection_id" === requiredObject) {
++        result.history_dataset_collection_id = inputId;
++    } else if (outputId && "history_dataset_id" === requiredObject) {
++        result.history_dataset_id = outputId;
++    } else if (outputId && "history_dataset_collection_id" === requiredObject) {
++        result.history_dataset_collection_id = outputId;
+     } else if (step) {
+         result.job_id = step.job_id;
+         result.implicit_collection_jobs_id = step.implicit_collection_jobs_id;
+diff --git a/client/src/components/Markdown/Utilities/requirements.test.js b/client/src/components/Markdown/Utilities/requirements.test.js
+new file mode 100644
+index 000000000000..af8ec25ac7db
+--- /dev/null
++++ b/client/src/components/Markdown/Utilities/requirements.test.js
+@@ -0,0 +1,90 @@
++import { getRequiredLabels, getRequiredObject, hasValidLabel, hasValidName } from "./requirements";
++
++jest.mock(
++    "./requirements.yml",
++    () => ({
++        history_dataset_id: ["tool_a", "tool_b"],
++        history_dataset_collection_id: ["tool_c"],
++        job_id: ["tool_d"],
++        none: ["tool_x", "tool_y"],
++    }),
++    { virtual: true }
++);
++
++describe("requirements utils", () => {
++    describe("getRequiredObject", () => {
++        it("returns correct object type for known tool", () => {
++            expect(getRequiredObject("tool_a")).toBe("history_dataset_id");
++            expect(getRequiredObject("tool_c")).toBe("history_dataset_collection_id");
++            expect(getRequiredObject("tool_d")).toBe("job_id");
++        });
++
++        it("returns null for 'none' type", () => {
++            expect(getRequiredObject("tool_x")).toBeNull();
++        });
++
++        it("returns null for unknown tool", () => {
++            expect(getRequiredObject("nonexistent_tool")).toBeNull();
++            expect(getRequiredObject(undefined)).toBeNull();
++        });
++    });
++
++    describe("getRequiredLabels", () => {
++        it("returns expected labels for known types", () => {
++            expect(getRequiredLabels(getRequiredObject("tool_a"))).toEqual(["input", "output"]);
++            expect(getRequiredLabels(getRequiredObject("tool_c"))).toEqual(["input", "output"]);
++            expect(getRequiredLabels(getRequiredObject("tool_d"))).toEqual(["step"]);
++        });
++
++        it("returns empty array for unknown or none", () => {
++            expect(getRequiredLabels(getRequiredObject("tool_x"))).toEqual([]);
++            expect(getRequiredLabels(getRequiredObject("nonexistent_tool"))).toEqual([]);
++        });
++    });
++
++    describe("hasValidLabel", () => {
++        const labels = [
++            { type: "input", label: "A" },
++            { type: "output", label: "B" },
++            { type: "step", label: "S" },
++        ];
++
++        it("returns true when at least one required label is present", () => {
++            const args = { input: "A", output: "Wrong" };
++            expect(hasValidLabel("tool_a", args, labels)).toBe(true);
++        });
++
++        it("returns false when none of the required labels are matched", () => {
++            const args = { input: "X", output: "Y" };
++            expect(hasValidLabel("tool_a", args, labels)).toBe(false);
++        });
++
++        it("returns true when no required labels for the tool", () => {
++            const args = {};
++            expect(hasValidLabel("tool_x", args, labels)).toBe(true);
++        });
++
++        it("returns true when labels are undefined", () => {
++            const args = { step: "S" };
++            expect(hasValidLabel("tool_d", args, undefined)).toBe(true);
++        });
++
++        it("returns true when requiredLabels is empty", () => {
++            const args = {};
++            expect(hasValidLabel("nonexistent_tool", args, labels)).toBe(true);
++        });
++    });
++
++    describe("hasValidName", () => {
++        it("returns true for known tools", () => {
++            expect(hasValidName("tool_a")).toBe(true);
++            expect(hasValidName("tool_c")).toBe(true);
++            expect(hasValidName("tool_x")).toBe(true);
++        });
++
++        it("returns false for unknown tool or undefined", () => {
++            expect(hasValidName("some_unknown_tool")).toBe(false);
++            expect(hasValidName(undefined)).toBe(false);
++        });
++    });
++});
+diff --git a/client/src/components/Markdown/Utilities/requirements.ts b/client/src/components/Markdown/Utilities/requirements.ts
+new file mode 100644
+index 000000000000..b6ab6076cd33
+--- /dev/null
++++ b/client/src/components/Markdown/Utilities/requirements.ts
+@@ -0,0 +1,65 @@
++import type { WorkflowLabel } from "@/components/Markdown/Editor/types";
++
++import REQUIREMENTS from "./requirements.yml";
++
++export function getRequiredLabels(objectType: string | null) {
++    switch (objectType) {
++        case "history_dataset_id":
++            return ["input", "output"];
++        case "history_dataset_collection_id":
++            return ["input", "output"];
++        case "job_id":
++            return ["step"];
++    }
++    return [];
++}
++
++export function getRequiredObject(name: string | undefined) {
++    if (name) {
++        for (const [key, values] of Object.entries(REQUIREMENTS)) {
++            if (Array.isArray(values) && values.includes(name)) {
++                return key !== "none" ? key : null;
++            }
++        }
++    }
++    return null;
++}
++
++export function hasValidLabel(
++    name: string | undefined,
++    args: Record<string, string>,
++    labels: Array<WorkflowLabel>
++): boolean {
++    const requiredObject = getRequiredObject(name);
++    const requiredLabels = getRequiredLabels(requiredObject);
++    if (labels !== undefined && requiredLabels.length > 0) {
++        let matchCount = 0;
++        for (const key of requiredLabels) {
++            const value = args[key];
++            if (value) {
++                const matched = labels.some((label) => label.type === key && label.label === value);
++                if (matched) {
++                    matchCount++;
++                }
++            }
++        }
++        return matchCount === 1;
++    }
++    return true;
++}
++
++export function hasValidName(name: string | undefined) {
++    if (name) {
++        for (const values of Object.values(REQUIREMENTS)) {
++            if (Array.isArray(values) && values.includes(name)) {
++                return true;
++            }
++        }
++    }
++    return false;
++}
++
++export function hasValidObject(name: string | undefined, args: Record<string, string>): boolean {
++    const requiredObject = getRequiredObject(name);
++    return !requiredObject || !!args[requiredObject];
++}
+diff --git a/client/src/components/Markdown/Editor/Configurations/requirements.yml b/client/src/components/Markdown/Utilities/requirements.yml
+similarity index 72%
+rename from client/src/components/Markdown/Editor/Configurations/requirements.yml
+rename to client/src/components/Markdown/Utilities/requirements.yml
+index fb953ba1c9e9..2eb1f7286ffe 100644
+--- a/client/src/components/Markdown/Editor/Configurations/requirements.yml
++++ b/client/src/components/Markdown/Utilities/requirements.yml
+@@ -26,3 +26,13 @@ workflow_id:
+   - workflow_display
+   - workflow_image
+   - workflow_license
++none:
++  - generate_galaxy_version
++  - generate_time
++  - instance_access_link
++  - instance_citation_link
++  - instance_help_link
++  - instance_organization_link
++  - instance_resources_link
++  - instance_support_link
++  - instance_terms_link
+diff --git a/client/src/components/Markdown/Utilities/stringify.ts b/client/src/components/Markdown/Utilities/stringify.ts
+index 09f96dfb5607..02fd1aedbbdd 100644
+--- a/client/src/components/Markdown/Utilities/stringify.ts
++++ b/client/src/components/Markdown/Utilities/stringify.ts
+@@ -1,14 +1,14 @@
+-export function stringify<T extends Record<string, any>>(contentObject: T): string {
+-    function deepSortObject(obj: any): any {
++export function stringify<T extends Record<string, unknown>>(contentObject: T): string {
++    function deepSortObject(obj: unknown): unknown {
+         if (typeof obj !== "object" || obj === null || Array.isArray(obj)) {
+             return obj;
+         }
+         return Object.keys(obj)
+             .sort()
+             .reduce((acc, key) => {
+-                acc[key] = deepSortObject(obj[key]);
++                acc[key] = deepSortObject((obj as Record<string, unknown>)[key]);
+                 return acc;
+-            }, {} as Record<string, any>);
++            }, {} as Record<string, unknown>);
+     }
+     const sortedObject = deepSortObject(contentObject);
+     return JSON.stringify(sortedObject, null, 4);
+diff --git a/client/src/components/Markdown/services.js b/client/src/components/Markdown/services.js
+index c79b3f5fc541..78def3a1cd28 100644
+--- a/client/src/components/Markdown/services.js
++++ b/client/src/components/Markdown/services.js
+@@ -20,6 +20,46 @@ export async function copyCollection(hdcaId, historyId) {
+     }
+ }
+ 
++export async function getDataset(query, historyId) {
++    const { data, error } = await GalaxyApi().GET("/api/datasets", {
++        params: {
++            query: {
++                history_id: historyId,
++                q: ["name-contains"],
++                qv: [query],
++                offset: 0,
++                limit: 50,
++            },
++        },
++    });
++    if (error) {
++        rethrowSimple(error);
++    }
++    return data;
++}
++
++export async function getDatasetCollection(query, historyId) {
++    const { data, error } = await GalaxyApi().GET("/api/histories/{id}/contents", {
++        params: {
++            path: {
++                id: historyId,
++            },
++            query: {
++                q: ["name-contains", "history_content_type-eq"],
++                qv: [query, "dataset_collection"],
++                offset: 0,
++                limit: 50,
++                v: "dev",
++                order: "hid",
++            },
++        },
++    });
++    if (error) {
++        rethrowSimple(error);
++    }
++    return data;
++}
++
+ export async function getInvocations() {
+     const { data, error } = await GalaxyApi().GET("/api/invocations");
+     if (error) {
+diff --git a/client/src/components/PageEditor/PageEditor.vue b/client/src/components/PageEditor/PageEditor.vue
+index 6be90d063c48..5b0771997df9 100644
+--- a/client/src/components/PageEditor/PageEditor.vue
++++ b/client/src/components/PageEditor/PageEditor.vue
+@@ -1,74 +1,74 @@
+ <template>
+-    <div id="columns" class="d-flex">
+-        <ActivityBar />
+-        <LoadingSpan v-if="loading" message="Loading Page" class="m-3" />
+-        <PageEditorMarkdown
+-            v-else
+-            :title="title"
+-            :page-id="pageId"
+-            :public-url="publicUrl"
+-            :content="content"
+-            :content-data="contentData" />
+-    </div>
++    <LoadingSpan v-if="loading" message="Loading Page" class="m-3" />
++    <PageEditorMarkdown
++        v-else
++        :title="title"
++        :page-id="pageId"
++        :public-url="publicUrl"
++        :content="content"
++        :content-data="contentData" />
+ </template>
+ 
+-<script>
+-import axios from "axios";
+-import LoadingSpan from "components/LoadingSpan";
+-import { Toast } from "composables/toast";
+-import { getAppRoot } from "onload/loadConfig";
+-import { rethrowSimple } from "utils/simple-error";
++<script setup lang="ts">
++import { ref } from "vue";
+ 
+-import PageEditorMarkdown from "./PageEditorMarkdown";
++import { GalaxyApi } from "@/api";
++import { Toast } from "@/composables/toast";
++import { getAppRoot } from "@/onload/loadConfig";
++import { rethrowSimple } from "@/utils/simple-error";
+ 
+-import ActivityBar from "@/components/ActivityBar/ActivityBar.vue";
++import PageEditorMarkdown from "./PageEditorMarkdown.vue";
++import LoadingSpan from "@/components/LoadingSpan.vue";
+ 
+-export default {
+-    components: {
+-        PageEditorMarkdown,
+-        LoadingSpan,
+-        ActivityBar,
+-    },
+-    props: {
+-        pageId: {
+-            required: true,
+-            type: String,
+-        },
+-    },
+-    data() {
+-        return {
+-            title: null,
+-            contentFormat: null,
+-            contentData: null,
+-            content: null,
+-            publicUrl: null,
+-            loading: true,
+-        };
+-    },
+-    created() {
+-        this.getPage(this.pageId)
+-            .then((data) => {
+-                this.publicUrl = `${getAppRoot()}u/${data.username}/p/${data.slug}`;
+-                this.content = data.content;
+-                this.contentFormat = data.content_format;
+-                this.contentData = data;
+-                this.title = data.title;
+-                this.loading = false;
+-            })
+-            .catch((error) => {
+-                Toast.error(`Failed to load page: ${error}`);
+-            });
+-    },
+-    methods: {
+-        /** Page data request helper **/
+-        async getPage(id) {
+-            try {
+-                const { data } = await axios.get(`${getAppRoot()}api/pages/${id}`);
+-                return data;
+-            } catch (e) {
+-                rethrowSimple(e);
+-            }
++interface PageData {
++    title: string;
++    content: string;
++    content_format: string;
++    username: string;
++    slug: string;
++}
++
++const props = defineProps<{
++    pageId: string;
++}>();
++
++const title = ref("");
++const content = ref<string>("");
++const contentFormat = ref<string>("");
++const contentData = ref<PageData>();
++const publicUrl = ref<string>("");
++const loading = ref(true);
++
++const getPage = async (id: string): Promise<PageData | undefined> => {
++    const { data, error } = await GalaxyApi().GET("/api/pages/{id}", {
++        params: {
++            path: {
++                id,
++            },
+         },
+-    },
++    });
++    if (error) {
++        rethrowSimple(error.err_msg);
++    } else {
++        return data as PageData;
++    }
+ };
++
++const loadPage = async () => {
++    try {
++        const data = await getPage(props.pageId);
++        if (data) {
++            publicUrl.value = `${getAppRoot()}u/${data.username}/p/${data.slug}`;
++            content.value = data.content;
++            contentFormat.value = data.content_format;
++            contentData.value = data || {};
++            title.value = data.title;
++            loading.value = false;
++        }
++    } catch (error: any) {
++        Toast.error(`Failed to load page: ${error}`);
++    }
++};
++
++loadPage();
+ </script>
+diff --git a/client/src/components/Visualizations/VisualizationWrapper.vue b/client/src/components/Visualizations/VisualizationWrapper.vue
+index 419467e5fc57..f157e9dbf3ae 100644
+--- a/client/src/components/Visualizations/VisualizationWrapper.vue
++++ b/client/src/components/Visualizations/VisualizationWrapper.vue
+@@ -1,5 +1,6 @@
+ <script setup lang="ts">
+ import axios from "axios";
++import { BAlert } from "bootstrap-vue";
+ import { debounce } from "lodash";
+ import { onMounted, ref } from "vue";
+ 
+@@ -94,7 +95,7 @@ onMounted(() => render());
+ 
+ <template>
+     <div v-if="errorMessage">
+-        <b-alert v-if="errorMessage" variant="danger" show>{{ errorMessage }}</b-alert>
++        <BAlert v-if="errorMessage" variant="danger" show>{{ errorMessage }}</BAlert>
+     </div>
+     <iframe v-else ref="iframeRef" title="visualization" class="visualization-wrapper"></iframe>
+ </template>
+diff --git a/client/src/components/WorkflowInvocationState/WorkflowInvocationState.test.ts b/client/src/components/WorkflowInvocationState/WorkflowInvocationState.test.ts
+index 16eeb0808b6b..41ca14656830 100644
+--- a/client/src/components/WorkflowInvocationState/WorkflowInvocationState.test.ts
++++ b/client/src/components/WorkflowInvocationState/WorkflowInvocationState.test.ts
+@@ -56,7 +56,7 @@ const invocationJobsSummaryById = {
+ // Mock the invocation store to return the expected invocation data given the invocation ID
+ jest.mock("@/stores/invocationStore", () => {
+     const originalModule = jest.requireActual("@/stores/invocationStore");
+-    const mockFetchInvocationForId = jest.fn().mockImplementation((fetchParams) => {
++    const mockFetchInvocationById = jest.fn().mockImplementation((fetchParams) => {
+         if (fetchParams.id === "error-invocation") {
+             throw new Error("User does not own specified item.");
+         }
+@@ -72,10 +72,10 @@ jest.mock("@/stores/invocationStore", () => {
+             getInvocationJobsSummaryById: jest.fn().mockImplementation((invocationId) => {
+                 return invocationJobsSummaryById[invocationId];
+             }),
+-            fetchInvocationForId: mockFetchInvocationForId,
++            fetchInvocationById: mockFetchInvocationById,
+             fetchInvocationJobsSummaryForId: mockFetchInvocationJobsSummaryForId,
+         }),
+-        mockFetchInvocationForId,
++        mockFetchInvocationById,
+         mockFetchInvocationJobsSummaryForId,
+     };
+ });
+@@ -207,8 +207,8 @@ function isInvocationAndJobTerminal(wrapper: Wrapper<Vue>): boolean {
+ 
+ /** Asserts that the invocation was fetched in the store the given number of times */
+ function assertInvocationFetched(count = 1) {
+-    const { mockFetchInvocationForId } = jest.requireMock("@/stores/invocationStore");
+-    expect(mockFetchInvocationForId).toHaveBeenCalledTimes(count);
++    const { mockFetchInvocationById } = jest.requireMock("@/stores/invocationStore");
++    expect(mockFetchInvocationById).toHaveBeenCalledTimes(count);
+ }
+ 
+ /** Asserts that the jobs summary was fetched in the store the given number of times */
+diff --git a/client/src/components/WorkflowInvocationState/WorkflowInvocationState.vue b/client/src/components/WorkflowInvocationState/WorkflowInvocationState.vue
+index 741702b1cdc2..2423981774cb 100644
+--- a/client/src/components/WorkflowInvocationState/WorkflowInvocationState.vue
++++ b/client/src/components/WorkflowInvocationState/WorkflowInvocationState.vue
+@@ -183,7 +183,7 @@ watch(
+     async (id) => {
+         invocationLoaded.value = false;
+         try {
+-            await invocationStore.fetchInvocationForId({ id });
++            await invocationStore.fetchInvocationById({ id });
+             invocationLoaded.value = true;
+             // Only start polling if there is a valid invocation
+             if (invocation.value) {
+@@ -216,7 +216,7 @@ onUnmounted(() => {
+ 
+ async function pollStepStatesUntilTerminal() {
+     if (!invocationSchedulingTerminal.value) {
+-        await invocationStore.fetchInvocationForId({ id: props.invocationId });
++        await invocationStore.fetchInvocationById({ id: props.invocationId });
+         stepStatesInterval.value = setTimeout(pollStepStatesUntilTerminal, 3000);
+     }
+ }
+diff --git a/client/src/composables/keyedCache.ts b/client/src/composables/keyedCache.ts
+index 530f7e0dba5c..325113446908 100644
+--- a/client/src/composables/keyedCache.ts
++++ b/client/src/composables/keyedCache.ts
+@@ -47,6 +47,8 @@ export function useKeyedCache<T>(
+     const loadingItem = ref<{ [key: string]: boolean }>({});
+     const loadingErrors = ref<{ [key: string]: Error }>({});
+ 
++    const loadingRequests = new Map<string, Promise<T | undefined>>();
++
+     const fetchQueue = new LastQueue<FetchHandler<T>>();
+ 
+     const getItemById = computed(() => {
+@@ -78,24 +80,29 @@ export function useKeyedCache<T>(
+         };
+     });
+ 
+-    async function fetchItemById(params: FetchParams) {
++    async function fetchItemById(params: FetchParams): Promise<T | undefined> {
+         const itemId = params.id;
+-        const isAlreadyLoading = loadingItem.value[itemId] ?? false;
+-        const failedLoading = loadingErrors.value[itemId];
+-        if (isAlreadyLoading || failedLoading) {
+-            return;
+-        }
+-        set(loadingItem.value, itemId, true);
+-        try {
+-            const fetchItem = unref(fetchItemHandler);
+-            const item = await fetchQueue.enqueue(fetchItem, { id: itemId }, itemId);
+-            set(storedItems.value, itemId, item);
+-            return item;
+-        } catch (error) {
+-            set(loadingErrors.value, itemId, error);
+-        } finally {
+-            del(loadingItem.value, itemId);
++
++        if (loadingRequests.has(itemId)) {
++            return loadingRequests.get(itemId);
+         }
++
++        const fetchPromise = (async () => {
++            set(loadingItem.value, itemId, true);
++            try {
++                const fetchItem = unref(fetchItemHandler);
++                const item = await fetchQueue.enqueue(fetchItem, { id: itemId }, itemId);
++                set(storedItems.value, itemId, item);
++                return item;
++            } catch (error) {
++                set(loadingErrors.value, itemId, error as Error);
++            } finally {
++                del(loadingItem.value, itemId);
++            }
++        })();
++
++        loadingRequests.set(itemId, fetchPromise);
++        return fetchPromise;
+     }
+ 
+     return {
+diff --git a/client/src/entry/analysis/router.js b/client/src/entry/analysis/router.js
+index e74e81221ab3..0169bd2ce09c 100644
+--- a/client/src/entry/analysis/router.js
++++ b/client/src/entry/analysis/router.js
+@@ -131,14 +131,6 @@ export function getRouter(Galaxy) {
+                 component: Login,
+                 redirect: redirectLoggedIn(),
+             },
+-            /** Page editor */
+-            {
+-                path: "/pages/editor",
+-                component: PageEditor,
+-                props: (route) => ({
+-                    pageId: route.query.id,
+-                }),
+-            },
+             /** Workflow editor */
+             {
+                 path: "/workflows/edit",
+@@ -446,6 +438,13 @@ export function getRouter(Galaxy) {
+                             mode: "edit",
+                         }),
+                     },
++                    {
++                        path: "/pages/editor",
++                        component: PageEditor,
++                        props: (route) => ({
++                            pageId: route.query.id,
++                        }),
++                    },
+                     {
+                         path: "pages/sharing",
+                         component: Sharing,
+diff --git a/client/src/stores/invocationStore.ts b/client/src/stores/invocationStore.ts
+index aa367f3cd7c7..2dd92a99b83d 100644
+--- a/client/src/stores/invocationStore.ts
++++ b/client/src/stores/invocationStore.ts
+@@ -56,7 +56,7 @@ export const useInvocationStore = defineStore("invocationStore", () => {
+     }
+ 
+     const {
+-        fetchItemById: fetchInvocationForId,
++        fetchItemById: fetchInvocationById,
+         getItemById: getInvocationById,
+         getItemLoadError: getInvocationLoadError,
+         isLoadingItem: isLoadingInvocation,
+@@ -71,7 +71,7 @@ export const useInvocationStore = defineStore("invocationStore", () => {
+ 
+     return {
+         cancelWorkflowScheduling,
+-        fetchInvocationForId,
++        fetchInvocationById,
+         fetchInvocationJobsSummaryForId,
+         fetchInvocationStepById,
+         getInvocationById,
+diff --git a/lib/galaxy/webapps/galaxy/controllers/page.py b/lib/galaxy/webapps/galaxy/controllers/page.py
+index 5fdb18f56733..1ea9e790c55d 100644
+--- a/lib/galaxy/webapps/galaxy/controllers/page.py
++++ b/lib/galaxy/webapps/galaxy/controllers/page.py
+@@ -1,21 +1,39 @@
+-from galaxy import (
+-    model,
+-    web,
+-)
++from galaxy import web
++from galaxy.managers.pages import get_page
++from galaxy.model.db.user import get_user_by_username
+ from galaxy.structured_app import StructuredApp
+-from galaxy.webapps.base.controller import BaseUIController
++from galaxy.webapps.base.controller import (
++    BaseUIController,
++    SharableItemSecurityMixin,
++    SharableMixin,
++)
+ 
+ 
+-class PageController(BaseUIController):
++class PageController(BaseUIController, SharableMixin, SharableItemSecurityMixin):
+ 
+     def __init__(self, app: StructuredApp):
+         super().__init__(app)
+ 
+-    @web.expose
+-    @web.require_login()
+-    def display(self, trans, id, **kwargs):
+-        id = self.decode_id(id)
+-        page = trans.sa_session.get(model.Page, id)
+-        if not page:
++    def _display_by_username_and_slug(self, trans, username, slug, **kwargs):
++        """Display page based on a username and slug."""
++
++        # Get page.
++        user = get_user_by_username(trans.sa_session, username)
++        page = get_page(trans.sa_session, user, slug)
++        if page is None:
+             raise web.httpexceptions.HTTPNotFound()
+-        return self.display_by_username_and_slug(trans, page.user.username, page.slug)
++
++        # Security check raises error if user cannot access page.
++        self.security_check(trans, page, False, True)
++
++        # Encode page identifier.
++        page_id = trans.security.encode_id(page.id)
++
++        # Redirect to client.
++        return trans.response.send_redirect(
++            web.url_for(
++                controller="published",
++                action="page",
++                id=page_id,
++            )
++        )

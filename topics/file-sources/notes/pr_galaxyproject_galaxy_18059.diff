@@ -1,0 +1,1475 @@
+diff --git a/client/src/api/remoteFiles.ts b/client/src/api/remoteFiles.ts
+index 942e295c5dc6..ff149655c037 100644
+--- a/client/src/api/remoteFiles.ts
++++ b/client/src/api/remoteFiles.ts
+@@ -46,16 +46,42 @@ export async function fetchFileSources(options: FilterFileSourcesOptions = {}):
+ 
+ export const remoteFilesFetcher = fetcher.path("/api/remote_files").method("get").create();
+ 
++export interface BrowseRemoteFilesResult {
++    entries: RemoteEntry[];
++    totalMatches: number;
++}
++
+ /**
+  * Get the list of files and directories from the server for the given file source URI.
+  * @param uri The file source URI to browse.
+  * @param isRecursive Whether to recursively retrieve all files inside subdirectories.
+  * @param writeable Whether to return only entries that can be written to.
++ * @param limit The maximum number of entries to return.
++ * @param offset The number of entries to skip before returning the rest.
++ * @param query The query string to filter the entries.
++ * @param sortBy The field to sort the entries by.
+  * @returns The list of files and directories from the server for the given URI.
+  */
+-export async function browseRemoteFiles(uri: string, isRecursive = false, writeable = false): Promise<RemoteEntry[]> {
+-    const { data } = await remoteFilesFetcher({ target: uri, recursive: isRecursive, writeable });
+-    return data as RemoteEntry[];
++export async function browseRemoteFiles(
++    uri: string,
++    isRecursive = false,
++    writeable = false,
++    limit?: number,
++    offset?: number,
++    query?: string,
++    sortBy?: string
++): Promise<BrowseRemoteFilesResult> {
++    const { data, headers } = await remoteFilesFetcher({
++        target: uri,
++        recursive: isRecursive,
++        writeable,
++        limit,
++        offset,
++        query,
++        sort_by: sortBy,
++    });
++    const totalMatches = parseInt(headers.get("total_matches") ?? "0");
++    return { entries: data as RemoteEntry[], totalMatches };
+ }
+ 
+ const createEntry = fetcher.path("/api/remote_files").method("post").create();
+diff --git a/client/src/api/schema/schema.ts b/client/src/api/schema/schema.ts
+index f11f1ad9751f..d3a49b3ecae7 100644
+--- a/client/src/api/schema/schema.ts
++++ b/client/src/api/schema/schema.ts
+@@ -412,6 +412,8 @@ export interface paths {
+          * Displays remote files available to the user. Please use /api/remote_files instead.
+          * @deprecated
+          * @description Lists all remote files available to the user from different sources.
++         *
++         * The total count of files and directories is returned in the 'total_matches' header.
+          */
+         get: operations["index_api_ftp_files_get"];
+     };
+@@ -1453,6 +1455,8 @@ export interface paths {
+         /**
+          * Displays remote files available to the user.
+          * @description Lists all remote files available to the user from different sources.
++         *
++         * The total count of files and directories is returned in the 'total_matches' header.
+          */
+         get: operations["index_api_remote_files_get"];
+         /**
+@@ -2701,6 +2705,15 @@ export interface components {
+              * @description Only users with the roles specified here can access this files source.
+              */
+             requires_roles?: string | null;
++            /**
++             * @description Features supported by this file source.
++             * @default {
++             *   "pagination": false,
++             *   "search": false,
++             *   "sorting": false
++             * }
++             */
++            supports?: components["schemas"]["FilesSourceSupports"];
+             /**
+              * Type
+              * @description The type of the plugin.
+@@ -5335,6 +5348,15 @@ export interface components {
+              * @description Only users with the roles specified here can access this files source.
+              */
+             requires_roles?: string | null;
++            /**
++             * @description Features supported by this file source.
++             * @default {
++             *   "pagination": false,
++             *   "search": false,
++             *   "sorting": false
++             * }
++             */
++            supports?: components["schemas"]["FilesSourceSupports"];
+             /**
+              * Type
+              * @description The type of the plugin.
+@@ -5359,6 +5381,27 @@ export interface components {
+             | components["schemas"]["BrowsableFilesSourcePlugin"]
+             | components["schemas"]["FilesSourcePlugin"]
+         )[];
++        /** FilesSourceSupports */
++        FilesSourceSupports: {
++            /**
++             * Pagination
++             * @description Whether this file source supports server-side pagination.
++             * @default false
++             */
++            pagination?: boolean;
++            /**
++             * Search
++             * @description Whether this file source supports server-side search.
++             * @default false
++             */
++            search?: boolean;
++            /**
++             * Sorting
++             * @description Whether this file source supports server-side sorting.
++             * @default false
++             */
++            sorting?: boolean;
++        };
+         /** FillStepDefaultsAction */
+         FillStepDefaultsAction: {
+             /**
+@@ -15557,6 +15600,8 @@ export interface operations {
+          * Displays remote files available to the user. Please use /api/remote_files instead.
+          * @deprecated
+          * @description Lists all remote files available to the user from different sources.
++         *
++         * The total count of files and directories is returned in the 'total_matches' header.
+          */
+         parameters?: {
+             /** @description The source to load datasets from. Possible values: ftpdir, userdir, importdir */
+@@ -15564,12 +15609,20 @@ export interface operations {
+             /** @description Whether to recursively lists all sub-directories. This will be `True` by default depending on the `target`. */
+             /** @description (This only applies when `format` is `jstree`) The value can be either `folders` or `files` and it will disable the corresponding nodes of the tree. */
+             /** @description Whether the query is made with the intention of writing to the source. If set to True, only entries that can be written to will be returned. */
++            /** @description Maximum number of entries to return. */
++            /** @description Number of entries to skip. */
++            /** @description Search query to filter entries by. The syntax could be different depending on the target source. */
++            /** @description Sort the entries by the specified field. */
+             query?: {
+                 target?: string;
+                 format?: components["schemas"]["RemoteFilesFormat"] | null;
+                 recursive?: boolean | null;
+                 disable?: components["schemas"]["RemoteFilesDisableMode"] | null;
+                 writeable?: boolean | null;
++                limit?: number | null;
++                offset?: number | null;
++                query?: string | null;
++                sort_by?: string | null;
+             };
+             /** @description The user ID that will be used to effectively make this API call. Only admins and designated users can make API calls on behalf of other users. */
+             header?: {
+@@ -21873,6 +21926,8 @@ export interface operations {
+         /**
+          * Displays remote files available to the user.
+          * @description Lists all remote files available to the user from different sources.
++         *
++         * The total count of files and directories is returned in the 'total_matches' header.
+          */
+         parameters?: {
+             /** @description The source to load datasets from. Possible values: ftpdir, userdir, importdir */
+@@ -21880,12 +21935,20 @@ export interface operations {
+             /** @description Whether to recursively lists all sub-directories. This will be `True` by default depending on the `target`. */
+             /** @description (This only applies when `format` is `jstree`) The value can be either `folders` or `files` and it will disable the corresponding nodes of the tree. */
+             /** @description Whether the query is made with the intention of writing to the source. If set to True, only entries that can be written to will be returned. */
++            /** @description Maximum number of entries to return. */
++            /** @description Number of entries to skip. */
++            /** @description Search query to filter entries by. The syntax could be different depending on the target source. */
++            /** @description Sort the entries by the specified field. */
+             query?: {
+                 target?: string;
+                 format?: components["schemas"]["RemoteFilesFormat"] | null;
+                 recursive?: boolean | null;
+                 disable?: components["schemas"]["RemoteFilesDisableMode"] | null;
+                 writeable?: boolean | null;
++                limit?: number | null;
++                offset?: number | null;
++                query?: string | null;
++                sort_by?: string | null;
+             };
+             /** @description The user ID that will be used to effectively make this API call. Only admins and designated users can make API calls on behalf of other users. */
+             header?: {
+diff --git a/client/src/components/FilesDialog/FilesDialog.test.ts b/client/src/components/FilesDialog/FilesDialog.test.ts
+index 0880cd6aab89..d826f977a5aa 100644
+--- a/client/src/components/FilesDialog/FilesDialog.test.ts
++++ b/client/src/components/FilesDialog/FilesDialog.test.ts
+@@ -1,3 +1,4 @@
++import { createTestingPinia } from "@pinia/testing";
+ import { mount, Wrapper } from "@vue/test-utils";
+ import flushPromises from "flush-promises";
+ import { getLocalVue } from "tests/jest/helpers";
+@@ -88,7 +89,8 @@ function getMockedBrowseResponse(param: RemoteFilesParams) {
+         throw Error(someErrorText);
+     }
+     const result = mockedOkApiRoutesMap.get(responseKey);
+-    return { data: result };
++    const headers = new Map([["total_matches", result?.length.toString() ?? "0"]]);
++    return { data: result, headers };
+ }
+ 
+ const initComponent = async (props: { multiple: boolean; mode?: string }) => {
+@@ -97,9 +99,11 @@ const initComponent = async (props: { multiple: boolean; mode?: string }) => {
+     mockFetcher.path("/api/remote_files/plugins").method("get").mock({ data: rootResponse });
+     mockFetcher.path("/api/remote_files").method("get").mock(getMockedBrowseResponse);
+ 
++    const testingPinia = createTestingPinia({ stubActions: false });
+     const wrapper = mount(FilesDialog, {
+         localVue,
+         propsData: { ...props, modalStatic: true },
++        pinia: testingPinia,
+     });
+ 
+     await flushPromises();
+diff --git a/client/src/components/FilesDialog/FilesDialog.vue b/client/src/components/FilesDialog/FilesDialog.vue
+index e18d3013e837..a589ad13e6c6 100644
+--- a/client/src/components/FilesDialog/FilesDialog.vue
++++ b/client/src/components/FilesDialog/FilesDialog.vue
+@@ -11,14 +11,22 @@ import {
+ } from "@/api/remoteFiles";
+ import { UrlTracker } from "@/components/DataDialog/utilities";
+ import { fileSourcePluginToItem, isSubPath } from "@/components/FilesDialog/utilities";
+-import { SELECTION_STATES, type SelectionItem } from "@/components/SelectionDialog/selectionTypes";
++import {
++    ItemsProvider,
++    ItemsProviderContext,
++    SELECTION_STATES,
++    type SelectionItem,
++} from "@/components/SelectionDialog/selectionTypes";
+ import { useConfig } from "@/composables/config";
++import { useFileSources } from "@/composables/fileSources";
+ import { errorMessageAsString } from "@/utils/simple-error";
+ 
+ import { Model } from "./model";
+ 
+ import SelectionDialog from "@/components/SelectionDialog/SelectionDialog.vue";
+ 
++const filesSources = useFileSources();
++
+ interface FilesDialogProps {
+     /** Callback function to be called passing the results when selection is complete */
+     callback?: (files: any) => void;
+@@ -55,6 +63,7 @@ const selectedDirectories = ref<SelectionItem[]>([]);
+ const errorMessage = ref<string>();
+ const filter = ref();
+ const items = ref<SelectionItem[]>([]);
++const itemsProvider = ref<ItemsProvider>();
+ const modalShow = ref(true);
+ const optionsShow = ref(false);
+ const undoShow = ref(false);
+@@ -66,6 +75,7 @@ const currentDirectory = ref<SelectionItem>();
+ const showFTPHelper = ref(false);
+ const selectAllIcon = ref(SELECTION_STATES.UNSELECTED);
+ const urlTracker = ref(new UrlTracker(""));
++const totalItems = ref(0);
+ 
+ const fields = computed(() => {
+     const fields = [];
+@@ -156,7 +166,7 @@ function selectDirectoryRecursive(record: SelectionItem) {
+         const recursive = true;
+         isBusy.value = true;
+         browseRemoteFiles(record.url, recursive).then((incoming) => {
+-            incoming.forEach((item) => {
++            incoming.entries.forEach((item) => {
+                 // construct record
+                 const subRecord = entryToRecord(item);
+                 if (subRecord.isLeaf) {
+@@ -167,6 +177,7 @@ function selectDirectoryRecursive(record: SelectionItem) {
+                     selectedDirectories.value.push(subRecord);
+                 }
+             });
++            totalItems.value = incoming.totalMatches;
+             isBusy.value = false;
+         });
+     }
+@@ -230,6 +241,7 @@ function load(record?: SelectionItem) {
+     optionsShow.value = false;
+     undoShow.value = !urlTracker.value.atRoot();
+     if (urlTracker.value.atRoot() || errorMessage.value) {
++        itemsProvider.value = undefined;
+         errorMessage.value = undefined;
+         fetchFileSources(props.filterOptions)
+             .then((results) => {
+@@ -241,6 +253,7 @@ function load(record?: SelectionItem) {
+                 optionsShow.value = true;
+                 showTime.value = false;
+                 showDetails.value = true;
++                totalItems.value = convertedItems.length;
+             })
+             .catch((error) => {
+                 errorMessage.value = errorMessageAsString(error);
+@@ -257,9 +270,15 @@ function load(record?: SelectionItem) {
+             showDetails.value = false;
+             return;
+         }
++
++        if (shouldUseItemsProvider()) {
++            itemsProvider.value = provideItems;
++        }
++
+         browseRemoteFiles(currentDirectory.value?.url, false, props.requireWritable)
+-            .then((results) => {
+-                items.value = filterByMode(results).map(entryToRecord);
++            .then((result) => {
++                items.value = filterByMode(result.entries).map(entryToRecord);
++                totalItems.value = result.totalMatches;
+                 formatRows();
+                 optionsShow.value = true;
+                 showTime.value = true;
+@@ -271,6 +290,47 @@ function load(record?: SelectionItem) {
+     }
+ }
+ 
++/**
++ * Check if the current file source supports server-side pagination.
++ * If it does, we will use the items provider to fetch items.
++ */
++function shouldUseItemsProvider(): boolean {
++    const fileSource = filesSources.getFileSourceById(currentDirectory.value?.id!);
++    const supportsPagination = fileSource?.supports?.pagination;
++    return Boolean(supportsPagination);
++}
++
++/**
++ *  Fetches items from the server using server-side pagination and filtering.
++ **/
++async function provideItems(ctx: ItemsProviderContext): Promise<SelectionItem[]> {
++    isBusy.value = true;
++    try {
++        if (!currentDirectory.value) {
++            return [];
++        }
++        const limit = ctx.perPage;
++        const offset = (ctx.currentPage - 1) * ctx.perPage;
++        const query = ctx.filter;
++        const response = await browseRemoteFiles(
++            currentDirectory.value?.url,
++            false,
++            props.requireWritable,
++            limit,
++            offset,
++            query
++        );
++        const result = response.entries.map(entryToRecord);
++        totalItems.value = response.totalMatches;
++        return result;
++    } catch (error) {
++        errorMessage.value = errorMessageAsString(error);
++        return [];
++    } finally {
++        isBusy.value = false;
++    }
++}
++
+ function filterByMode(results: RemoteEntry[]): RemoteEntry[] {
+     if (!fileMode.value) {
+         // In directory mode, only show directories
+@@ -346,6 +406,8 @@ onMounted(() => {
+         :fields="fields"
+         :is-busy="isBusy"
+         :items="items"
++        :items-provider="itemsProvider"
++        :total-items="totalItems"
+         :modal-show="modalShow"
+         :modal-static="modalStatic"
+         :multiple="multiple"
+diff --git a/client/src/components/SelectionDialog/DataDialogSearch.vue b/client/src/components/SelectionDialog/DataDialogSearch.vue
+index 3ae45847a7cc..f0e9abfcdeae 100644
+--- a/client/src/components/SelectionDialog/DataDialogSearch.vue
++++ b/client/src/components/SelectionDialog/DataDialogSearch.vue
+@@ -34,7 +34,7 @@ const placeholder = computed(() => `search ${props.title.toLowerCase()}`);
+ 
+ <template>
+     <BInputGroup class="w-100">
+-        <BFormInput v-model="filter" :placeholder="placeholder" />
++        <BFormInput v-model="filter" :placeholder="placeholder" debounce="500" />
+         <BInputGroupAppend>
+             <BButton :disabled="!filter" @click="filter = ''"><FontAwesomeIcon icon="times" /></BButton>
+         </BInputGroupAppend>
+diff --git a/client/src/components/SelectionDialog/SelectionDialog.vue b/client/src/components/SelectionDialog/SelectionDialog.vue
+index 6800e3f07b2d..c3958b198003 100644
+--- a/client/src/components/SelectionDialog/SelectionDialog.vue
++++ b/client/src/components/SelectionDialog/SelectionDialog.vue
+@@ -6,7 +6,7 @@ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+ import { BAlert, BButton, BLink, BModal, BPagination, BSpinner, BTable } from "bootstrap-vue";
+ import { computed, ref, watch } from "vue";
+ 
+-import { SELECTION_STATES } from "@/components/SelectionDialog/selectionTypes";
++import { ItemsProvider, SELECTION_STATES } from "@/components/SelectionDialog/selectionTypes";
+ 
+ import { type FieldEntry, type SelectionItem } from "./selectionTypes";
+ 
+@@ -22,10 +22,12 @@ interface Props {
+     disableOk?: boolean;
+     errorMessage?: string;
+     fileMode?: boolean;
+-    fields?: Array<FieldEntry>;
++    fields?: FieldEntry[];
+     isBusy?: boolean;
+     isEncoded?: boolean;
+-    items?: Array<SelectionItem>;
++    items?: SelectionItem[];
++    itemsProvider?: ItemsProvider;
++    totalItems?: number;
+     leafIcon?: string;
+     modalShow?: boolean;
+     modalStatic?: boolean;
+@@ -45,6 +47,8 @@ const props = withDefaults(defineProps<Props>(), {
+     isBusy: false,
+     isEncoded: false,
+     items: () => [],
++    itemsProvider: undefined,
++    totalItems: 0,
+     leafIcon: "fa fa-file-o",
+     modalShow: true,
+     modalStatic: false,
+@@ -67,8 +71,7 @@ const emit = defineEmits<{
+ 
+ const filter = ref("");
+ const currentPage = ref(1);
+-const nItems = ref(0);
+-const perPage = ref(100);
++const perPage = ref(25);
+ 
+ const fieldDetails = computed(() => {
+     const fields = props.fields.slice().map((x) => {
+@@ -97,8 +100,9 @@ function selectionIcon(variant: string) {
+ 
+ /** Resets pagination when a filter/search word is entered **/
+ function filtered(items: Array<SelectionItem>) {
+-    nItems.value = items.length;
+-    currentPage.value = 1;
++    if (props.itemsProvider === undefined) {
++        currentPage.value = 1;
++    }
+ }
+ 
+ /** Format time stamp */
+@@ -148,7 +152,7 @@ watch(
+                     primary-key="id"
+                     :busy="isBusy"
+                     :current-page="currentPage"
+-                    :items="items"
++                    :items="itemsProvider ?? items"
+                     :fields="fieldDetails"
+                     :filter="filter"
+                     :per-page="perPage"
+@@ -200,7 +204,7 @@ watch(
+                     <BSpinner small type="grow" />
+                     <BSpinner small type="grow" />
+                 </div>
+-                <div v-if="nItems === 0">
++                <div v-if="totalItems === 0">
+                     <div v-if="filter">
+                         No search results found for: <b>{{ filter }}</b
+                         >.
+@@ -223,12 +227,12 @@ watch(
+                     <slot v-if="!errorMessage" name="buttons" />
+                 </div>
+                 <BPagination
+-                    v-if="nItems > perPage"
++                    v-if="totalItems > perPage"
+                     v-model="currentPage"
+                     class="justify-content-md-center m-0"
+                     size="sm"
+                     :per-page="perPage"
+-                    :total-rows="nItems" />
++                    :total-rows="totalItems" />
+                 <div>
+                     <BButton
+                         data-description="selection dialog cancel"
+diff --git a/client/src/components/SelectionDialog/selectionTypes.ts b/client/src/components/SelectionDialog/selectionTypes.ts
+index 793fa7844d2d..894030920918 100644
+--- a/client/src/components/SelectionDialog/selectionTypes.ts
++++ b/client/src/components/SelectionDialog/selectionTypes.ts
+@@ -17,3 +17,14 @@ export interface SelectionItem {
+     isLeaf: boolean;
+     url: string;
+ }
++
++export interface ItemsProviderContext {
++    apiUrl?: string;
++    currentPage: number;
++    perPage: number;
++    filter?: string;
++    sortBy?: string;
++    sortDesc?: boolean;
++}
++
++export type ItemsProvider = (ctx: ItemsProviderContext) => Promise<SelectionItem[]>;
+diff --git a/lib/galaxy/files/sources/__init__.py b/lib/galaxy/files/sources/__init__.py
+index 09e869a082b2..6d980c5a1286 100644
+--- a/lib/galaxy/files/sources/__init__.py
++++ b/lib/galaxy/files/sources/__init__.py
+@@ -12,6 +12,7 @@
+     List,
+     Optional,
+     Set,
++    Tuple,
+     Type,
+     TYPE_CHECKING,
+     Union,
+@@ -26,6 +27,7 @@
+ from galaxy.exceptions import (
+     ConfigurationError,
+     ItemAccessibilityException,
++    RequestParameterInvalidException,
+ )
+ from galaxy.files.plugins import FileSourcePluginsConfig
+ from galaxy.util.bool_expressions import (
+@@ -36,6 +38,7 @@
+ 
+ DEFAULT_SCHEME = "gxfiles"
+ DEFAULT_WRITABLE = False
++DEFAULT_PAGE_LIMIT = 25
+ 
+ if TYPE_CHECKING:
+     from galaxy.files import (
+@@ -78,6 +81,17 @@ class PluginKind(str, Enum):
+     """
+ 
+ 
++class FileSourceSupports(TypedDict):
++    """Feature support flags for a file source plugin"""
++
++    # Indicates whether the file source supports pagination for listing files
++    pagination: NotRequired[bool]
++    # Indicates whether the file source supports server-side search for listing files
++    search: NotRequired[bool]
++    # Indicates whether the file source supports server-side sorting for listing files
++    sorting: NotRequired[bool]
++
++
+ class FilesSourceProperties(TypedDict):
+     """Initial set of properties used to initialize a filesource.
+ 
+@@ -99,6 +113,7 @@ class FilesSourceProperties(TypedDict):
+     type: NotRequired[str]
+     browsable: NotRequired[bool]
+     url: NotRequired[Optional[str]]
++    supports: NotRequired[FileSourceSupports]
+ 
+ 
+ @dataclass
+@@ -283,8 +298,12 @@ def list(
+         recursive=False,
+         user_context: "OptionalUserContext" = None,
+         opts: Optional[FilesSourceOptions] = None,
+-    ) -> List[AnyRemoteEntry]:
+-        """Return dictionary of 'Directory's and 'File's."""
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> Tuple[List[AnyRemoteEntry], int]:
++        """Return a list of 'Directory's and 'File's and the total count in a tuple."""
+ 
+ 
+ class FilesSource(SingleFileSource, SupportsBrowsing):
+@@ -307,6 +326,9 @@ def file_source_type_is_browsable(target_type: Type["BaseFilesSource"]) -> bool:
+ 
+ class BaseFilesSource(FilesSource):
+     plugin_kind: ClassVar[PluginKind] = PluginKind.rfs  # Remote File Source by default, override in subclasses
++    supports_pagination: ClassVar[bool] = False
++    supports_search: ClassVar[bool] = False
++    supports_sorting: ClassVar[bool] = False
+ 
+     def get_browsable(self) -> bool:
+         return file_source_type_is_browsable(type(self))
+@@ -385,6 +407,11 @@ def to_dict(self, for_serialization=False, user_context: "OptionalUserContext" =
+             "requires_groups": self.requires_groups,
+             "disable_templating": self.disable_templating,
+             "scheme": self.get_scheme(),
++            "supports": {
++                "pagination": self.supports_pagination,
++                "search": self.supports_search,
++                "sorting": self.supports_sorting,
++            },
+         }
+         if self.get_browsable():
+             rval["uri_root"] = self.get_uri_root()
+@@ -414,9 +441,25 @@ def list(
+         recursive=False,
+         user_context: "OptionalUserContext" = None,
+         opts: Optional[FilesSourceOptions] = None,
+-    ) -> List[AnyRemoteEntry]:
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> Tuple[List[AnyRemoteEntry], int]:
+         self._check_user_access(user_context)
+-        return self._list(path, recursive, user_context, opts)
++        if not self.supports_pagination and (limit is not None or offset is not None):
++            raise RequestParameterInvalidException("Pagination is not supported by this file source.")
++        if not self.supports_search and query:
++            raise RequestParameterInvalidException("Server-side search is not supported by this file source.")
++        if not self.supports_sorting and sort_by:
++            raise RequestParameterInvalidException("Server-side sorting is not supported by this file source.")
++        if self.supports_pagination:
++            if limit is not None and limit < 1:
++                raise RequestParameterInvalidException("Limit must be greater than 0.")
++            if offset is not None and offset < 0:
++                raise RequestParameterInvalidException("Offset must be greater than or equal to 0.")
++
++        return self._list(path, recursive, user_context, opts, limit, offset, query)
+ 
+     def _list(
+         self,
+@@ -424,8 +467,12 @@ def _list(
+         recursive=False,
+         user_context: "OptionalUserContext" = None,
+         opts: Optional[FilesSourceOptions] = None,
+-    ):
+-        pass
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> Tuple[List[AnyRemoteEntry], int]:
++        raise NotImplementedError()
+ 
+     def create_entry(
+         self,
+diff --git a/lib/galaxy/files/sources/_pyfilesystem2.py b/lib/galaxy/files/sources/_pyfilesystem2.py
+index 671753368aa3..fd3fccb8ba56 100644
+--- a/lib/galaxy/files/sources/_pyfilesystem2.py
++++ b/lib/galaxy/files/sources/_pyfilesystem2.py
+@@ -6,6 +6,7 @@
+     ClassVar,
+     List,
+     Optional,
++    Tuple,
+     Type,
+ )
+ 
+@@ -22,6 +23,7 @@
+ from . import (
+     AnyRemoteEntry,
+     BaseFilesSource,
++    DEFAULT_PAGE_LIMIT,
+     FilesSourceOptions,
+     FilesSourceProperties,
+ )
+@@ -34,6 +36,8 @@
+ class PyFilesystem2FilesSource(BaseFilesSource):
+     required_module: ClassVar[Optional[Type[FS]]]
+     required_package: ClassVar[str]
++    supports_pagination = True
++    supports_search = True
+ 
+     def __init__(self, **kwd: Unpack[FilesSourceProperties]):
+         if self.required_module is None:
+@@ -42,7 +46,7 @@ def __init__(self, **kwd: Unpack[FilesSourceProperties]):
+         self._props = props
+ 
+     @abc.abstractmethod
+-    def _open_fs(self, user_context: OptionalUserContext = None, opts: Optional[FilesSourceOptions] = None):
++    def _open_fs(self, user_context: OptionalUserContext = None, opts: Optional[FilesSourceOptions] = None) -> FS:
+         """Subclasses must instantiate a PyFilesystem2 handle for this file system."""
+ 
+     def _list(
+@@ -51,21 +55,28 @@ def _list(
+         recursive=False,
+         user_context: OptionalUserContext = None,
+         opts: Optional[FilesSourceOptions] = None,
+-    ) -> List[AnyRemoteEntry]:
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> Tuple[List[AnyRemoteEntry], int]:
+         """Return dictionary of 'Directory's and 'File's."""
+         try:
+             with self._open_fs(user_context=user_context, opts=opts) as h:
+                 if recursive:
+-                    res: List[AnyRemoteEntry] = []
+-                    for p, dirs, files in h.walk(path):
++                    recursive_result: List[AnyRemoteEntry] = []
++                    for p, dirs, files in h.walk(path, namespaces=["details"]):
+                         to_dict = functools.partial(self._resource_info_to_dict, p)
+-                        res.extend(map(to_dict, dirs))
+-                        res.extend(map(to_dict, files))
+-                    return res
++                        recursive_result.extend(map(to_dict, dirs))
++                        recursive_result.extend(map(to_dict, files))
++                    return recursive_result, len(recursive_result)
+                 else:
+-                    res = h.scandir(path, namespaces=["details"])
++                    page = self._to_page(limit, offset)
++                    filter = self._query_to_filter(query)
++                    count = self._get_total_matches_count(h, path, filter)
++                    result = h.filterdir(path, namespaces=["details"], page=page, files=filter, dirs=filter)
+                     to_dict = functools.partial(self._resource_info_to_dict, path)
+-                    return list(map(to_dict, res))
++                    return list(map(to_dict, result)), count
+         except fs.errors.PermissionDenied as e:
+             raise AuthenticationRequired(
+                 f"Permission Denied. Reason: {e}. Please check your credentials in your preferences for {self.label}."
+@@ -73,6 +84,37 @@ def _list(
+         except fs.errors.FSError as e:
+             raise MessageException(f"Problem listing file source path {path}. Reason: {e}") from e
+ 
++    def _get_total_matches_count(self, fs: FS, path: str, filter: Optional[List[str]] = None) -> int:
++        # For some reason, using "*" as glob does not return all files and directories, only files.
++        # So we need to count files and directories "*/" separately.
++        # Also, some filesystems do not properly support directories count (like Google Cloud Storage),
++        # so we need to catch TypeError exceptions and fallback to 0.
++        files_glob_pattern = f"{path}/{filter[0] if filter else '*'}"
++        try:
++            files_count = fs.glob(files_glob_pattern).count().files
++        except TypeError:
++            files_count = 0
++
++        directory_glob_pattern = f"{files_glob_pattern}/"
++        try:
++            directories_count = fs.glob(directory_glob_pattern).count().directories
++        except TypeError:
++            directories_count = 0
++        return files_count + directories_count
++
++    def _to_page(self, limit: Optional[int] = None, offset: Optional[int] = None) -> Optional[Tuple[int, int]]:
++        if limit is None and offset is None:
++            return None
++        limit = limit or DEFAULT_PAGE_LIMIT
++        start = offset or 0
++        end = start + limit
++        return (start, end)
++
++    def _query_to_filter(self, query: Optional[str]) -> Optional[List[str]]:
++        if query is None:
++            return None
++        return [f"*{query}*"]
++
+     def _realize_to(
+         self,
+         source_path: str,
+diff --git a/lib/galaxy/files/sources/_rdm.py b/lib/galaxy/files/sources/_rdm.py
+index 8a5ef5b4bf8e..8f4a69c13cb4 100644
+--- a/lib/galaxy/files/sources/_rdm.py
++++ b/lib/galaxy/files/sources/_rdm.py
+@@ -3,6 +3,7 @@
+     List,
+     NamedTuple,
+     Optional,
++    Tuple,
+ )
+ 
+ from typing_extensions import Unpack
+@@ -60,8 +61,16 @@ def to_plugin_uri(self, record_id: str, filename: Optional[str] = None) -> str:
+         If a filename is provided, the URI will reference the specific file in the record."""
+         raise NotImplementedError()
+ 
+-    def get_records(self, writeable: bool, user_context: OptionalUserContext = None) -> List[RemoteDirectory]:
+-        """Returns the list of records in the repository.
++    def get_records(
++        self,
++        writeable: bool,
++        user_context: OptionalUserContext = None,
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> Tuple[List[RemoteDirectory], int]:
++        """Returns the list of records in the repository and the total count of records.
+ 
+         If writeable is True, only records that the user can write to will be returned.
+         The user_context might be required to authenticate the user in the repository.
+diff --git a/lib/galaxy/files/sources/invenio.py b/lib/galaxy/files/sources/invenio.py
+index 7341d171bb11..a65a18050533 100644
+--- a/lib/galaxy/files/sources/invenio.py
++++ b/lib/galaxy/files/sources/invenio.py
+@@ -8,6 +8,7 @@
+     Dict,
+     List,
+     Optional,
++    Tuple,
+ )
+ from urllib.parse import quote
+ 
+@@ -21,6 +22,7 @@
+ from galaxy.files import OptionalUserContext
+ from galaxy.files.sources import (
+     AnyRemoteEntry,
++    DEFAULT_PAGE_LIMIT,
+     DEFAULT_SCHEME,
+     Entry,
+     EntryData,
+@@ -118,6 +120,8 @@ class InvenioRDMFilesSource(RDMFilesSource):
+     """A files source for Invenio turn-key research data management repository."""
+ 
+     plugin_type = "inveniordm"
++    supports_pagination = True
++    supports_search = True
+ 
+     def __init__(self, **kwd: Unpack[RDMFilesSourceProperties]):
+         super().__init__(**kwd)
+@@ -148,15 +152,21 @@ def _list(
+         recursive=True,
+         user_context: OptionalUserContext = None,
+         opts: Optional[FilesSourceOptions] = None,
+-    ) -> List[AnyRemoteEntry]:
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> Tuple[List[AnyRemoteEntry], int]:
+         writeable = opts and opts.writeable or False
+         is_root_path = path == "/"
+         if is_root_path:
+-            records = self.repository.get_records(writeable, user_context)
+-            return cast(List[AnyRemoteEntry], records)
++            records, total_hits = self.repository.get_records(
++                writeable, user_context, limit=limit, offset=offset, query=query
++            )
++            return cast(List[AnyRemoteEntry], records), total_hits
+         record_id = self.get_record_id_from_path(path)
+         files = self.repository.get_files_in_record(record_id, writeable, user_context)
+-        return cast(List[AnyRemoteEntry], files)
++        return cast(List[AnyRemoteEntry], files), len(files)
+ 
+     def _create_entry(
+         self,
+@@ -208,17 +218,37 @@ def user_records_url(self) -> str:
+     def to_plugin_uri(self, record_id: str, filename: Optional[str] = None) -> str:
+         return f"{self.plugin.get_uri_root()}/{record_id}{f'/{filename}' if filename else ''}"
+ 
+-    def get_records(self, writeable: bool, user_context: OptionalUserContext = None) -> List[RemoteDirectory]:
++    def get_records(
++        self,
++        writeable: bool,
++        user_context: OptionalUserContext = None,
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> Tuple[List[RemoteDirectory], int]:
+         params: Dict[str, Any] = {}
+         request_url = self.records_url
+         if writeable:
+             # Only draft records owned by the user can be written to.
+             params["is_published"] = "false"
+             request_url = self.user_records_url
+-        # TODO: Add pagination support to FileSources. This is limited to 100 records by default for now.
+-        params["size"] = 100
++        size, page = self._to_size_page(limit, offset)
++        params["size"] = size
++        params["page"] = page
++        if query:
++            params["q"] = query
++            params["sort"] = "bestmatch"
+         response_data = self._get_response(user_context, request_url, params=params)
+-        return self._get_records_from_response(response_data)
++        total_hits = response_data["hits"]["total"]
++        return self._get_records_from_response(response_data), total_hits
++
++    def _to_size_page(self, limit: Optional[int], offset: Optional[int]) -> Tuple[Optional[int], Optional[int]]:
++        if limit is None and offset is None:
++            return None, None
++        size = limit or DEFAULT_PAGE_LIMIT
++        page = (offset or 0) // size + 1
++        return size, page
+ 
+     def get_files_in_record(
+         self, record_id: str, writeable: bool, user_context: OptionalUserContext = None
+diff --git a/lib/galaxy/files/sources/posix.py b/lib/galaxy/files/sources/posix.py
+index 331dc7860671..8768b5b5ca9c 100644
+--- a/lib/galaxy/files/sources/posix.py
++++ b/lib/galaxy/files/sources/posix.py
+@@ -4,6 +4,7 @@
+ from typing import (
+     List,
+     Optional,
++    Tuple,
+ )
+ 
+ from typing_extensions import Unpack
+@@ -59,7 +60,11 @@ def _list(
+         recursive=True,
+         user_context: OptionalUserContext = None,
+         opts: Optional[FilesSourceOptions] = None,
+-    ) -> List[AnyRemoteEntry]:
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> Tuple[List[AnyRemoteEntry], int]:
+         if not self.root:
+             raise exceptions.ItemAccessibilityException("Listing files at file:// URLs has been disabled.")
+         dir_path = self._to_native_path(path, user_context=user_context)
+@@ -73,11 +78,11 @@ def _list(
+                 to_dict = functools.partial(self._resource_info_to_dict, rel_dir, user_context=user_context)
+                 res.extend(map(to_dict, dirs))
+                 res.extend(map(to_dict, files))
+-            return res
++            return res, len(res)
+         else:
+             res = os.listdir(dir_path)
+             to_dict = functools.partial(self._resource_info_to_dict, path, user_context=user_context)
+-            return list(map(to_dict, res))
++            return list(map(to_dict, res)), len(res)
+ 
+     def _realize_to(
+         self,
+diff --git a/lib/galaxy/files/sources/s3fs.py b/lib/galaxy/files/sources/s3fs.py
+index d9954ea20b32..6967f4a5b6a7 100644
+--- a/lib/galaxy/files/sources/s3fs.py
++++ b/lib/galaxy/files/sources/s3fs.py
+@@ -5,6 +5,7 @@
+     cast,
+     List,
+     Optional,
++    Tuple,
+ )
+ 
+ from typing_extensions import Unpack
+@@ -61,7 +62,11 @@ def _list(
+         recursive=True,
+         user_context: OptionalUserContext = None,
+         opts: Optional[FilesSourceOptions] = None,
+-    ) -> List[AnyRemoteEntry]:
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> Tuple[List[AnyRemoteEntry], int]:
+         _props = self._serialization_props(user_context)
+         # we need to pop the 'bucket' here, because the argument is not recognised in a downstream function
+         _bucket_name = _props.pop("bucket", "")
+@@ -73,12 +78,12 @@ def _list(
+                 to_dict = functools.partial(self._resource_info_to_dict, p)
+                 res.extend(map(to_dict, dirs.values()))
+                 res.extend(map(to_dict, files.values()))
+-            return res
++            return res, len(res)
+         else:
+             bucket_path = self._bucket_path(_bucket_name, path)
+             res = fs.ls(bucket_path, detail=True)
+             to_dict = functools.partial(self._resource_info_to_dict, path)
+-            return list(map(to_dict, res))
++            return list(map(to_dict, res)), len(res)
+ 
+     def _realize_to(
+         self,
+diff --git a/lib/galaxy/files/sources/temp.py b/lib/galaxy/files/sources/temp.py
+new file mode 100644
+index 000000000000..441c9e82c49f
+--- /dev/null
++++ b/lib/galaxy/files/sources/temp.py
+@@ -0,0 +1,32 @@
++from typing import Optional
++
++from fs.osfs import OSFS
++
++from . import FilesSourceOptions
++from ._pyfilesystem2 import PyFilesystem2FilesSource
++
++
++class TempFilesSource(PyFilesystem2FilesSource):
++    """A FilesSource plugin for temporary file systems.
++
++    Used for testing and other temporary file system needs.
++
++    Note: This plugin is not intended for production use.
++    """
++
++    plugin_type = "temp"
++    required_module = OSFS
++
++    def _open_fs(self, user_context=None, opts: Optional[FilesSourceOptions] = None):
++        props = self._serialization_props(user_context)
++        extra_props = opts.extra_props or {} if opts else {}
++        # We use OSFS here because using TempFS or MemoryFS would wipe out the files
++        # every time we instantiate a new handle, which happens on every request.
++        handle = OSFS(**{**props, **extra_props})
++        return handle
++
++    def get_scheme(self) -> str:
++        return "temp"
++
++
++__all__ = ("TempFilesSource",)
+diff --git a/lib/galaxy/managers/remote_files.py b/lib/galaxy/managers/remote_files.py
+index 4abccb8d9229..165efe3c95b2 100644
+--- a/lib/galaxy/managers/remote_files.py
++++ b/lib/galaxy/managers/remote_files.py
+@@ -4,6 +4,7 @@
+ from typing import (
+     Optional,
+     Set,
++    Tuple,
+ )
+ 
+ from galaxy import exceptions
+@@ -50,8 +51,12 @@ def index(
+         recursive: Optional[bool],
+         disable: Optional[RemoteFilesDisableMode],
+         writeable: Optional[bool] = False,
+-    ) -> AnyRemoteFilesListResponse:
+-        """Returns a list of remote files available to the user."""
++        limit: Optional[int] = None,
++        offset: Optional[int] = None,
++        query: Optional[str] = None,
++        sort_by: Optional[str] = None,
++    ) -> Tuple[AnyRemoteFilesListResponse, int]:
++        """Returns a list of remote files and directories available to the user and the total count of them."""
+ 
+         user_file_source_context = ProvidesFileSourcesUserContext(user_ctx)
+         default_recursive = False
+@@ -88,11 +93,15 @@ def index(
+         opts = FilesSourceOptions()
+         opts.writeable = writeable or False
+         try:
+-            index = file_source.list(
++            index, count = file_source.list(
+                 file_source_path.path,
+                 recursive=recursive,
+                 user_context=user_file_source_context,
+                 opts=opts,
++                limit=limit,
++                offset=offset,
++                query=query,
++                sort_by=sort_by,
+             )
+         except exceptions.MessageException:
+             log.warning(self._get_error_message(file_source_path), exc_info=True)
+@@ -130,7 +139,7 @@ def index(
+             userdir_jstree = jstree.JSTree(jstree_paths)
+             index = userdir_jstree.jsonData()
+ 
+-        return index
++        return index, count
+ 
+     def _get_error_message(self, file_source_path: FileSourcePath) -> str:
+         return f"Problem listing file source path {file_source_path.file_source.get_uri_root()}{file_source_path.path}"
+diff --git a/lib/galaxy/schema/remote_files.py b/lib/galaxy/schema/remote_files.py
+index 474d522544be..7f4c71a4b93e 100644
+--- a/lib/galaxy/schema/remote_files.py
++++ b/lib/galaxy/schema/remote_files.py
+@@ -35,6 +35,12 @@ class RemoteFilesDisableMode(str, Enum):
+     files = "files"
+ 
+ 
++class FilesSourceSupports(Model):
++    pagination: Annotated[bool, Field(description="Whether this file source supports server-side pagination.")] = False
++    search: Annotated[bool, Field(description="Whether this file source supports server-side search.")] = False
++    sorting: Annotated[bool, Field(description="Whether this file source supports server-side sorting.")] = False
++
++
+ class FilesSourcePlugin(Model):
+     id: str = Field(
+         ...,
+@@ -86,6 +92,10 @@ class FilesSourcePlugin(Model):
+         title="URL",
+         description="Optional URL that might be provided by some plugins to link to the remote source.",
+     )
++    supports: Annotated[
++        FilesSourceSupports,
++        Field(default=..., description="Features supported by this file source."),
++    ] = FilesSourceSupports()
+ 
+ 
+ class BrowsableFilesSourcePlugin(FilesSourcePlugin):
+diff --git a/lib/galaxy/webapps/galaxy/api/remote_files.py b/lib/galaxy/webapps/galaxy/api/remote_files.py
+index 5cc6d938b7d9..eaa16234432b 100644
+--- a/lib/galaxy/webapps/galaxy/api/remote_files.py
++++ b/lib/galaxy/webapps/galaxy/api/remote_files.py
+@@ -8,7 +8,10 @@
+     Optional,
+ )
+ 
+-from fastapi import Body
++from fastapi import (
++    Body,
++    Response,
++)
+ from fastapi.param_functions import Query
+ from typing_extensions import Annotated
+ 
+@@ -35,13 +38,11 @@
+ router = Router(tags=["remote files"])
+ 
+ TargetQueryParam: str = Query(
+-    default=RemoteFilesTarget.ftpdir,
+     title="Target source",
+     description=("The source to load datasets from. Possible values: ftpdir, userdir, importdir"),
+ )
+ 
+ FormatQueryParam: Optional[RemoteFilesFormat] = Query(
+-    default=RemoteFilesFormat.uri,
+     title="Response format",
+     description=(
+         "The requested format of returned data. Either `flat` to simply list all the files"
+@@ -51,7 +52,6 @@
+ )
+ 
+ RecursiveQueryParam: Optional[bool] = Query(
+-    default=None,
+     title="Recursive",
+     description=(
+         "Whether to recursively lists all sub-directories. This will be `True` by default depending on the `target`."
+@@ -59,7 +59,6 @@
+ )
+ 
+ DisableModeQueryParam: Optional[RemoteFilesDisableMode] = Query(
+-    default=None,
+     title="Disable mode",
+     description=(
+         "(This only applies when `format` is `jstree`)"
+@@ -69,7 +68,6 @@
+ )
+ 
+ WriteableQueryParam: Optional[bool] = Query(
+-    default=None,
+     title="Writeable",
+     description=(
+         "Whether the query is made with the intention of writing to the source."
+@@ -78,7 +76,6 @@
+ )
+ 
+ BrowsableQueryParam: Optional[bool] = Query(
+-    default=True,
+     title="Browsable filesources only",
+     description=(
+         "Whether to return browsable filesources only. The default is `True`, which will omit filesources"
+@@ -102,6 +99,20 @@
+     ),
+ )
+ 
++LimitQueryParam = Query(title="Limit", description="Maximum number of entries to return.")
++
++OffsetQueryParam = Query(title="Offset", description="Number of entries to skip.")
++
++SearchQueryParam = Query(
++    title="Query",
++    description="Search query to filter entries by. The syntax could be different depending on the target source.",
++)
++
++SortByQueryParam = Query(
++    title="Sort by",
++    description="Sort the entries by the specified field.",
++)
++
+ 
+ @router.cbv
+ class FastAPIRemoteFiles:
+@@ -119,15 +130,27 @@ class FastAPIRemoteFiles:
+     )
+     async def index(
+         self,
++        response: Response,
+         user_ctx: ProvidesUserContext = DependsOnTrans,
+-        target: str = TargetQueryParam,
+-        format: Optional[RemoteFilesFormat] = FormatQueryParam,
+-        recursive: Optional[bool] = RecursiveQueryParam,
+-        disable: Optional[RemoteFilesDisableMode] = DisableModeQueryParam,
+-        writeable: Optional[bool] = WriteableQueryParam,
++        target: Annotated[str, TargetQueryParam] = RemoteFilesTarget.ftpdir,
++        format: Annotated[Optional[RemoteFilesFormat], FormatQueryParam] = RemoteFilesFormat.uri,
++        recursive: Annotated[Optional[bool], RecursiveQueryParam] = None,
++        disable: Annotated[Optional[RemoteFilesDisableMode], DisableModeQueryParam] = None,
++        writeable: Annotated[Optional[bool], WriteableQueryParam] = None,
++        limit: Annotated[Optional[int], LimitQueryParam] = None,
++        offset: Annotated[Optional[int], OffsetQueryParam] = None,
++        query: Annotated[Optional[str], SearchQueryParam] = None,
++        sort_by: Annotated[Optional[str], SortByQueryParam] = None,
+     ) -> AnyRemoteFilesListResponse:
+-        """Lists all remote files available to the user from different sources."""
+-        return self.manager.index(user_ctx, target, format, recursive, disable, writeable)
++        """Lists all remote files available to the user from different sources.
++
++        The total count of files and directories is returned in the 'total_matches' header.
++        """
++        result, count = self.manager.index(
++            user_ctx, target, format, recursive, disable, writeable, limit, offset, query, sort_by
++        )
++        response.headers["total_matches"] = str(count)
++        return result
+ 
+     @router.get(
+         "/api/remote_files/plugins",
+@@ -137,7 +160,7 @@ async def index(
+     async def plugins(
+         self,
+         user_ctx: ProvidesUserContext = DependsOnTrans,
+-        browsable_only: Optional[bool] = BrowsableQueryParam,
++        browsable_only: Annotated[Optional[bool], BrowsableQueryParam] = True,
+         include_kind: Annotated[Optional[List[PluginKind]], IncludeKindQueryParam] = None,
+         exclude_kind: Annotated[Optional[List[PluginKind]], ExcludeKindQueryParam] = None,
+     ) -> FilesSourcePluginList:
+diff --git a/test/unit/files/_util.py b/test/unit/files/_util.py
+index 61fe070e870e..16ad933affa4 100644
+--- a/test/unit/files/_util.py
++++ b/test/unit/files/_util.py
+@@ -43,7 +43,7 @@ def list_root(
+ ):
+     file_source_pair = file_sources.get_file_source_path(uri)
+     file_source = file_source_pair.file_source
+-    res = file_source.list("/", recursive=recursive, user_context=user_context)
++    res, _ = file_source.list("/", recursive=recursive, user_context=user_context)
+     return res
+ 
+ 
+@@ -57,7 +57,7 @@ def list_dir(
+     file_source = file_source_pair.file_source
+     print(file_source_pair.path)
+     print(uri)
+-    res = file_source.list(file_source_pair.path, recursive=recursive, user_context=user_context)
++    res, _ = file_source.list(file_source_pair.path, recursive=recursive, user_context=user_context)
+     return res
+ 
+ 
+@@ -191,7 +191,7 @@ def assert_simple_file_realize(conf_file, recursive=False, filename="a", content
+ 
+     assert file_source_pair.path == "/"
+     file_source = file_source_pair.file_source
+-    res = file_source.list("/", recursive=recursive, user_context=user_context)
++    res, _ = file_source.list("/", recursive=recursive, user_context=user_context)
+     a_file = find(res, class_="File", name=filename)
+     assert a_file
+ 
+diff --git a/test/unit/files/test_basespace.py b/test/unit/files/test_basespace.py
+index 75592aa95fe1..ee79209e1969 100644
+--- a/test/unit/files/test_basespace.py
++++ b/test/unit/files/test_basespace.py
+@@ -30,7 +30,7 @@ def test_file_source():
+     assert file_source_pair.path == "/"
+     file_source = file_source_pair.file_source
+     test_file = os.environ.get("GALAXY_TEST_BASESPACE_TEST_FILE_PATH", "")
+-    res = file_source.list(os.path.dirname(test_file), recursive=False, user_context=user_context)
++    res, _ = file_source.list(os.path.dirname(test_file), recursive=False, user_context=user_context)
+     a_file = find(res, class_="File", name=os.path.basename(test_file))
+     assert a_file
+ 
+diff --git a/test/unit/files/test_temp.py b/test/unit/files/test_temp.py
+new file mode 100644
+index 000000000000..98f188fb7014
+--- /dev/null
++++ b/test/unit/files/test_temp.py
+@@ -0,0 +1,207 @@
++import tempfile
++from typing import List
++
++import pytest
++
++from galaxy.exceptions import RequestParameterInvalidException
++from galaxy.files.plugins import FileSourcePluginsConfig
++from galaxy.files.sources.temp import TempFilesSource
++from galaxy.files.unittest_utils import (
++    setup_root,
++    TestConfiguredFileSources,
++)
++from ._util import (
++    assert_realizes_contains,
++    user_context_fixture,
++)
++
++ROOT_URI = "temp://test1"
++TEMP_PLUGIN = {
++    "type": "temp",
++    "id": "test1",
++    "doc": "Test temporal file source",
++    "writable": True,
++}
++
++
++@pytest.fixture(scope="session")
++def file_sources() -> TestConfiguredFileSources:
++    file_sources = _configured_file_sources()
++    return file_sources
++
++
++@pytest.fixture(scope="session")
++def temp_file_source(file_sources: TestConfiguredFileSources) -> TempFilesSource:
++    file_source_pair = file_sources.get_file_source_path(ROOT_URI)
++    file_source = file_source_pair.file_source
++    return file_source
++
++
++def test_file_source(file_sources: TestConfiguredFileSources):
++    assert_realizes_contains(file_sources, f"{ROOT_URI}/a", "a")
++    assert_realizes_contains(file_sources, f"{ROOT_URI}/b", "b")
++    assert_realizes_contains(file_sources, f"{ROOT_URI}/c", "c")
++    assert_realizes_contains(file_sources, f"{ROOT_URI}/dir1/d", "d")
++    assert_realizes_contains(file_sources, f"{ROOT_URI}/dir1/e", "e")
++    assert_realizes_contains(file_sources, f"{ROOT_URI}/dir1/sub1/f", "f")
++
++
++def test_list(temp_file_source: TempFilesSource):
++    assert_list_names(temp_file_source, "/", recursive=False, expected_names=["a", "b", "c", "dir1"])
++    assert_list_names(temp_file_source, "/dir1", recursive=False, expected_names=["d", "e", "sub1"])
++
++
++def test_list_recursive(temp_file_source: TempFilesSource):
++    expected_names = ["a", "b", "c", "dir1", "d", "e", "sub1", "f"]
++    assert_list_names(temp_file_source, "/", recursive=True, expected_names=expected_names)
++
++
++def test_pagination(temp_file_source: TempFilesSource):
++    # Pagination is only supported for non-recursive listings.
++    recursive = False
++    root_lvl_entries, count = temp_file_source.list("/", recursive=recursive)
++    assert count == 4
++    assert len(root_lvl_entries) == 4
++
++    # Get first entry
++    result, count = temp_file_source.list("/", recursive=recursive, limit=1, offset=0)
++    assert count == 4
++    assert len(result) == 1
++    assert result[0] == root_lvl_entries[0]
++
++    # Get second entry
++    result, count = temp_file_source.list("/", recursive=recursive, limit=1, offset=1)
++    assert count == 4
++    assert len(result) == 1
++    assert result[0] == root_lvl_entries[1]
++
++    # Get second and third entry
++    result, count = temp_file_source.list("/", recursive=recursive, limit=2, offset=1)
++    assert count == 4
++    assert len(result) == 2
++    assert result[0] == root_lvl_entries[1]
++    assert result[1] == root_lvl_entries[2]
++
++    # Get last three entries
++    result, count = temp_file_source.list("/", recursive=recursive, limit=3, offset=1)
++    assert count == 4
++    assert len(result) == 3
++    assert result[0] == root_lvl_entries[1]
++    assert result[1] == root_lvl_entries[2]
++    assert result[2] == root_lvl_entries[3]
++
++
++def test_search(temp_file_source: TempFilesSource):
++    # Search is only supported for non-recursive listings.
++    recursive = False
++    root_lvl_entries, count = temp_file_source.list("/", recursive=recursive)
++    assert count == 4
++    assert len(root_lvl_entries) == 4
++
++    result, count = temp_file_source.list("/", recursive=recursive, query="a")
++    assert count == 1
++    assert len(result) == 1
++    assert result[0]["name"] == "a"
++
++    result, count = temp_file_source.list("/", recursive=recursive, query="b")
++    assert count == 1
++    assert len(result) == 1
++    assert result[0]["name"] == "b"
++
++    result, count = temp_file_source.list("/", recursive=recursive, query="c")
++    assert count == 1
++    assert len(result) == 1
++    assert result[0]["name"] == "c"
++
++    # Searching for 'd' at root level should return the directory 'dir1' but not the file 'd'
++    # as it is not a direct child of the root.
++    result, count = temp_file_source.list("/", recursive=recursive, query="d")
++    assert count == 1
++    assert len(result) == 1
++    assert result[0]["name"] == "dir1"
++
++    # Searching for 'e' at root level should not return anything.
++    result, count = temp_file_source.list("/", recursive=recursive, query="e")
++    assert count == 0
++    assert len(result) == 0
++
++    result, count = temp_file_source.list("/dir1", recursive=recursive, query="e")
++    assert count == 1
++    assert len(result) == 1
++    assert result[0]["name"] == "e"
++
++
++def test_pagination_not_supported_raises(temp_file_source: TempFilesSource):
++    TempFilesSource.supports_pagination = False
++    recursive = False
++    with pytest.raises(RequestParameterInvalidException) as exc_info:
++        temp_file_source.list("/", recursive=recursive, limit=1, offset=0)
++    assert "Pagination is not supported" in str(exc_info.value)
++    TempFilesSource.supports_pagination = True
++
++
++def test_pagination_parameters_non_negative(temp_file_source: TempFilesSource):
++    recursive = False
++    with pytest.raises(RequestParameterInvalidException) as exc_info:
++        temp_file_source.list("/", recursive=recursive, limit=-1, offset=0)
++    assert "Limit must be greater than 0" in str(exc_info.value)
++
++    with pytest.raises(RequestParameterInvalidException) as exc_info:
++        temp_file_source.list("/", recursive=recursive, limit=0, offset=0)
++    assert "Limit must be greater than 0" in str(exc_info.value)
++
++    with pytest.raises(RequestParameterInvalidException) as exc_info:
++        temp_file_source.list("/", recursive=recursive, limit=1, offset=-1)
++    assert "Offset must be greater than or equal to 0" in str(exc_info.value)
++
++
++def test_search_not_supported_raises(temp_file_source: TempFilesSource):
++    TempFilesSource.supports_search = False
++    recursive = False
++    with pytest.raises(RequestParameterInvalidException) as exc_info:
++        temp_file_source.list("/", recursive=recursive, query="a")
++    assert "Server-side search is not supported by this file source" in str(exc_info.value)
++    TempFilesSource.supports_search = True
++
++
++def test_sorting_not_supported_raises(temp_file_source: TempFilesSource):
++    recursive = False
++    with pytest.raises(RequestParameterInvalidException) as exc_info:
++        temp_file_source.list("/", recursive=recursive, sort_by="name")
++    assert "Server-side sorting is not supported by this file source" in str(exc_info.value)
++
++
++def _populate_test_scenario(file_source: TempFilesSource):
++    """Create a directory structure in the file source."""
++    user_context = user_context_fixture()
++
++    _upload_to(file_source, "/a", content="a", user_context=user_context)
++    _upload_to(file_source, "/b", content="b", user_context=user_context)
++    _upload_to(file_source, "/c", content="c", user_context=user_context)
++    _upload_to(file_source, "/dir1/d", content="d", user_context=user_context)
++    _upload_to(file_source, "/dir1/e", content="e", user_context=user_context)
++    _upload_to(file_source, "/dir1/sub1/f", content="f", user_context=user_context)
++
++
++def _upload_to(file_source: TempFilesSource, target_uri: str, content: str, user_context=None):
++    with tempfile.NamedTemporaryFile(mode="w") as f:
++        f.write(content)
++        f.flush()
++        file_source.write_from(target_uri, f.name, user_context=user_context)
++
++
++def assert_list_names(file_source: TempFilesSource, uri: str, recursive: bool, expected_names: List[str]):
++    result, count = file_source.list(uri, recursive=recursive)
++    assert count == len(expected_names)
++    assert sorted([entry["name"] for entry in result]) == sorted(expected_names)
++    return result
++
++
++def _configured_file_sources() -> TestConfiguredFileSources:
++    tmp, root = setup_root()
++    file_sources_config = FileSourcePluginsConfig()
++    plugin = TEMP_PLUGIN
++    plugin["root_path"] = root
++    file_sources = TestConfiguredFileSources(file_sources_config, conf_dict={TEMP_PLUGIN["id"]: plugin}, test_root=root)
++    _populate_test_scenario(file_sources.get_file_source_path(ROOT_URI).file_source)
++    return file_sources
+diff --git a/test/unit/files/test_webdav.py b/test/unit/files/test_webdav.py
+index 4c0632bbc6ef..071281e1bc88 100644
+--- a/test/unit/files/test_webdav.py
++++ b/test/unit/files/test_webdav.py
+@@ -29,12 +29,12 @@ def test_file_source():
+ 
+     assert file_source_pair.path == "/"
+     file_source = file_source_pair.file_source
+-    res = file_source.list("/", recursive=True)
++    res, _ = file_source.list("/", recursive=True)
+     a_file = find_file_a(res)
+     assert a_file
+     assert a_file["uri"] == "gxfiles://test1/a", a_file
+ 
+-    res = file_source.list("/", recursive=False)
++    res, _ = file_source.list("/", recursive=False)
+     file_a = find_file_a(res)
+     assert file_a
+     assert file_a["uri"] == "gxfiles://test1/a"

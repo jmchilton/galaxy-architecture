@@ -1,0 +1,12 @@
+%%{init: {'theme':'base'}}%%
+timeline
+    section 2020
+        Foundation : Plugin architecture (PR #9888)
+    section 2023
+        Convergence : URL unification (PR #15497)
+    section 2024
+        User-driven : Templates (#18127)
+                    : OAuth (PR #18272)
+    section 2025
+        Modern foundation : Pydantic (PR #20698)
+                          : fsspec (PR #20728)

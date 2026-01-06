@@ -1,0 +1,415 @@
+diff --git a/client/src/components/Markdown/Elements/Workflow/WorkflowImage.vue b/client/src/components/Markdown/Elements/Workflow/WorkflowImage.vue
+new file mode 100644
+index 000000000000..3ebf725ed304
+--- /dev/null
++++ b/client/src/components/Markdown/Elements/Workflow/WorkflowImage.vue
+@@ -0,0 +1,32 @@
++<script setup lang="ts">
++import { computed } from "vue";
++
++import { getAppRoot } from "@/onload/loadConfig";
++
++interface WorkflowImageProps {
++    workflowId: string;
++    size?: string;
++}
++
++const props = withDefaults(defineProps<WorkflowImageProps>(), {
++    size: "lg",
++});
++
++const src = computed(() => {
++    return `${getAppRoot()}workflow/gen_image?id=${props.workflowId}&embed=true`;
++});
++const width = computed(() => {
++    const size = props.size;
++    if (size == "sm") {
++        return "300px";
++    } else if (size == "md") {
++        return "550px";
++    } else {
++        return "100%";
++    }
++});
++</script>
++
++<template>
++    <img alt="Preview of Galaxy Workflow" :src="src" :width="width" height="auto" />
++</template>
+diff --git a/client/src/components/Markdown/Elements/Workflow/WorkflowLicense.vue b/client/src/components/Markdown/Elements/Workflow/WorkflowLicense.vue
+new file mode 100644
+index 000000000000..a4b0f3dd46d0
+--- /dev/null
++++ b/client/src/components/Markdown/Elements/Workflow/WorkflowLicense.vue
+@@ -0,0 +1,20 @@
++<script setup lang="ts">
++import License from "@/components/License/License.vue";
++
++interface WorkflowLicenseProps {
++    licenseId?: string;
++}
++
++const props = withDefaults(defineProps<WorkflowLicenseProps>(), {
++    licenseId: null,
++});
++</script>
++
++<template>
++    <span>
++        <p v-if="!props.licenseId">
++            <i>Workflow does not define a license.</i>
++        </p>
++        <License v-else :license-id="props.licenseId" />
++    </span>
++</template>
+diff --git a/client/src/components/Markdown/MarkdownContainer.vue b/client/src/components/Markdown/MarkdownContainer.vue
+index 9ece148b02b6..b544ae3d71e2 100644
+--- a/client/src/components/Markdown/MarkdownContainer.vue
++++ b/client/src/components/Markdown/MarkdownContainer.vue
+@@ -14,6 +14,8 @@ import JobParameters from "./Elements/JobParameters.vue";
+ import ToolStd from "./Elements/ToolStd.vue";
+ import Visualization from "./Elements/Visualization.vue";
+ import WorkflowDisplay from "./Elements/Workflow/WorkflowDisplay.vue";
++import WorkflowImage from "./Elements/Workflow/WorkflowImage.vue";
++import WorkflowLicense from "./Elements/Workflow/WorkflowLicense.vue";
+ 
+ const toggle = ref(false);
+ const props = defineProps({
+@@ -75,6 +77,12 @@ const isVisible = computed(() => !isCollapsible.value || toggle.value);
+             <div v-else-if="name == 'generate_time'" class="galaxy-time">
+                 <pre><code>{{ time }}</code></pre>
+             </div>
++            <div v-else-if="name == 'workflow_image'" class="workflow-image" style="text-align: center">
++                <WorkflowImage :workflow-id="args.workflow_id" :size="args.size || 'lg'" />
++            </div>
++            <div v-else-if="name == 'workflow_license'" class="workflow-license">
++                <WorkflowLicense :license-id="workflows[args.workflow_id]['license']" />
++            </div>
+             <HistoryLink v-else-if="name == 'history_link'" :args="args" :histories="histories" />
+             <HistoryDatasetAsImage v-else-if="name == 'history_dataset_as_image'" :args="args" />
+             <HistoryDatasetLink v-else-if="name == 'history_dataset_link'" :args="args" />
+diff --git a/client/src/components/Markdown/MarkdownDialog.vue b/client/src/components/Markdown/MarkdownDialog.vue
+index 8303870b7ca7..648c9696c4f7 100644
+--- a/client/src/components/Markdown/MarkdownDialog.vue
++++ b/client/src/components/Markdown/MarkdownDialog.vue
+@@ -177,7 +177,7 @@ export default {
+         },
+         onWorkflow(response) {
+             this.workflowShow = false;
+-            this.$emit("onInsert", `workflow_display(workflow_id=${response.id})`);
++            this.$emit("onInsert", `${this.argumentName}(workflow_id=${response.id})`);
+         },
+         onVisualization(response) {
+             this.visualizationShow = false;
+diff --git a/client/src/components/Markdown/MarkdownToolBox.vue b/client/src/components/Markdown/MarkdownToolBox.vue
+index 19b3caa3bcee..6e75bd71a1b5 100644
+--- a/client/src/components/Markdown/MarkdownToolBox.vue
++++ b/client/src/components/Markdown/MarkdownToolBox.vue
+@@ -190,6 +190,16 @@ export default {
+                         name: "Workflow Display",
+                         emitter: "onWorkflowId",
+                     },
++                    {
++                        id: "workflow_license",
++                        name: "Workflow License",
++                        emitter: "onWorkflowId",
++                    },
++                    {
++                        id: "workflow_image",
++                        name: "Workflow Image",
++                        emitter: "onWorkflowId",
++                    },
+                 ],
+             },
+             workflowInEditorSection: {
+@@ -214,6 +224,14 @@ export default {
+                         name: "Current Workflow",
+                         description: "containing all steps",
+                     },
++                    {
++                        id: "workflow_image",
++                        name: "Current Workflow Image",
++                    },
++                    {
++                        id: "workflow_license",
++                        name: "Current Workflow License",
++                    },
+                 ],
+             },
+             otherSection: {
+diff --git a/lib/galaxy/managers/markdown_parse.py b/lib/galaxy/managers/markdown_parse.py
+index ca486283f844..c93827a3ad14 100644
+--- a/lib/galaxy/managers/markdown_parse.py
++++ b/lib/galaxy/managers/markdown_parse.py
+@@ -38,6 +38,8 @@ class DynamicArguments:
+     "history_dataset_type": ["input", "output", "history_dataset_id"],
+     "history_dataset_collection_display": ["input", "output", "history_dataset_collection_id"],
+     "workflow_display": ["workflow_id"],
++    "workflow_license": ["workflow_id"],
++    "workflow_image": ["workflow_id", "size"],
+     "job_metrics": ["step", "job_id"],
+     "job_parameters": ["step", "job_id"],
+     "tool_stderr": ["step", "job_id"],
+diff --git a/lib/galaxy/managers/markdown_util.py b/lib/galaxy/managers/markdown_util.py
+index 4e5219251ccc..75c5e16c8467 100644
+--- a/lib/galaxy/managers/markdown_util.py
++++ b/lib/galaxy/managers/markdown_util.py
+@@ -36,6 +36,7 @@
+ from galaxy.config import GalaxyAppConfiguration
+ from galaxy.exceptions import (
+     MalformedContents,
++    ObjectNotFound,
+     ServerNotConfiguredForRequest,
+ )
+ from galaxy.managers.hdcas import HDCASerializer
+@@ -44,6 +45,7 @@
+     summarize_job_metrics,
+     summarize_job_parameters,
+ )
++from galaxy.managers.licenses import LicensesManager
+ from galaxy.model.item_attrs import get_item_annotation_str
+ from galaxy.model.orm.now import now
+ from galaxy.schema import PdfDocumentType
+@@ -67,6 +69,7 @@
+ INPUT_LABEL_PATTERN = re.compile(r"input=\s*%s\s*" % ARG_VAL_CAPTURED_REGEX)
+ STEP_LABEL_PATTERN = re.compile(r"step=\s*%s\s*" % ARG_VAL_CAPTURED_REGEX)
+ PATH_LABEL_PATTERN = re.compile(r"path=\s*%s\s*" % ARG_VAL_CAPTURED_REGEX)
++SIZE_PATTERN = re.compile(r"size=\s*%s\s*" % ARG_VAL_CAPTURED_REGEX)
+ # STEP_OUTPUT_LABEL_PATTERN = re.compile(r'step_output=([\w_\-]+)/([\w_\-]+)')
+ UNENCODED_ID_PATTERN = re.compile(
+     r"(history_id|workflow_id|history_dataset_id|history_dataset_collection_id|job_id|invocation_id)=([\d]+)"
+@@ -154,6 +157,12 @@ def _remap(container, line):
+             elif container == "workflow_display":
+                 stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
+                 rval = self.handle_workflow_display(line, stored_workflow)
++            elif container == "workflow_image":
++                stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
++                rval = self.handle_workflow_image(line, stored_workflow)
++            elif container == "workflow_license":
++                stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
++                rval = self.handle_workflow_license(line, stored_workflow)
+             elif container == "history_dataset_collection_display":
+                 hdca = collection_manager.get_dataset_collection_instance(trans, "history", encoded_id)
+                 rval = self.handle_dataset_collection_display(line, hdca)
+@@ -242,6 +251,14 @@ def handle_dataset_type(self, line, hda):
+     def handle_workflow_display(self, line, stored_workflow):
+         pass
+ 
++    @abc.abstractmethod
++    def handle_workflow_image(self, line, stored_workflow):
++        pass
++
++    @abc.abstractmethod
++    def handle_workflow_license(self, line, stored_workflow):
++        pass
++
+     @abc.abstractmethod
+     def handle_dataset_collection_display(self, line, hdca):
+         pass
+@@ -313,6 +330,14 @@ def handle_dataset_info(self, line, hda):
+     def handle_workflow_display(self, line, stored_workflow):
+         self.ensure_rendering_data_for("workflows", stored_workflow)["name"] = stored_workflow.name
+ 
++    def handle_workflow_image(self, line, stored_workflow):
++        pass
++
++    def handle_workflow_license(self, line, stored_workflow):
++        self.ensure_rendering_data_for("workflows", stored_workflow)[
++            "license"
++        ] = stored_workflow.latest_workflow.license
++
+     def handle_dataset_collection_display(self, line, hdca):
+         hdca_serializer = HDCASerializer(self.trans.app)
+         hdca_view = hdca_serializer.serialize_to_view(hdca, user=self.trans.user, trans=self.trans, view="summary")
+@@ -431,10 +456,14 @@ def handle_dataset_as_image(self, line, hda):
+             file = dataset.file_name
+ 
+         with open(file, "rb") as f:
+-            base64_image_data = base64.b64encode(f.read()).decode("utf-8")
+-        rval = (f"![{name}](data:image/png;base64,{base64_image_data})", True)
++            image_data = f.read()
++        rval = (self._embed_image(name, "png", image_data), True)
+         return rval
+ 
++    def _embed_image(self, name: str, image_type: str, image_data: bytes):
++        base64_image_data = base64.b64encode(image_data).decode("utf-8")
++        return f"![{name}](data:image/{image_type};base64,{base64_image_data})"
++
+     def handle_history_link(self, line, history):
+         if history:
+             content = literal_via_fence(history.name)
+@@ -471,6 +500,25 @@ def handle_workflow_display(self, line, stored_workflow):
+         markdown += "\n---\n"
+         return (markdown, True)
+ 
++    def handle_workflow_license(self, line, stored_workflow):
++        # workflow_manager = self.trans.app.workflow_manager
++        license_manager = LicensesManager()
++        license_id = stored_workflow.latest_workflow.license
++        markdown = "*No license specified.*"
++        if license_id:
++            try:
++                license_metadata = license_manager.get_license_by_id(license_id)
++                markdown = f"[{license_metadata.name}]({license_metadata.url})"
++            except ObjectNotFound:
++                markdown = f"Unknown license ({license_id})"
++        return (f"\n\n{markdown}\n\n", True)
++
++    def handle_workflow_image(self, line, stored_workflow):
++        workflow_manager = self.trans.app.workflow_manager
++        image_data = workflow_manager.get_workflow_svg(self.trans, stored_workflow.latest_workflow, for_embed=True)
++        rval = (self._embed_image("Workflow", "svg+xml", image_data), True)
++        return rval
++
+     def handle_dataset_collection_display(self, line, hdca):
+         name = hdca.name or ""
+         # put it in a list to hack around no nonlocal on Python 2.
+diff --git a/lib/galaxy/managers/workflows.py b/lib/galaxy/managers/workflows.py
+index ff8013a40524..7200c395eb8a 100644
+--- a/lib/galaxy/managers/workflows.py
++++ b/lib/galaxy/managers/workflows.py
+@@ -96,6 +96,10 @@
+     RefactorActionExecution,
+     RefactorActions,
+ )
++from galaxy.workflow.render import (
++    STANDALONE_SVG_TEMPLATE,
++    WorkflowCanvas,
++)
+ from galaxy.workflow.reports import generate_report
+ from galaxy.workflow.resources import get_resource_mapper_function
+ from galaxy.workflow.steps import (
+@@ -367,6 +371,38 @@ def check_security(self, trans, has_workflow, check_ownership=True, check_access
+ 
+         return True
+ 
++    def get_workflow_svg_from_id(self, trans, id, for_embed=False) -> bytes:
++        stored = self.get_stored_accessible_workflow(trans, id)
++        return self.get_workflow_svg(trans, stored.latest_workflow, for_embed=for_embed)
++
++    def get_workflow_svg(self, trans, workflow, for_embed=False) -> bytes:
++        try:
++            svg = self._workflow_to_svg_canvas(trans, workflow, for_embed=for_embed)
++            s = STANDALONE_SVG_TEMPLATE % svg.tostring()
++            return s.encode("utf-8")
++        except Exception:
++            message = (
++                "Galaxy is unable to create the SVG image. Please check your workflow, there might be missing tools."
++            )
++            raise exceptions.MessageException(message)
++
++    def _workflow_to_svg_canvas(self, trans, workflow, for_embed=False):
++        workflow_canvas = WorkflowCanvas()
++        for step in workflow.steps:
++            # Load from database representation
++            module = module_factory.from_workflow_step(trans, step)
++            module_name = module.get_name()
++            module_data_inputs = module.get_data_inputs()
++            module_data_outputs = module.get_data_outputs()
++            workflow_canvas.populate_data_for_step(
++                step,
++                module_name,
++                module_data_inputs,
++                module_data_outputs,
++            )
++        workflow_canvas.add_steps()
++        return workflow_canvas.finish(for_embed=for_embed)
++
+     def get_invocation(self, trans, decoded_invocation_id, eager=False) -> model.WorkflowInvocation:
+         q = trans.sa_session.query(model.WorkflowInvocation)
+         if eager:
+diff --git a/lib/galaxy/webapps/galaxy/controllers/workflow.py b/lib/galaxy/webapps/galaxy/controllers/workflow.py
+index 3772a29cd10c..b2dd07de100f 100644
+--- a/lib/galaxy/webapps/galaxy/controllers/workflow.py
++++ b/lib/galaxy/webapps/galaxy/controllers/workflow.py
+@@ -39,14 +39,7 @@
+     extract_workflow,
+     summarize,
+ )
+-from galaxy.workflow.modules import (
+-    load_module_sections,
+-    module_factory,
+-)
+-from galaxy.workflow.render import (
+-    STANDALONE_SVG_TEMPLATE,
+-    WorkflowCanvas,
+-)
++from galaxy.workflow.modules import load_module_sections
+ 
+ log = logging.getLogger(__name__)
+ 
+@@ -333,18 +326,16 @@ def annotate_async(self, trans, id, new_annotation=None, **kwargs):
+ 
+     @web.expose
+     @web.require_login("use Galaxy workflows")
+-    def gen_image(self, trans, id, **kwargs):
+-        stored = self.get_stored_workflow(trans, id, check_ownership=True)
++    def gen_image(self, trans, id, embed="false", **kwargs):
++        embed = util.asbool(embed)
+         try:
+-            svg = self._workflow_to_svg_canvas(trans, stored)
+-        except Exception:
+-            message = (
+-                "Galaxy is unable to create the SVG image. Please check your workflow, there might be missing tools."
+-            )
+-            return trans.show_error_message(message)
+-        trans.response.set_content_type("image/svg+xml")
+-        s = STANDALONE_SVG_TEMPLATE % svg.tostring()
+-        return s.encode("utf-8")
++            s = trans.app.workflow_manager.get_workflow_svg_from_id(trans, id, for_embed=embed)
++            trans.response.set_content_type("image/svg+xml")
++            return s
++        except Exception as e:
++            log.exception("Failed to generate SVG image")
++            error_message = str(e)
++            return trans.show_error_message(error_message)
+ 
+     @web.legacy_expose_api
+     def create(self, trans, payload=None, **kwd):
+@@ -630,21 +621,3 @@ def build_from_current_history(
+ 
+     def get_item(self, trans, id):
+         return self.get_stored_workflow(trans, id)
+-
+-    def _workflow_to_svg_canvas(self, trans, stored):
+-        workflow = stored.latest_workflow
+-        workflow_canvas = WorkflowCanvas()
+-        for step in workflow.steps:
+-            # Load from database representation
+-            module = module_factory.from_workflow_step(trans, step)
+-            module_name = module.get_name()
+-            module_data_inputs = module.get_data_inputs()
+-            module_data_outputs = module.get_data_outputs()
+-            workflow_canvas.populate_data_for_step(
+-                step,
+-                module_name,
+-                module_data_inputs,
+-                module_data_outputs,
+-            )
+-        workflow_canvas.add_steps()
+-        return workflow_canvas.finish()
+diff --git a/lib/galaxy/workflow/render.py b/lib/galaxy/workflow/render.py
+index cc9f6bd7ab8f..b5ee044bbc2f 100644
+--- a/lib/galaxy/workflow/render.py
++++ b/lib/galaxy/workflow/render.py
+@@ -23,7 +23,7 @@ def __init__(self):
+         self.max_width = 0
+         self.data = []
+ 
+-    def finish(self):
++    def finish(self, for_embed=False):
+         # max_x, max_y, max_width = self.max_x, self.max_y, self.max_width
+         for box in self.boxes:
+             self.canvas.add(box)
+@@ -33,6 +33,11 @@ def finish(self):
+         for text in self.text:
+             text_style_layer.add(text)
+         self.canvas.add(text_style_layer)
++        # if we're embedding this in HTML - setup a viewbox and preserve aspect ratio
++        # https://css-tricks.com/scale-svg/#aa-the-viewbox-attribute
++        if for_embed:
++            self.canvas.viewbox(-5, -5, self.max_x + self.max_width, self.max_y + 150)
++            self.canvas.fit()
+         return self.canvas
+ 
+     def add_boxes(self, step_dict, width, name_fill):

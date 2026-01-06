@@ -1,0 +1,812 @@
+diff --git a/client/src/api/remoteFiles.ts b/client/src/api/remoteFiles.ts
+index 95ae19c1dd2a..ae9a86cd3ffe 100644
+--- a/client/src/api/remoteFiles.ts
++++ b/client/src/api/remoteFiles.ts
+@@ -7,6 +7,7 @@ import { fetcher } from "@/api/schema/fetcher";
+  * - `source` - allows to select a source plugin root and doesn't list its contents
+  */
+ export type FileSourceBrowsingMode = "file" | "directory" | "source";
++export type FilesSourcePlugin = components["schemas"]["FilesSourcePlugin"];
+ export type BrowsableFilesSourcePlugin = components["schemas"]["BrowsableFilesSourcePlugin"];
+ export type RemoteFile = components["schemas"]["RemoteFile"];
+ export type RemoteDirectory = components["schemas"]["RemoteDirectory"];
+diff --git a/client/src/components/Common/ExportRDMForm.test.ts b/client/src/components/Common/ExportRDMForm.test.ts
+index 116b1d84d932..1f53d7cc1a99 100644
+--- a/client/src/components/Common/ExportRDMForm.test.ts
++++ b/client/src/components/Common/ExportRDMForm.test.ts
+@@ -2,7 +2,7 @@ import { getLocalVue } from "@tests/jest/helpers";
+ import { mount, Wrapper } from "@vue/test-utils";
+ import flushPromises from "flush-promises";
+ 
+-import { CreatedEntry } from "@/api/remoteFiles";
++import { type BrowsableFilesSourcePlugin, CreatedEntry } from "@/api/remoteFiles";
+ import { mockFetcher } from "@/api/schema/__mocks__";
+ 
+ import ExportRDMForm from "./ExportRDMForm.vue";
+@@ -25,11 +25,13 @@ const FAKE_ENTRY: CreatedEntry = {
+     external_link: "http://example.com",
+ };
+ 
+-async function initWrapper() {
++async function initWrapper(fileSource?: BrowsableFilesSourcePlugin) {
+     mockFetcher.path("/api/remote_files").method("post").mock({ data: FAKE_ENTRY });
+ 
+-    const wrapper = mount(ExportRDMForm, {
+-        propsData: {},
++    const wrapper = mount(ExportRDMForm as object, {
++        propsData: {
++            fileSource,
++        },
+         localVue,
+     });
+     await flushPromises();
+@@ -100,8 +102,53 @@ describe("ExportRDMForm", () => {
+         });
+     });
+ 
+-    async function selectExportChoice(choice: string) {
+-        const exportChoice = wrapper.find(`#radio-${choice}`);
++    describe("Pre-select specific File Source", () => {
++        beforeEach(async () => {
++            const specificFileSource: BrowsableFilesSourcePlugin = {
++                id: "test-file-source",
++                label: "Test File Source",
++                doc: "Test File Source Description",
++                uri_root: "gxfiles://test-file-source",
++                writable: true,
++                browsable: true,
++                type: "rdm",
++            };
++            wrapper = await initWrapper(specificFileSource);
++        });
++
++        it("enables the create new record button only by setting the record name", async () => {
++            await selectExportChoice("new", "test-file-source");
++            expect(wrapper.find(CREATE_RECORD_BTN).attributes("disabled")).toBeTruthy();
++
++            await setRecordNameInput(FAKE_RECORD_NAME);
++
++            expect(wrapper.find(CREATE_RECORD_BTN).attributes("disabled")).toBeFalsy();
++        });
++
++        it("displays the export to this record button when the create new record button is clicked", async () => {
++            await selectExportChoice("new", "test-file-source");
++            expect(wrapper.find(EXPORT_TO_NEW_RECORD_BTN).exists()).toBeFalsy();
++
++            await setRecordNameInput(FAKE_RECORD_NAME);
++            await clickCreateNewRecordButton();
++
++            expect(wrapper.find(EXPORT_TO_NEW_RECORD_BTN).exists()).toBeTruthy();
++        });
++
++        it("emits an export event when the export to new record button is clicked", async () => {
++            await selectExportChoice("new", "test-file-source");
++            await setFileNameInput("test file name");
++            await setRecordNameInput(FAKE_RECORD_NAME);
++            await clickCreateNewRecordButton();
++
++            await wrapper.find(EXPORT_TO_NEW_RECORD_BTN).trigger("click");
++            expect(wrapper.emitted("export")).toBeTruthy();
++        });
++    });
++
++    async function selectExportChoice(choice: string, fileSourceId?: string) {
++        const suffix = fileSourceId ? `${fileSourceId}` : "any";
++        const exportChoice = wrapper.find(`#radio-${choice}-${suffix}`);
+         await exportChoice.setChecked(true);
+     }
+ 
+diff --git a/client/src/components/Common/ExportRDMForm.vue b/client/src/components/Common/ExportRDMForm.vue
+index ee7411a70e61..f99510a59907 100644
+--- a/client/src/components/Common/ExportRDMForm.vue
++++ b/client/src/components/Common/ExportRDMForm.vue
+@@ -2,11 +2,18 @@
+ import { BButton, BCard, BFormGroup, BFormInput, BFormRadio, BFormRadioGroup } from "bootstrap-vue";
+ import { computed, ref } from "vue";
+ 
+-import { CreatedEntry, createRemoteEntry, FilterFileSourcesOptions } from "@/api/remoteFiles";
++import {
++    BrowsableFilesSourcePlugin,
++    CreatedEntry,
++    createRemoteEntry,
++    FilterFileSourcesOptions,
++} from "@/api/remoteFiles";
+ import { useToast } from "@/composables/toast";
+ import localize from "@/utils/localization";
+ import { errorMessageAsString } from "@/utils/simple-error";
+ 
++import { fileSourcePluginToItem } from "../FilesDialog/utilities";
++
+ import ExternalLink from "@/components/ExternalLink.vue";
+ import FilesInput from "@/components/FilesDialog/FilesInput.vue";
+ 
+@@ -17,6 +24,11 @@ interface Props {
+     clearInputAfterExport?: boolean;
+     defaultRecordName?: string;
+     defaultFilename?: string;
++    /**
++     * If undefined, the user will need to select a repository to export to,
++     * otherwise this file source will be pre-selected.
++     */
++    fileSource?: BrowsableFilesSourcePlugin;
+ }
+ 
+ const props = withDefaults(defineProps<Props>(), {
+@@ -24,6 +36,7 @@ const props = withDefaults(defineProps<Props>(), {
+     clearInputAfterExport: false,
+     defaultRecordName: "",
+     defaultFilename: "",
++    fileSource: undefined,
+ });
+ 
+ const emit = defineEmits<{
+@@ -35,7 +48,7 @@ type ExportChoice = "existing" | "new";
+ const includeOnlyRDMCompatible: FilterFileSourcesOptions = { include: ["rdm"] };
+ 
+ const recordUri = ref<string>("");
+-const sourceUri = ref<string>("");
++const sourceUri = ref<string>(props.fileSource?.uri_root ?? "");
+ const fileName = ref<string>(props.defaultFilename);
+ const exportChoice = ref<ExportChoice>("new");
+ const recordName = ref<string>(props.defaultRecordName);
+@@ -53,6 +66,9 @@ const recordNameDescription = computed(() => localize("Give the new record a nam
+ const namePlaceholder = computed(() => localize("File name"));
+ const recordNamePlaceholder = computed(() => localize("Record name"));
+ 
++const uniqueSourceId = computed(() => props.fileSource?.id ?? "any");
++const fileSourceAsItem = computed(() => (props.fileSource ? fileSourcePluginToItem(props.fileSource) : undefined));
++
+ function doExport() {
+     emit("export", recordUri.value, fileName.value);
+ 
+@@ -72,7 +88,7 @@ async function doCreateRecord() {
+ 
+ function clearInputs() {
+     recordUri.value = "";
+-    sourceUri.value = "";
++    sourceUri.value = props.fileSource?.uri_root ?? "";
+     fileName.value = "";
+     newEntry.value = undefined;
+ }
+@@ -84,10 +100,17 @@ function clearInputs() {
+             <BFormInput id="file-name-input" v-model="fileName" :placeholder="namePlaceholder" required />
+         </BFormGroup>
+ 
++        <p>
++            Your {{ what }} needs to be uploaded to an existing <i>draft</i> record. You will need to create a
++            <b>new record</b> or select an existing <b>draft record</b> and then export your {{ what }} to it.
++        </p>
++
+         <BFormRadioGroup v-model="exportChoice" class="export-radio-group">
+-            <BFormRadio id="radio-new" v-localize name="exportChoice" value="new"> Export to new record </BFormRadio>
++            <BFormRadio :id="`radio-new-${uniqueSourceId}`" v-localize name="exportChoice" value="new">
++                Export to new record
++            </BFormRadio>
+ 
+-            <BFormRadio id="radio-existing" v-localize name="exportChoice" value="existing">
++            <BFormRadio :id="`radio-existing-${uniqueSourceId}`" v-localize name="exportChoice" value="existing">
+                 Export to existing draft record
+             </BFormRadio>
+         </BFormRadioGroup>
+@@ -123,6 +146,7 @@ function clearInputs() {
+             </div>
+             <div v-else>
+                 <BFormGroup
++                    v-if="!props.fileSource"
+                     id="fieldset-record-new"
+                     label-for="source-selector"
+                     :description="repositoryRecordDescription"
+@@ -172,7 +196,8 @@ function clearInputs() {
+                     v-model="recordUri"
+                     mode="directory"
+                     :require-writable="true"
+-                    :filter-options="includeOnlyRDMCompatible" />
++                    :filter-options="fileSource ? undefined : includeOnlyRDMCompatible"
++                    :selected-item="fileSourceAsItem" />
+             </BFormGroup>
+ 
+             <BButton
+diff --git a/client/src/components/FilesDialog/FilesDialog.vue b/client/src/components/FilesDialog/FilesDialog.vue
+index 201b14f887cc..aafcd559aac2 100644
+--- a/client/src/components/FilesDialog/FilesDialog.vue
++++ b/client/src/components/FilesDialog/FilesDialog.vue
+@@ -3,7 +3,6 @@ import { BAlert } from "bootstrap-vue";
+ import Vue, { computed, onMounted, ref } from "vue";
+ 
+ import {
+-    BrowsableFilesSourcePlugin,
+     browseRemoteFiles,
+     FileSourceBrowsingMode,
+     FilterFileSourcesOptions,
+@@ -11,7 +10,7 @@ import {
+     RemoteEntry,
+ } from "@/api/remoteFiles";
+ import { UrlTracker } from "@/components/DataDialog/utilities";
+-import { isSubPath } from "@/components/FilesDialog/utilities";
++import { fileSourcePluginToItem, isSubPath } from "@/components/FilesDialog/utilities";
+ import { SELECTION_STATES, type SelectionItem } from "@/components/SelectionDialog/selectionTypes";
+ import { useConfig } from "@/composables/config";
+ import { errorMessageAsString } from "@/utils/simple-error";
+@@ -33,6 +32,8 @@ interface FilesDialogProps {
+     multiple?: boolean;
+     /** Whether to show only writable sources */
+     requireWritable?: boolean;
++    /** Optional selected item to start browsing from */
++    selectedItem?: SelectionItem;
+ }
+ 
+ const props = withDefaults(defineProps<FilesDialogProps>(), {
+@@ -42,6 +43,7 @@ const props = withDefaults(defineProps<FilesDialogProps>(), {
+     mode: "file",
+     multiple: false,
+     requireWritable: false,
++    selectedItem: undefined,
+ });
+ 
+ const { config, isConfigLoaded } = useConfig();
+@@ -233,7 +235,7 @@ function load(record?: SelectionItem) {
+             .then((results) => {
+                 const convertedItems = results
+                     .filter((item) => !props.requireWritable || item.writable)
+-                    .map(fileSourcePluginToRecord);
++                    .map(fileSourcePluginToItem);
+                 items.value = convertedItems;
+                 formatRows();
+                 optionsShow.value = true;
+@@ -290,17 +292,6 @@ function entryToRecord(entry: RemoteEntry): SelectionItem {
+     return result;
+ }
+ 
+-function fileSourcePluginToRecord(plugin: BrowsableFilesSourcePlugin): SelectionItem {
+-    const result = {
+-        id: plugin.id,
+-        label: plugin.label,
+-        details: plugin.doc,
+-        isLeaf: false,
+-        url: plugin.uri_root,
+-    };
+-    return result;
+-}
+-
+ /** select all files in current folder**/
+ function onSelectAll() {
+     if (!currentDirectory.value) {
+@@ -343,7 +334,7 @@ function onOk() {
+ }
+ 
+ onMounted(() => {
+-    load();
++    load(props.selectedItem);
+ });
+ </script>
+ 
+diff --git a/client/src/components/FilesDialog/FilesInput.vue b/client/src/components/FilesDialog/FilesInput.vue
+index f72af2387ad5..b1e7390a3483 100644
+--- a/client/src/components/FilesDialog/FilesInput.vue
++++ b/client/src/components/FilesDialog/FilesInput.vue
+@@ -5,11 +5,14 @@ import { computed } from "vue";
+ import { FileSourceBrowsingMode, FilterFileSourcesOptions } from "@/api/remoteFiles";
+ import { filesDialog } from "@/utils/data";
+ 
++import { SelectionItem } from "../SelectionDialog/selectionTypes";
++
+ interface Props {
+     value: string;
+     mode?: FileSourceBrowsingMode;
+     requireWritable?: boolean;
+     filterOptions?: FilterFileSourcesOptions;
++    selectedItem?: SelectionItem;
+ }
+ 
+ interface SelectableFile {
+@@ -20,6 +23,7 @@ const props = withDefaults(defineProps<Props>(), {
+     mode: "file",
+     requireWritable: false,
+     filterOptions: undefined,
++    selectedItem: undefined,
+ });
+ 
+ const emit = defineEmits<{
+@@ -40,6 +44,7 @@ const selectFile = () => {
+         mode: props.mode,
+         requireWritable: props.requireWritable,
+         filterOptions: props.filterOptions,
++        selectedItem: props.selectedItem,
+     };
+     filesDialog((selected: SelectableFile) => {
+         currentValue.value = selected?.url;
+diff --git a/client/src/components/FilesDialog/utilities.ts b/client/src/components/FilesDialog/utilities.ts
+index 2e4067fbc668..21aff76122a0 100644
+--- a/client/src/components/FilesDialog/utilities.ts
++++ b/client/src/components/FilesDialog/utilities.ts
+@@ -1,3 +1,7 @@
++import type { BrowsableFilesSourcePlugin } from "@/api/remoteFiles";
++
++import type { SelectionItem } from "../SelectionDialog/selectionTypes";
++
+ export const isSubPath = (originPath: string, destinationPath: string) => {
+     return subPathCondition(ensureTrailingSlash(originPath), ensureTrailingSlash(destinationPath));
+ };
+@@ -9,3 +13,14 @@ function ensureTrailingSlash(path: string) {
+ function subPathCondition(originPath: string, destinationPath: string) {
+     return originPath !== destinationPath && destinationPath.startsWith(originPath);
+ }
++
++export function fileSourcePluginToItem(plugin: BrowsableFilesSourcePlugin): SelectionItem {
++    const result = {
++        id: plugin.id,
++        label: plugin.label,
++        details: plugin.doc,
++        isLeaf: false,
++        url: plugin.uri_root,
++    };
++    return result;
++}
+diff --git a/client/src/components/History/Export/HistoryExport.test.ts b/client/src/components/History/Export/HistoryExport.test.ts
+index 13668295cffa..20a270927acb 100644
+--- a/client/src/components/History/Export/HistoryExport.test.ts
++++ b/client/src/components/History/Export/HistoryExport.test.ts
+@@ -6,7 +6,7 @@ import { setActivePinia } from "pinia";
+ 
+ import type { HistorySummary } from "@/api";
+ import { fetchHistoryExportRecords } from "@/api/histories.export";
+-import type { components } from "@/api/schema";
++import type { FilesSourcePlugin } from "@/api/remoteFiles";
+ import { mockFetcher } from "@/api/schema/__mocks__";
+ import {
+     EXPIRED_STS_DOWNLOAD_RECORD,
+@@ -32,8 +32,7 @@ const FAKE_HISTORY = {
+ 
+ const REMOTE_FILES_API_ENDPOINT = new RegExp("/api/remote_files/plugins");
+ 
+-type FilesSourcePluginList = components["schemas"]["FilesSourcePlugin"][];
+-const REMOTE_FILES_API_RESPONSE: FilesSourcePluginList = [
++const REMOTE_FILES_API_RESPONSE: FilesSourcePlugin[] = [
+     {
+         id: "test-posix-source",
+         type: "posix",
+@@ -57,7 +56,7 @@ async function mountHistoryExport() {
+         (_history_id: string) => FAKE_HISTORY as HistorySummary
+     );
+ 
+-    const wrapper = shallowMount(HistoryExport, {
++    const wrapper = shallowMount(HistoryExport as object, {
+         propsData: { historyId: FAKE_HISTORY_ID },
+         localVue,
+         pinia,
+@@ -121,4 +120,22 @@ describe("HistoryExport.vue", () => {
+         expect(wrapper.find("#direct-download-tab").exists()).toBe(true);
+         expect(wrapper.find("#file-source-tab").exists()).toBe(false);
+     });
++
++    it("should display the ZENODO tab if the Zenodo plugin is available", async () => {
++        const zenodoPlugin: FilesSourcePlugin = {
++            id: "zenodo",
++            type: "rdm",
++            label: "Zenodo",
++            doc: "For testing",
++            writable: true,
++            browsable: true,
++        };
++        mockFetcher
++            .path(REMOTE_FILES_API_ENDPOINT)
++            .method("get")
++            .mock({ data: [zenodoPlugin] });
++        const wrapper = await mountHistoryExport();
++
++        expect(wrapper.find("#zenodo-file-source-tab").exists()).toBe(true);
++    });
+ });
+diff --git a/client/src/components/History/Export/HistoryExport.vue b/client/src/components/History/Export/HistoryExport.vue
+index eaf52ef83204..746b8c8b4122 100644
+--- a/client/src/components/History/Export/HistoryExport.vue
++++ b/client/src/components/History/Export/HistoryExport.vue
+@@ -4,7 +4,6 @@ import { faFileExport } from "@fortawesome/free-solid-svg-icons";
+ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+ import { BAlert, BButton, BCard, BTab, BTabs } from "bootstrap-vue";
+ import { computed, onMounted, ref, watch } from "vue";
+-import { RouterLink } from "vue-router";
+ 
+ import {
+     exportHistoryToFileSource,
+@@ -23,10 +22,12 @@ import { absPath } from "@/utils/redirect";
+ import { errorMessageAsString } from "@/utils/simple-error";
+ 
+ import ExportOptions from "./ExportOptions.vue";
++import RDMCredentialsInfo from "./RDMCredentialsInfo.vue";
+ import ExportToFileSourceForm from "@/components/Common/ExportForm.vue";
+ import ExportToRDMRepositoryForm from "@/components/Common/ExportRDMForm.vue";
+ import ExportRecordDetails from "@/components/Common/ExportRecordDetails.vue";
+ import ExportRecordTable from "@/components/Common/ExportRecordTable.vue";
++import ExternalLink from "@/components/ExternalLink.vue";
+ import LoadingSpan from "@/components/LoadingSpan.vue";
+ 
+ const {
+@@ -37,7 +38,7 @@ const {
+ } = useTaskMonitor();
+ 
+ const { hasWritable: hasWritableFileSources } = useFileSources({ exclude: ["rdm"] });
+-const { hasWritable: hasWritableRDMFileSources } = useFileSources({ include: ["rdm"] });
++const { hasWritable: hasWritableRDMFileSources, getFileSourceById } = useFileSources({ include: ["rdm"] });
+ 
+ const {
+     isPreparing: isPreparingDownload,
+@@ -63,6 +64,7 @@ const isLoadingRecords = ref(true);
+ const exportRecords = ref<ExportRecord[]>([]);
+ 
+ const historyName = computed(() => history.value?.name ?? props.historyId);
++const defaultFileName = computed(() => `(Galaxy History) ${historyName.value}`);
+ const latestExportRecord = computed(() => (exportRecords.value?.length ? exportRecords.value.at(0) : null));
+ const isLatestExportRecordReadyToDownload = computed(
+     () =>
+@@ -90,6 +92,7 @@ const history = computed(() => {
+ const errorMessage = ref<string | undefined>(undefined);
+ const actionMessage = ref<string | undefined>(undefined);
+ const actionMessageVariant = ref<ColorVariant | undefined>(undefined);
++const zenodoSource = computed(() => getFileSourceById("zenodo"));
+ 
+ onMounted(async () => {
+     updateExports();
+@@ -203,11 +206,13 @@ function updateExportParams(newParams: ExportParams) {
+                         Here you can generate a temporal download for your history. When your download link expires or
+                         your history changes you can re-generate it again.
+                     </p>
++
+                     <BAlert show variant="warning">
+                         History archive downloads can expire and are removed at regular intervals. For permanent
+                         storage, export to a <b>remote file</b> or download and then import the archive on another
+                         Galaxy server.
+                     </BAlert>
++
+                     <BButton
+                         class="gen-direct-download-btn"
+                         :disabled="!canGenerateDownload"
+@@ -215,6 +220,7 @@ function updateExportParams(newParams: ExportParams) {
+                         @click="prepareDownload">
+                         Generate direct download
+                     </BButton>
++
+                     <span v-if="isPreparingDownload">
+                         <LoadingSpan message="Galaxy is preparing your download, this will likely take a while" />
+                     </span>
+@@ -233,6 +239,7 @@ function updateExportParams(newParams: ExportParams) {
+                         one of the available remote file sources here. You will be able to re-import it later as long as
+                         it remains available on the remote server.
+                     </p>
++
+                     <ExportToFileSourceForm
+                         what="history"
+                         :clear-input-after-export="true"
+@@ -244,25 +251,47 @@ function updateExportParams(newParams: ExportParams) {
+                     title="to RDM repository"
+                     title-link-class="tab-export-to-rdm-repo">
+                     <p>You can <b>upload your history</b> to one of the available RDM repositories here.</p>
+-                    <p>
+-                        Your history export archive needs to be uploaded to an existing <i>draft</i> record. You will
+-                        need to create a <b>new record</b> on the repository or select an existing
+-                        <b>draft record</b> and then export your history to it.
+-                    </p>
+-                    <BAlert show variant="info">
+-                        You may need to setup your credentials for the selected repository in your
+-                        <RouterLink to="/user/information" target="_blank">settings page</RouterLink> to be able to
+-                        export. You can also define some default options for the export in those settings, like the
+-                        public name you want to associate with your records or whether you want to publish them
+-                        immediately or keep them as drafts after export.
+-                    </BAlert>
++
++                    <RDMCredentialsInfo what="history export archive" />
++
+                     <ExportToRDMRepositoryForm
+                         what="history"
+-                        :default-filename="historyName + ' (Galaxy History)'"
++                        :default-filename="defaultFileName"
+                         :default-record-name="historyName"
+                         :clear-input-after-export="true"
+                         @export="doExportToFileSource" />
+                 </BTab>
++                <BTab
++                    v-if="zenodoSource"
++                    id="zenodo-file-source-tab"
++                    title="to ZENODO"
++                    title-link-class="tab-export-to-zenodo-repo">
++                    <div class="zenodo-info">
++                        <img
++                            src="https://raw.githubusercontent.com/zenodo/zenodo/master/zenodo/modules/theme/static/img/logos/zenodo-gradient-square.svg"
++                            alt="ZENODO Logo" />
++                        <p>
++                            <ExternalLink href="https://zenodo.org"><b>Zenodo</b></ExternalLink> is a general-purpose
++                            open repository developed under the
++                            <ExternalLink href="https://www.openaire.eu">European OpenAIRE</ExternalLink> program and
++                            operated by <ExternalLink href="https://home.cern">CERN</ExternalLink>. It allows
++                            researchers to deposit research papers, data sets, research software, reports, and any other
++                            research related digital artefacts. For each submission, a persistent
++                            <b>digital object identifier (DOI)</b> is minted, which makes the stored items easily
++                            citeable.
++                        </p>
++                    </div>
++
++                    <RDMCredentialsInfo what="history export archive" selected-repository="ZENODO" />
++                    <ExportToRDMRepositoryForm
++                        what="history"
++                        :default-filename="defaultFileName"
++                        :default-record-name="historyName"
++                        :clear-input-after-export="true"
++                        :file-source="zenodoSource"
++                        @export="doExportToFileSource">
++                    </ExportToRDMRepositoryForm>
++                </BTab>
+             </BTabs>
+         </BCard>
+ 
+@@ -295,3 +324,11 @@ function updateExportParams(newParams: ExportParams) {
+             @onReimport="reimportFromRecord" />
+     </span>
+ </template>
++
++<style scoped>
++.zenodo-info {
++    display: flex;
++    align-items: start;
++    gap: 0.5rem;
++}
++</style>
+diff --git a/client/src/components/History/Export/RDMCredentialsInfo.vue b/client/src/components/History/Export/RDMCredentialsInfo.vue
+new file mode 100644
+index 000000000000..306944e64d80
+--- /dev/null
++++ b/client/src/components/History/Export/RDMCredentialsInfo.vue
+@@ -0,0 +1,23 @@
++<script setup lang="ts">
++import { BAlert } from "bootstrap-vue";
++import { RouterLink } from "vue-router";
++
++interface Props {
++    selectedRepository?: string;
++    what?: string;
++}
++
++withDefaults(defineProps<Props>(), {
++    selectedRepository: "the selected repository",
++    what: "file",
++});
++</script>
++
++<template>
++    <BAlert show variant="info">
++        You may need to setup your credentials for {{ selectedRepository }} in your
++        <RouterLink to="/user/information" target="_blank">preferences page</RouterLink> to be able to export. You can
++        also define some default options for the export in those settings, like the public name you want to associate
++        with your records.
++    </BAlert>
++</template>
+diff --git a/client/src/composables/fileSources.ts b/client/src/composables/fileSources.ts
+index 8f9790f1e5b8..ab6a89e20b9b 100644
+--- a/client/src/composables/fileSources.ts
++++ b/client/src/composables/fileSources.ts
+@@ -18,6 +18,10 @@ export function useFileSources(options: FilterFileSourcesOptions = {}) {
+         isLoading.value = false;
+     });
+ 
++    function getFileSourceById(id: string) {
++        return fileSources.value.find((fs) => fs.id === id);
++    }
++
+     return {
+         /**
+          * The list of available file sources from the server.
+@@ -31,5 +35,12 @@ export function useFileSources(options: FilterFileSourcesOptions = {}) {
+          * Whether the user can write files to any of the available file sources.
+          */
+         hasWritable: readonly(hasWritable),
++        /**
++         * Get the file source with the given ID.
++         *
++         * @param id - The ID of the file source to get.
++         * @returns The file source with the given ID, if found.
++         */
++        getFileSourceById,
+     };
+ }
+diff --git a/client/src/utils/upload-payload.js b/client/src/utils/upload-payload.js
+index 31a0306180e3..2ff3395828e3 100644
+--- a/client/src/utils/upload-payload.js
++++ b/client/src/utils/upload-payload.js
+@@ -9,6 +9,8 @@ export const URI_PREFIXES = [
+     "gxuserimport://",
+     "gxftp://",
+     "drs://",
++    "invenio://",
++    "zenodo://",
+ ];
+ 
+ export function isUrl(content) {
+diff --git a/lib/galaxy/config/sample/file_sources_conf.yml.sample b/lib/galaxy/config/sample/file_sources_conf.yml.sample
+index e810770d0f31..1295f05f53d7 100644
+--- a/lib/galaxy/config/sample/file_sources_conf.yml.sample
++++ b/lib/galaxy/config/sample/file_sources_conf.yml.sample
+@@ -211,6 +211,24 @@
+   public_name: ${user.preferences['invenio_sandbox|public_name']}
+   writable: true
+ 
++- type: zenodo
++  id: zenodo
++  doc: Zenodo is a general-purpose open-access repository developed under the European OpenAIRE program and operated by CERN. It allows researchers to deposit data sets, research software, reports, and any other research-related digital artifacts. For each submission, a persistent digital object identifier (DOI) is minted, which makes the stored items easily citeable.
++  label: Zenodo
++  url: https://zenodo.org
++  token: ${user.user_vault.read_secret('preferences/zenodo/token')}
++  public_name: ${user.preferences['zenodo|public_name']}
++  writable: true
++
++- type: zenodo
++  id: zenodo_sandbox
++  doc: This is the Sandbox instance of Zenodo. It is used for testing purposes only, content is NOT preserved. DOIs created in this instance are not real and will not resolve.
++  label: Zenodo Sandbox (TESTING ONLY)
++  url: https://sandbox.zenodo.org
++  token: ${user.user_vault.read_secret('preferences/zenodo_sandbox/token')}
++  public_name: ${user.preferences['zenodo_sandbox|public_name']}
++  writable: true
++
+ - type: onedata
+   id: onedata1
+   label: Onedata
+diff --git a/lib/galaxy/config/sample/user_preferences_extra_conf.yml.sample b/lib/galaxy/config/sample/user_preferences_extra_conf.yml.sample
+index f37f30165132..511cb6f13434 100644
+--- a/lib/galaxy/config/sample/user_preferences_extra_conf.yml.sample
++++ b/lib/galaxy/config/sample/user_preferences_extra_conf.yml.sample
+@@ -110,6 +110,32 @@ preferences:
+               type: text
+               required: False
+ 
++    zenodo:
++        description: Your Zenodo Integration Settings
++        inputs:
++            - name: token
++              label: Personal Access Token used to create draft records and to upload files. You can manage your tokens at https://zenodo.org/account/settings/applications/
++              type: secret
++              store: vault # Requires setting up vault_config_file in your galaxy.yml
++              required: False
++            - name: public_name
++              label: Creator name to associate with new records (formatted as "Last name, First name"). If left blank "Anonymous Galaxy User" will be used. You can always change this by editing your record directly.
++              type: text
++              required: False
++
++    zenodo_sandbox:
++        description: Your Zenodo Sandbox Integration Settings (TESTING ONLY)
++        inputs:
++            - name: token
++              label: Personal Access Token used to create draft records and to upload files. You can manage your tokens at https://sandbox.zenodo.org/account/settings/applications/
++              type: secret
++              store: vault # Requires setting up vault_config_file in your galaxy.yml
++              required: False
++            - name: public_name
++              label: Creator name to associate with new records (formatted as "Last name, First name"). If left blank "Anonymous Galaxy User" will be used. You can always change this by editing your record directly.
++              type: text
++              required: False
++
+     # Used in file_sources_conf.yml
+     onedata:
+         description: Your Onedata account
+diff --git a/lib/galaxy/files/sources/_rdm.py b/lib/galaxy/files/sources/_rdm.py
+index 14f7e9e1daa0..8cd6d8523e26 100644
+--- a/lib/galaxy/files/sources/_rdm.py
++++ b/lib/galaxy/files/sources/_rdm.py
+@@ -138,7 +138,7 @@ class RDMFilesSource(BaseFilesSource):
+ 
+     plugin_kind = PluginKind.rdm
+ 
+-    def __init__(self, **kwd: Unpack[FilesSourceProperties]):
++    def __init__(self, **kwd: Unpack[RDMFilesSourceProperties]):
+         props = self._parse_common_config_opts(kwd)
+         base_url = props.get("url")
+         if not base_url:
+diff --git a/lib/galaxy/files/sources/invenio.py b/lib/galaxy/files/sources/invenio.py
+index 6edc46dfe78c..8b237960878c 100644
+--- a/lib/galaxy/files/sources/invenio.py
++++ b/lib/galaxy/files/sources/invenio.py
+@@ -1,5 +1,6 @@
+ import datetime
+ import json
++import re
+ import urllib.request
+ from typing import (
+     Any,
+@@ -13,9 +14,11 @@
+ from typing_extensions import (
+     Literal,
+     TypedDict,
++    Unpack,
+ )
+ 
+ from galaxy.files.sources import (
++    DEFAULT_SCHEME,
+     Entry,
+     EntryData,
+     FilesSourceOptions,
+@@ -25,6 +28,7 @@
+ from galaxy.files.sources._rdm import (
+     OptionalUserContext,
+     RDMFilesSource,
++    RDMFilesSourceProperties,
+     RDMRepositoryInteractor,
+ )
+ from galaxy.util import (
+@@ -112,6 +116,26 @@ class InvenioRDMFilesSource(RDMFilesSource):
+ 
+     plugin_type = "inveniordm"
+ 
++    def __init__(self, **kwd: Unpack[RDMFilesSourceProperties]):
++        super().__init__(**kwd)
++        self._scheme_regex = re.compile(rf"^{self.get_scheme()}?://{self.id}|^{DEFAULT_SCHEME}://{self.id}")
++
++    def get_scheme(self) -> str:
++        return "invenio"
++
++    def score_url_match(self, url: str):
++        if match := self._scheme_regex.match(url):
++            return match.span()[1]
++        else:
++            return 0
++
++    def to_relative_path(self, url: str) -> str:
++        legacy_uri_root = f"{DEFAULT_SCHEME}://{self.id}"
++        if url.startswith(legacy_uri_root):
++            return url[len(legacy_uri_root) :]
++        else:
++            return super().to_relative_path(url)
++
+     def get_repository_interactor(self, repository_url: str) -> RDMRepositoryInteractor:
+         return InvenioRepositoryInteractor(repository_url, self)
+ 
+diff --git a/lib/galaxy/files/sources/zenodo.py b/lib/galaxy/files/sources/zenodo.py
+new file mode 100644
+index 000000000000..01385c4650d1
+--- /dev/null
++++ b/lib/galaxy/files/sources/zenodo.py
+@@ -0,0 +1,21 @@
++from galaxy.files.sources.invenio import InvenioRDMFilesSource
++
++
++class ZenodoRDMFilesSource(InvenioRDMFilesSource):
++    """A files source for Zenodo repositories.
++
++    Zenodo is an open science platform developed by CERN. It allows researchers
++    to deposit data, software, and other research outputs for long-term
++    preservation and sharing.
++
++    Zenodo repositories are based on InvenioRDM, so this class is a subclass of
++    InvenioRDMFilesSource with the appropriate plugin type.
++    """
++
++    plugin_type = "zenodo"
++
++    def get_scheme(self) -> str:
++        return "zenodo"
++
++
++__all__ = ("ZenodoRDMFilesSource",)
+diff --git a/lib/galaxy/tools/parameters/grouping.py b/lib/galaxy/tools/parameters/grouping.py
+index e49ba3de3f4d..ebf64542dd2e 100644
+--- a/lib/galaxy/tools/parameters/grouping.py
++++ b/lib/galaxy/tools/parameters/grouping.py
+@@ -38,7 +38,20 @@
+ 
+ log = logging.getLogger(__name__)
+ URI_PREFIXES = [
+-    f"{x}://" for x in ["http", "https", "ftp", "file", "gxfiles", "gximport", "gxuserimport", "gxftp", "drs"]
++    f"{x}://"
++    for x in [
++        "http",
++        "https",
++        "ftp",
++        "file",
++        "gxfiles",
++        "gximport",
++        "gxuserimport",
++        "gxftp",
++        "drs",
++        "invenio",
++        "zenodo",
++    ]
+ ]
+ 
+ 

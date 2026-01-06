@@ -1,0 +1,3063 @@
+diff --git a/client/src/api/datasets.ts b/client/src/api/datasets.ts
+index 6b8f0606537c..a95aa878dbf8 100644
+--- a/client/src/api/datasets.ts
++++ b/client/src/api/datasets.ts
+@@ -1,9 +1,30 @@
+ import axios from "axios";
+ 
+-import { type components, GalaxyApi, type GalaxyApiPaths, type HDADetailed } from "@/api";
++import {
++    type components,
++    type DatasetTextContentDetails,
++    GalaxyApi,
++    type GalaxyApiPaths,
++    type HDADetailed,
++} from "@/api";
+ import { withPrefix } from "@/utils/redirect";
+ import { rethrowSimple } from "@/utils/simple-error";
+ 
++export async function fetchDatasetTextContentDetails(params: { id: string }): Promise<DatasetTextContentDetails> {
++    const { data, error } = await GalaxyApi().GET("/api/datasets/{dataset_id}/get_content_as_text", {
++        params: {
++            path: {
++                dataset_id: params.id,
++            },
++        },
++    });
++
++    if (error) {
++        rethrowSimple(error);
++    }
++    return data;
++}
++
+ export async function fetchDatasetDetails(params: { id: string }): Promise<HDADetailed> {
+     const { data, error } = await GalaxyApi().GET("/api/datasets/{dataset_id}", {
+         params: {
+diff --git a/client/src/api/index.ts b/client/src/api/index.ts
+index 2ea3d8f65a14..020c8c3d6f3d 100644
+--- a/client/src/api/index.ts
++++ b/client/src/api/index.ts
+@@ -5,6 +5,11 @@ import { type components, type GalaxyApiPaths } from "@/api/schema";
+ 
+ export { type components, GalaxyApi, type GalaxyApiPaths };
+ 
++/**
++ * Contains a dataset's text content and details
++ */
++export type DatasetTextContentDetails = components["schemas"]["DatasetTextContentDetails"];
++
+ /**
+  * Contains minimal information about a History.
+  */
+diff --git a/client/src/components/Dataset/DatasetAsImage/DatasetAsImage.vue b/client/src/components/Dataset/DatasetAsImage/DatasetAsImage.vue
+index 5f9f2f50f39b..c51b286633e2 100644
+--- a/client/src/components/Dataset/DatasetAsImage/DatasetAsImage.vue
++++ b/client/src/components/Dataset/DatasetAsImage/DatasetAsImage.vue
+@@ -33,15 +33,15 @@ const isImage = computedAsync(async () => {
+     const res = await fetch(imageUrl.value);
+     const buff = await res.blob();
+     return buff.type.startsWith("image/");
+-}, null);
++}, true);
+ </script>
+ 
+ <template>
+     <div>
+         <div v-if="imageUrl" class="w-100 p-2">
+             <b-card nobody body-class="p-1">
+-                <b-img :src="imageUrl" fluid />
+                 <span v-if="!isImage" class="text-danger">This dataset does not appear to be an image.</span>
++                <b-img v-else :src="imageUrl" fluid />
+             </b-card>
+         </div>
+         <div v-else>
+diff --git a/client/src/components/License/License.vue b/client/src/components/License/License.vue
+index e34444fb6cba..ed1a0e8f1381 100644
+--- a/client/src/components/License/License.vue
++++ b/client/src/components/License/License.vue
+@@ -18,10 +18,10 @@
+ </template>
+ 
+ <script>
+-import axios from "axios";
+ import ExternalLink from "components/ExternalLink";
+ import LoadingSpan from "components/LoadingSpan";
+-import { getAppRoot } from "onload/loadConfig";
++
++import { GalaxyApi } from "@/api";
+ 
+ export default {
+     components: {
+@@ -62,9 +62,14 @@ export default {
+     methods: {
+         fetchLicense() {
+             this.license = null;
+-            const url = `${getAppRoot()}api/licenses/${this.licenseId}`;
+-            axios
+-                .get(url)
++            GalaxyApi()
++                .GET("/api/licenses/{license_id}", {
++                    params: {
++                        path: {
++                            license_id: this.licenseId,
++                        },
++                    },
++                })
+                 .then((response) => response.data)
+                 .then((data) => {
+                     this.license = data;
+diff --git a/client/src/components/Markdown/Editor/TextEditor.vue b/client/src/components/Markdown/Editor/TextEditor.vue
+new file mode 100644
+index 000000000000..261e9bd0d08d
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/TextEditor.vue
+@@ -0,0 +1,79 @@
++<template>
++    <div class="d-flex h-100 w-100">
++        <FlexPanel side="left">
++            <MarkdownToolBox :steps="steps" @insert="insertMarkdown" />
++        </FlexPanel>
++        <textarea
++            id="workflow-report-editor"
++            ref="textArea"
++            v-model="content"
++            class="markdown-textarea w-100 p-4"
++            @input="onUpdate" />
++    </div>
++</template>
++
++<script setup lang="ts">
++import { debounce } from "lodash";
++import { defineEmits, defineProps, nextTick, ref, watch } from "vue";
++
++import MarkdownToolBox from "@/components/Markdown/MarkdownToolBox.vue";
++import FlexPanel from "@/components/Panels/FlexPanel.vue";
++
++const props = defineProps<{
++    markdownText: string;
++    mode: "report" | "page";
++    steps?: Record<string, any>;
++    title: string;
++}>();
++
++const emit = defineEmits<{
++    (e: "update", value: string): void;
++}>();
++
++const content = ref<string>(props.markdownText);
++const textArea = ref<HTMLTextAreaElement | null>(null);
++
++const FENCE = "```";
++
++watch(
++    () => props.markdownText,
++    (newValue) => {
++        const textCursor = textArea.value?.selectionEnd || 0;
++        content.value = newValue;
++        nextTick(() => {
++            if (textArea.value) {
++                textArea.value.selectionEnd = textCursor;
++                textArea.value.focus();
++            }
++        });
++    }
++);
++
++function insertMarkdown(markdown: string) {
++    markdown = markdown.replace(")(", ", ");
++    markdown = `${FENCE}galaxy\n${markdown}\n${FENCE}\n`;
++    if (textArea.value) {
++        textArea.value.focus();
++        const cursorPosition = textArea.value.selectionStart;
++        const newContent =
++            content.value?.substr(0, cursorPosition) +
++            `\r\n${markdown.trim()}\r\n` +
++            content.value?.substr(cursorPosition);
++
++        emit("update", newContent || "");
++    }
++}
++
++const onUpdate = debounce((e: Event) => {
++    emit("update", content.value || "");
++}, 300);
++</script>
++
++<style scoped>
++.markdown-textarea {
++    border: none;
++    resize: none;
++    outline: none;
++    font: 14px/1.7 Menlo, Consolas, Monaco, "Andale Mono", monospace;
++}
++</style>
+diff --git a/client/src/components/Markdown/Elements/HistoryDatasetAsImage.vue b/client/src/components/Markdown/Elements/HistoryDatasetAsImage.vue
+deleted file mode 100644
+index 7753d39a2be7..000000000000
+--- a/client/src/components/Markdown/Elements/HistoryDatasetAsImage.vue
++++ /dev/null
+@@ -1,20 +0,0 @@
+-<script setup lang="ts">
+-import DatasetAsImage from "@/components/Dataset/DatasetAsImage/DatasetAsImage.vue";
+-
+-interface DatasetAsImageArgs {
+-    history_dataset_id: string;
+-    path?: string;
+-}
+-
+-interface Props {
+-    args: DatasetAsImageArgs;
+-}
+-
+-const props = defineProps<Props>();
+-</script>
+-
+-<template>
+-    <div>
+-        <DatasetAsImage :path="props.args.path" :history-dataset-id="props.args.history_dataset_id" />
+-    </div>
+-</template>
+diff --git a/client/src/components/Markdown/Elements/HistoryDatasetCollection/CollectionDisplay.vue b/client/src/components/Markdown/Elements/HistoryDatasetCollection/CollectionDisplay.vue
+deleted file mode 100644
+index 134483634555..000000000000
+--- a/client/src/components/Markdown/Elements/HistoryDatasetCollection/CollectionDisplay.vue
++++ /dev/null
+@@ -1,131 +0,0 @@
+-<template>
+-    <b-card body-class="p-0">
+-        <b-card-header>
+-            <span class="float-right">
+-                <b-button
+-                    v-b-tooltip.hover
+-                    :href="downloadUrl"
+-                    variant="link"
+-                    size="sm"
+-                    role="button"
+-                    title="Download Collection"
+-                    type="button"
+-                    class="py-0 px-1">
+-                    <span class="fa fa-download" />
+-                </b-button>
+-                <b-button
+-                    v-if="vcurrentUser && currentHistoryId"
+-                    v-b-tooltip.hover
+-                    href="#"
+-                    role="button"
+-                    variant="link"
+-                    title="Import Collection"
+-                    type="button"
+-                    class="py-0 px-1"
+-                    @click="onCopyCollection(currentHistoryId)">
+-                    <span class="fa fa-file-import" />
+-                </b-button>
+-            </span>
+-            <span>
+-                <span>Dataset Collection:</span>
+-                <span class="font-weight-light">{{ collectionName }}</span>
+-            </span>
+-        </b-card-header>
+-        <b-card-body>
+-            <LoadingSpan v-if="loading" message="Loading Collection" />
+-            <div v-else class="content-height">
+-                <b-alert v-if="!!messageText" :variant="messageVariant" show>
+-                    {{ messageText }}
+-                </b-alert>
+-                <CollectionTree :node="itemContent" :skip-head="true" />
+-            </div>
+-        </b-card-body>
+-    </b-card>
+-</template>
+-
+-<script>
+-import axios from "axios";
+-import LoadingSpan from "components/LoadingSpan";
+-import { copyCollection } from "components/Markdown/services";
+-import { getAppRoot } from "onload/loadConfig";
+-import { mapState } from "pinia";
+-
+-import { useHistoryStore } from "@/stores/historyStore";
+-import { useUserStore } from "@/stores/userStore";
+-
+-import CollectionTree from "./CollectionTree";
+-
+-export default {
+-    components: {
+-        CollectionTree,
+-        LoadingSpan,
+-    },
+-    props: {
+-        args: {
+-            type: Object,
+-            default: null,
+-        },
+-        collections: {
+-            type: Object,
+-            default: null,
+-        },
+-    },
+-    data() {
+-        return {
+-            itemContent: null,
+-            loading: true,
+-            messageText: null,
+-            messageVariant: null,
+-        };
+-    },
+-    computed: {
+-        ...mapState(useUserStore, ["currentUser"]),
+-        ...mapState(useHistoryStore, ["currentHistoryId"]),
+-        collectionName() {
+-            const collection = this.collections[this.args.history_dataset_collection_id];
+-            return collection && collection.name;
+-        },
+-        itemUrl() {
+-            return `${getAppRoot()}api/dataset_collections/${this.args.history_dataset_collection_id}`;
+-        },
+-        downloadUrl() {
+-            return `${getAppRoot()}api/dataset_collections/${this.args.history_dataset_collection_id}/download`;
+-        },
+-    },
+-    created() {
+-        this.getContent().then((data) => {
+-            this.itemContent = data;
+-            this.loading = false;
+-        });
+-    },
+-    methods: {
+-        onCopyCollection(currentHistoryId) {
+-            const hdcaId = this.args.history_dataset_collection_id;
+-            copyCollection(hdcaId, currentHistoryId).then(
+-                (response) => {
+-                    this.messageVariant = "success";
+-                    this.messageText = "Successfully copied to current history.";
+-                },
+-                (error) => {
+-                    this.messageVariant = "danger";
+-                    this.messageText = error;
+-                }
+-            );
+-        },
+-        async getContent() {
+-            try {
+-                const response = await axios.get(this.itemUrl);
+-                return response.data;
+-            } catch (e) {
+-                return `Failed to retrieve content. ${e}`;
+-            }
+-        },
+-    },
+-};
+-</script>
+-<style scoped>
+-.content-height {
+-    max-height: 15rem;
+-    overflow-y: auto;
+-}
+-</style>
+diff --git a/client/src/components/Markdown/Elements/HistoryDatasetDetails.vue b/client/src/components/Markdown/Elements/HistoryDatasetDetails.vue
+deleted file mode 100644
+index 0ec05b333b06..000000000000
+--- a/client/src/components/Markdown/Elements/HistoryDatasetDetails.vue
++++ /dev/null
+@@ -1,37 +0,0 @@
+-<template>
+-    <pre><code class="word-wrap-normal">{{ content }}</code></pre>
+-</template>
+-
+-<script>
+-const ATTRIBUTES = {
+-    history_dataset_name: "name",
+-    history_dataset_info: "info",
+-    history_dataset_peek: "peek",
+-    history_dataset_type: "ext",
+-};
+-export default {
+-    props: {
+-        args: {
+-            type: Object,
+-            required: true,
+-        },
+-        datasets: {
+-            type: Object,
+-            default: null,
+-        },
+-        name: {
+-            type: String,
+-            default: null,
+-        },
+-    },
+-    computed: {
+-        getClass() {
+-            return `dataset-${ATTRIBUTES[this.name]}`;
+-        },
+-        content() {
+-            const dataset = this.datasets[this.args.history_dataset_id];
+-            return dataset && dataset[ATTRIBUTES[this.name]];
+-        },
+-    },
+-};
+-</script>
+diff --git a/client/src/components/Markdown/Elements/HistoryDatasetDisplay.vue b/client/src/components/Markdown/Elements/HistoryDatasetDisplay.vue
+deleted file mode 100644
+index f16ca73a7deb..000000000000
+--- a/client/src/components/Markdown/Elements/HistoryDatasetDisplay.vue
++++ /dev/null
+@@ -1,239 +0,0 @@
+-<template>
+-    <b-card body-class="p-0">
+-        <b-card-header v-if="!embedded">
+-            <span class="float-right">
+-                <b-button
+-                    v-b-tooltip.hover
+-                    :href="downloadUrl"
+-                    variant="link"
+-                    size="sm"
+-                    role="button"
+-                    title="Download Dataset"
+-                    type="button"
+-                    class="py-0 px-1">
+-                    <span class="fa fa-download" />
+-                </b-button>
+-                <b-button
+-                    v-b-tooltip.hover
+-                    :href="importUrl"
+-                    role="button"
+-                    variant="link"
+-                    title="Import Dataset"
+-                    type="button"
+-                    class="py-0 px-1">
+-                    <span class="fa fa-file-import" />
+-                </b-button>
+-                <b-button
+-                    v-if="expanded"
+-                    v-b-tooltip.hover
+-                    href="#"
+-                    role="button"
+-                    variant="link"
+-                    title="Collapse"
+-                    type="button"
+-                    class="py-0 px-1"
+-                    @click="onExpand">
+-                    <span class="fa fa-angle-double-up" />
+-                </b-button>
+-                <b-button
+-                    v-else
+-                    v-b-tooltip.hover
+-                    href="#"
+-                    role="button"
+-                    variant="link"
+-                    title="Expand"
+-                    type="button"
+-                    class="py-0 px-1"
+-                    @click="onExpand">
+-                    <span class="fa fa-angle-double-down" />
+-                </b-button>
+-            </span>
+-            <span>
+-                <span>Dataset:</span>
+-                <span class="font-weight-light">{{ datasetName }}</span>
+-            </span>
+-        </b-card-header>
+-        <b-card-body>
+-            <UrlDataProvider v-slot="{ result: itemContent, loading: datasetLoading, error }" :url="itemUrl">
+-                <LoadingSpan v-if="datasetLoading" message="Loading Dataset" />
+-                <LoadingSpan v-else-if="loading" message="Loading Datatypes" />
+-                <div v-else-if="error">{{ error }}</div>
+-                <div v-else-if="!datatypesMapper">Datatypes not loaded.</div>
+-                <div v-else :class="contentClass">
+-                    <b-embed
+-                        v-if="datatypesMapper.isSubTypeOfAny(datasetType, ['pdf', 'html'])"
+-                        type="iframe"
+-                        aspect="16by9"
+-                        :src="displayUrl" />
+-                    <HistoryDatasetAsImage
+-                        v-else-if="datatypesMapper.isSubTypeOfAny(datasetType, ['galaxy.datatypes.images.Image'])"
+-                        :args="args" />
+-                    <div v-else-if="itemContent.item_data">
+-                        <div v-if="datatypesMapper.isSubTypeOfAny(datasetType, ['tabular'])">
+-                            <UrlDataProvider
+-                                v-slot="{ result: metaData, loading: metaLoading, error: metaError }"
+-                                :url="metaUrl">
+-                                <LoadingSpan v-if="metaLoading" message="Loading Metadata" />
+-                                <div v-else-if="metaError">{{ metaError }}</div>
+-                                <div v-else>
+-                                    <b-table
+-                                        id="tabular-dataset-table"
+-                                        sticky-header
+-                                        thead-tr-class="sticky-top"
+-                                        striped
+-                                        hover
+-                                        :per-page="perPage"
+-                                        :current-page="currentPage"
+-                                        :fields="getFields(metaData)"
+-                                        :items="getItems(itemContent.item_data, metaData)" />
+-                                    <b-pagination
+-                                        v-model="currentPage"
+-                                        align="center"
+-                                        :total-rows="getItems(itemContent.item_data, metaData).length"
+-                                        :per-page="perPage"
+-                                        aria-controls="tabular-dataset-table" />
+-                                </div>
+-                            </UrlDataProvider>
+-                        </div>
+-                        <pre v-else>
+-                            <code class="word-wrap-normal">{{ itemContent.item_data }}</code>
+-                        </pre>
+-                    </div>
+-                    <div v-else>No content found.</div>
+-                    <b-link v-if="itemContent.truncated" :href="itemContent.item_url"> Show More... </b-link>
+-                </div>
+-            </UrlDataProvider>
+-        </b-card-body>
+-    </b-card>
+-</template>
+-
+-<script>
+-import LoadingSpan from "components/LoadingSpan";
+-import { UrlDataProvider } from "components/providers/UrlDataProvider";
+-import { getAppRoot } from "onload/loadConfig";
+-import { mapState } from "pinia";
+-
+-import { useDatatypesMapperStore } from "@/stores/datatypesMapperStore";
+-
+-import HistoryDatasetAsImage from "./HistoryDatasetAsImage.vue";
+-
+-export default {
+-    components: {
+-        LoadingSpan,
+-        UrlDataProvider,
+-        HistoryDatasetAsImage,
+-    },
+-    props: {
+-        args: {
+-            type: Object,
+-            required: true,
+-        },
+-        datasets: {
+-            type: Object,
+-            required: true,
+-        },
+-        embedded: {
+-            type: Boolean,
+-            default: false,
+-        },
+-    },
+-    data() {
+-        return {
+-            currentPage: 1,
+-            expanded: false,
+-            perPage: 100,
+-        };
+-    },
+-    computed: {
+-        ...mapState(useDatatypesMapperStore, ["createMapper", "datatypesMapper", "loading"]),
+-        contentClass() {
+-            if (this.datatypesMapper?.isSubTypeOfAny(this.datasetType, ["tabular"])) {
+-                return "";
+-            }
+-            if (this.expanded) {
+-                return "embedded-dataset-expanded";
+-            } else {
+-                return "embedded-dataset";
+-            }
+-        },
+-        datasetType() {
+-            const dataset = this.datasets[this.args.history_dataset_id];
+-            return dataset.ext;
+-        },
+-        datasetName() {
+-            const dataset = this.datasets[this.args.history_dataset_id];
+-            return dataset && dataset.name;
+-        },
+-        downloadUrl() {
+-            return `${getAppRoot()}dataset/display?dataset_id=${this.args.history_dataset_id}`;
+-        },
+-        displayUrl() {
+-            return `${getAppRoot()}datasets/${this.args.history_dataset_id}/display/?preview=True`;
+-        },
+-        importUrl() {
+-            return `${getAppRoot()}dataset/imp?dataset_id=${this.args.history_dataset_id}`;
+-        },
+-        itemUrl() {
+-            return `/api/datasets/${this.args.history_dataset_id}/get_content_as_text`;
+-        },
+-        metaUrl() {
+-            return `/api/datasets/${this.args.history_dataset_id}`;
+-        },
+-    },
+-    created() {
+-        this.createMapper();
+-    },
+-    methods: {
+-        getFields(metaData) {
+-            const fields = [];
+-            const columnNames = metaData.metadata_column_names || [];
+-            const columnCount = metaData.metadata_columns;
+-            for (let i = 0; i < columnCount; i++) {
+-                fields.push({
+-                    key: `${i}`,
+-                    label: columnNames[i] || i,
+-                    sortable: true,
+-                });
+-            }
+-            return fields;
+-        },
+-        getItems(textData, metaData) {
+-            const tableData = [];
+-            const delimiter = metaData.metadata_delimiter || "\t";
+-            const comments = metaData.metadata_comment_lines || 0;
+-            const lines = textData.split("\n");
+-            lines.forEach((line, i) => {
+-                if (i >= comments) {
+-                    const tabs = line.split(delimiter);
+-                    const rowData = {};
+-                    let hasData = false;
+-                    tabs.forEach((cellData, j) => {
+-                        const cellDataTrimmed = cellData.trim();
+-                        if (cellDataTrimmed) {
+-                            hasData = true;
+-                        }
+-                        rowData[j] = cellDataTrimmed;
+-                    });
+-                    if (hasData) {
+-                        tableData.push(rowData);
+-                    }
+-                }
+-            });
+-            return tableData;
+-        },
+-        onExpand() {
+-            this.expanded = !this.expanded;
+-        },
+-    },
+-};
+-</script>
+-<style scoped>
+-.embedded-dataset {
+-    max-height: 20rem;
+-    overflow-y: auto;
+-}
+-.embedded-dataset-expanded {
+-    max-height: 40rem;
+-    overflow-y: auto;
+-}
+-</style>
+diff --git a/client/src/components/Markdown/Elements/HistoryLink.vue b/client/src/components/Markdown/Elements/HistoryLink.vue
+deleted file mode 100644
+index e613d78bedec..000000000000
+--- a/client/src/components/Markdown/Elements/HistoryLink.vue
++++ /dev/null
+@@ -1,73 +0,0 @@
+-<template>
+-    <div>
+-        <b-link
+-            v-if="showLink"
+-            data-description="history import link"
+-            :data-history-id="args.history_id"
+-            @click="onClick"
+-            >Click to Import History: {{ name }}.</b-link
+-        >
+-        <div v-if="imported" class="text-success">
+-            <FontAwesomeIcon icon="check" class="mr-1" />
+-            <span>Successfully Imported History: {{ name }}!</span>
+-        </div>
+-        <div v-if="!!error" class="text-danger">
+-            <FontAwesomeIcon icon="exclamation-triangle" class="mr-1" />
+-            <span>Failed to Import History: {{ name }}!</span>
+-            <span>{{ error }}</span>
+-        </div>
+-    </div>
+-</template>
+-
+-<script>
+-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+-import axios from "axios";
+-import BootstrapVue from "bootstrap-vue";
+-import { withPrefix } from "utils/redirect";
+-import { errorMessageAsString } from "utils/simple-error";
+-import Vue from "vue";
+-
+-Vue.use(BootstrapVue);
+-
+-export default {
+-    components: {
+-        FontAwesomeIcon,
+-    },
+-    props: {
+-        args: {
+-            type: Object,
+-            default: null,
+-        },
+-        histories: {
+-            type: Object,
+-            required: true,
+-        },
+-    },
+-    data() {
+-        return {
+-            imported: false,
+-            error: false,
+-        };
+-    },
+-    computed: {
+-        name() {
+-            return this.histories[this.args.history_id].name;
+-        },
+-        showLink() {
+-            return !this.imported && !this.error;
+-        },
+-    },
+-    methods: {
+-        onClick() {
+-            axios
+-                .post(withPrefix("/api/histories"), { history_id: this.args.history_id })
+-                .then(() => {
+-                    this.imported = true;
+-                })
+-                .catch((e) => {
+-                    this.error = errorMessageAsString(e);
+-                });
+-        },
+-    },
+-};
+-</script>
+diff --git a/client/src/components/Markdown/Elements/InstanceUrl.vue b/client/src/components/Markdown/Elements/InstanceUrl.vue
+deleted file mode 100644
+index d7acdece3dfa..000000000000
+--- a/client/src/components/Markdown/Elements/InstanceUrl.vue
++++ /dev/null
+@@ -1,31 +0,0 @@
+-<script setup lang="ts">
+-import { computed } from "vue";
+-
+-import ExternalLink from "@/components/ExternalLink.vue";
+-import LoadingSpan from "@/components/LoadingSpan.vue";
+-
+-interface InstanceUrlProps {
+-    href?: string;
+-    title?: string;
+-    loading: boolean;
+-}
+-
+-const props = withDefaults(defineProps<InstanceUrlProps>(), {
+-    href: undefined,
+-    title: undefined,
+-});
+-
+-const effectiveTitle = computed(() => {
+-    return props.title ? props.title : props.href;
+-});
+-</script>
+-
+-<template>
+-    <p>
+-        <LoadingSpan v-if="props.loading" message="Loading instance configuration"> </LoadingSpan>
+-        <ExternalLink v-else-if="props.href" :href="props.href">
+-            {{ effectiveTitle }}
+-        </ExternalLink>
+-        <i v-else> Configuration value unset, please contact Galaxy admin. </i>
+-    </p>
+-</template>
+diff --git a/client/src/components/Markdown/Elements/InvocationTime.vue b/client/src/components/Markdown/Elements/InvocationTime.vue
+deleted file mode 100644
+index b335bb377974..000000000000
+--- a/client/src/components/Markdown/Elements/InvocationTime.vue
++++ /dev/null
+@@ -1,26 +0,0 @@
+-<template>
+-    <div class="invocation-time" :invocation_id="args.invocation_id">
+-        <pre><code>{{ content }}</code></pre>
+-    </div>
+-</template>
+-
+-<script>
+-export default {
+-    props: {
+-        args: {
+-            type: Object,
+-            required: true,
+-        },
+-        invocations: {
+-            type: Object,
+-            required: true,
+-        },
+-    },
+-    computed: {
+-        content() {
+-            const invocation = this.invocations[this.args.invocation_id];
+-            return invocation && new Date(invocation["create_time"]).toUTCString();
+-        },
+-    },
+-};
+-</script>
+diff --git a/client/src/components/Markdown/Elements/Workflow/WorkflowLicense.vue b/client/src/components/Markdown/Elements/Workflow/WorkflowLicense.vue
+deleted file mode 100644
+index 796de30c9605..000000000000
+--- a/client/src/components/Markdown/Elements/Workflow/WorkflowLicense.vue
++++ /dev/null
+@@ -1,20 +0,0 @@
+-<script setup lang="ts">
+-import License from "@/components/License/License.vue";
+-
+-interface WorkflowLicenseProps {
+-    licenseId?: string;
+-}
+-
+-const props = withDefaults(defineProps<WorkflowLicenseProps>(), {
+-    licenseId: undefined,
+-});
+-</script>
+-
+-<template>
+-    <span>
+-        <p v-if="!props.licenseId">
+-            <i>Workflow does not define a license.</i>
+-        </p>
+-        <License v-else :license-id="props.licenseId" />
+-    </span>
+-</template>
+diff --git a/client/src/components/Markdown/Markdown.vue b/client/src/components/Markdown/Markdown.vue
+index 895f09714309..f7fc63ed6345 100644
+--- a/client/src/components/Markdown/Markdown.vue
++++ b/client/src/components/Markdown/Markdown.vue
+@@ -1,3 +1,83 @@
++<script setup lang="ts">
++import { faEdit } from "@fortawesome/free-solid-svg-icons";
++import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
++import { computed, onMounted, ref, watch } from "vue";
++
++import { parseMarkdown } from "./parse";
++
++import MarkdownDefault from "./Sections/MarkdownDefault.vue";
++import MarkdownGalaxy from "./Sections/MarkdownGalaxy.vue";
++import LoadingSpan from "@/components/LoadingSpan.vue";
++import StsDownloadButton from "@/components/StsDownloadButton.vue";
++
++// Props
++interface MarkdownConfig {
++    generate_time?: string;
++    generate_version?: string;
++    content?: string;
++    markdown?: string;
++    errors?: Array<{ error?: string; line?: string }>;
++    id?: string;
++    title?: string;
++    model_class?: string;
++}
++
++const props = defineProps<{
++    markdownConfig: MarkdownConfig;
++    enable_beta_markdown_export?: boolean;
++    downloadEndpoint: string;
++    readOnly?: boolean;
++    exportLink?: string;
++}>();
++
++// Refs and data
++const markdownObjects = ref<any[]>([]);
++const markdownErrors = ref<any[]>([]);
++const loading = ref(true);
++
++// Computed properties
++const effectiveExportLink = computed(() => (props.enable_beta_markdown_export ? props.exportLink : null));
++
++const time = computed(() => {
++    const generateTime = props.markdownConfig.generate_time;
++    if (generateTime) {
++        const formattedTime = generateTime.endsWith("Z") ? generateTime : `${generateTime}Z`;
++        const date = new Date(formattedTime);
++        return date.toLocaleString("default", {
++            day: "numeric",
++            month: "long",
++            year: "numeric",
++            hour: "numeric",
++            minute: "numeric",
++            timeZone: "UTC",
++            timeZoneName: "short",
++        });
++    }
++    return "unavailable";
++});
++
++const version = computed(() => props.markdownConfig.generate_version || "Unknown Galaxy Version");
++
++// Methods
++function initConfig() {
++    const config = props.markdownConfig;
++    if (Object.keys(config).length) {
++        const markdown = config.content || config.markdown || "";
++        markdownErrors.value = config.errors || [];
++        markdownObjects.value = parseMarkdown(markdown);
++        loading.value = false;
++    }
++}
++
++// Watchers
++watch(() => props.markdownConfig, initConfig);
++
++// Lifecycle hooks
++onMounted(() => {
++    initConfig();
++});
++</script>
++
+ <template>
+     <div class="markdown-wrapper">
+         <LoadingSpan v-if="loading" />
+@@ -9,8 +89,7 @@
+                     :fallback-url="exportLink"
+                     :download-endpoint="downloadEndpoint"
+                     size="sm"
+-                    title="Generate PDF">
+-                </StsDownloadButton>
++                    title="Generate PDF" />
+                 <b-button
+                     v-if="!readOnly"
+                     v-b-tooltip.hover
+@@ -20,16 +99,13 @@
+                     title="Edit Markdown"
+                     @click="$emit('onEdit')">
+                     Edit
+-                    <FontAwesomeIcon icon="edit" />
++                    <FontAwesomeIcon :icon="faEdit" />
+                 </b-button>
+                 <h1 class="float-right align-middle mr-2 mt-1 h-md">Galaxy {{ markdownConfig.model_class }}</h1>
+                 <span class="float-left font-weight-light">
+                     <h1 class="text-break align-middle">
+                         Title: {{ markdownConfig.title || markdownConfig.model_class }}
+                     </h1>
+-                    <h2 v-if="workflowVersions" class="text-break align-middle">
+-                        Workflow Checkpoint: {{ workflowVersions.version }}
+-                    </h2>
+                 </span>
+             </div>
+             <b-badge variant="info" class="w-100 rounded mb-3 white-space-normal">
+@@ -45,164 +121,9 @@
+                 </b-alert>
+             </div>
+             <div v-for="(obj, index) in markdownObjects" :key="index" class="markdown-components">
+-                <p v-if="obj.name == 'default'" class="text-justify m-2" v-html="obj.content" />
+-                <MarkdownContainer
+-                    v-else
+-                    :name="obj.name"
+-                    :args="obj.args"
+-                    :datasets="datasets"
+-                    :collections="collections"
+-                    :histories="histories"
+-                    :invocations="invocations"
+-                    :time="time"
+-                    :version="version"
+-                    :workflows="workflows" />
++                <MarkdownDefault v-if="obj.name === 'markdown'" :content="obj.content" />
++                <MarkdownGalaxy v-else-if="obj.name === 'galaxy'" :content="obj.content" />
+             </div>
+         </div>
+     </div>
+ </template>
+-
+-<script>
+-import { library } from "@fortawesome/fontawesome-svg-core";
+-import { faDownload, faEdit } from "@fortawesome/free-solid-svg-icons";
+-import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+-import BootstrapVue from "bootstrap-vue";
+-import MarkdownIt from "markdown-it";
+-import markdownItRegexp from "markdown-it-regexp";
+-import { mapActions } from "pinia";
+-import Vue from "vue";
+-
+-import { useWorkflowStore } from "@/stores/workflowStore";
+-
+-import { splitMarkdown as splitMarkdownUnrendered } from "./parse";
+-
+-import MarkdownContainer from "./MarkdownContainer.vue";
+-import LoadingSpan from "components/LoadingSpan.vue";
+-import StsDownloadButton from "components/StsDownloadButton.vue";
+-
+-const mdNewline = markdownItRegexp(/<br>/, () => {
+-    return "<div style='clear:both;'/><br>";
+-});
+-
+-const md = MarkdownIt();
+-md.use(mdNewline);
+-
+-Vue.use(BootstrapVue);
+-
+-library.add(faDownload, faEdit);
+-
+-export default {
+-    components: {
+-        MarkdownContainer,
+-        FontAwesomeIcon,
+-        LoadingSpan,
+-        StsDownloadButton,
+-    },
+-    props: {
+-        markdownConfig: {
+-            type: Object,
+-            default: null,
+-        },
+-        enable_beta_markdown_export: {
+-            type: Boolean,
+-            default: false,
+-        },
+-        downloadEndpoint: {
+-            type: String,
+-            default: null,
+-        },
+-        readOnly: {
+-            type: Boolean,
+-            default: false,
+-        },
+-        exportLink: {
+-            type: String,
+-            default: null,
+-        },
+-    },
+-    data() {
+-        return {
+-            markdownObjects: [],
+-            markdownErrors: [],
+-            datasets: {},
+-            histories: {},
+-            collections: {},
+-            workflows: {},
+-            invocations: {},
+-            loading: true,
+-            workflowID: undefined,
+-        };
+-    },
+-    computed: {
+-        effectiveExportLink() {
+-            return this.enable_beta_markdown_export ? this.exportLink : null;
+-        },
+-        time() {
+-            let generateTime = this.markdownConfig.generate_time;
+-            if (generateTime) {
+-                if (!generateTime.endsWith("Z")) {
+-                    // We don't have tzinfo, but this will always be UTC coming
+-                    // from Galaxy so append Z to assert that prior to parsing
+-                    generateTime += "Z";
+-                }
+-                const date = new Date(generateTime);
+-                return date.toLocaleString("default", {
+-                    day: "numeric",
+-                    month: "long",
+-                    year: "numeric",
+-                    minute: "numeric",
+-                    hour: "numeric",
+-                    timeZone: "UTC",
+-                    timeZoneName: "short",
+-                });
+-            }
+-            return "unavailable";
+-        },
+-        workflowVersions() {
+-            return this.workflowID ? this.getStoredWorkflowByInstanceId(this.workflowID) : undefined;
+-        },
+-        version() {
+-            return this.markdownConfig.generate_version || "Unknown Galaxy Version";
+-        },
+-    },
+-    watch: {
+-        markdownConfig() {
+-            this.initConfig();
+-        },
+-    },
+-    created() {
+-        this.initConfig();
+-        if (this.workflowID) {
+-            this.fetchWorkflowForInstanceId(this.workflowID);
+-        }
+-    },
+-    methods: {
+-        ...mapActions(useWorkflowStore, ["getStoredWorkflowByInstanceId", "fetchWorkflowForInstanceId"]),
+-        initConfig() {
+-            if (Object.keys(this.markdownConfig).length) {
+-                const config = this.markdownConfig;
+-                const markdown = config.content || config.markdown || "";
+-                this.markdownErrors = config.errors || [];
+-                this.markdownObjects = this.splitMarkdown(markdown);
+-                this.datasets = config.history_datasets || {};
+-                this.histories = config.histories || {};
+-                this.collections = config.history_dataset_collections || {};
+-                this.workflows = config.workflows || {};
+-                this.invocations = config.invocations || {};
+-                this.loading = false;
+-                this.workflowID = Object.keys(this.markdownConfig?.workflows ?? {})[0];
+-            }
+-        },
+-        splitMarkdown(markdown) {
+-            const { sections, markdownErrors } = splitMarkdownUnrendered(markdown);
+-            markdownErrors.forEach((error) => markdownErrors.push(error));
+-            sections.forEach((section) => {
+-                if (section.name == "default") {
+-                    section.content = md.render(section.content);
+-                }
+-            });
+-            return sections;
+-        },
+-    },
+-};
+-</script>
+diff --git a/client/src/components/Markdown/MarkdownEditor.vue b/client/src/components/Markdown/MarkdownEditor.vue
+index 0ace2e5a3b6d..09e4a086b27c 100644
+--- a/client/src/components/Markdown/MarkdownEditor.vue
++++ b/client/src/components/Markdown/MarkdownEditor.vue
+@@ -1,119 +1,59 @@
+ <template>
+-    <div id="columns" class="d-flex">
+-        <FlexPanel side="left">
+-            <MarkdownToolBox :steps="steps" @insert="insertMarkdown" />
+-        </FlexPanel>
+-        <div id="center" class="overflow-auto w-100">
+-            <div class="markdown-editor h-100">
+-                <div class="unified-panel-header" unselectable="on">
+-                    <div class="unified-panel-header-inner">
+-                        <div class="panel-header-buttons">
+-                            <slot name="buttons" />
+-                            <b-button
+-                                v-b-tooltip.hover.bottom
+-                                title="Help"
+-                                variant="link"
+-                                role="button"
+-                                @click="onHelp">
+-                                <FontAwesomeIcon icon="question" />
+-                            </b-button>
+-                        </div>
+-                        <div class="my-1">
+-                            {{ title }}
+-                        </div>
++    <div id="columns">
++        <div id="center" class="d-flex flex-column h-100 w-100">
++            <div class="unified-panel-header" unselectable="on">
++                <div class="unified-panel-header-inner">
++                    <div class="my-1">
++                        {{ title }}
++                    </div>
++                    <div>
++                        <slot name="buttons" />
++                        <b-button v-b-tooltip.hover.bottom title="Help" variant="link" role="button" @click="onHelp">
++                            <FontAwesomeIcon icon="question" />
++                        </b-button>
+                     </div>
+                 </div>
+-                <div class="unified-panel-body d-flex">
+-                    <textarea
+-                        id="workflow-report-editor"
+-                        ref="text-area"
+-                        v-model="content"
+-                        class="markdown-textarea"
+-                        @input="onUpdate" />
+-                </div>
++            </div>
++            <div class="unified-panel-body">
++                <TextEditor
++                    :title="title"
++                    :markdown-text="markdownText"
++                    :steps="steps"
++                    :mode="mode"
++                    @update="$emit('update', $event)" />
+             </div>
+         </div>
+-        <MarkdownHelpModal ref="help" :mode="mode" />
++        <b-modal v-model="showHelpModal" hide-footer>
++            <template v-slot:modal-title>
++                <h2 v-if="mode === 'page'" class="mb-0">Markdown Help for Pages</h2>
++                <h2 v-else class="mb-0">Markdown Help for Invocation Reports</h2>
++            </template>
++            <MarkdownHelp :mode="mode" />
++        </b-modal>
+     </div>
+ </template>
+ 
+-<script>
++<script setup lang="ts">
+ import { library } from "@fortawesome/fontawesome-svg-core";
+ import { faQuestion } from "@fortawesome/free-solid-svg-icons";
+ import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
+-import BootstrapVue from "bootstrap-vue";
+-import FlexPanel from "components/Panels/FlexPanel";
+-import _ from "underscore";
+-import Vue from "vue";
++import { ref } from "vue";
+ 
+-import MarkdownHelpModal from "./MarkdownHelpModal";
+-import MarkdownToolBox from "./MarkdownToolBox";
+-
+-Vue.use(BootstrapVue);
++import TextEditor from "./Editor/TextEditor.vue";
++import MarkdownHelp from "@/components/Markdown/MarkdownHelp.vue";
+ 
+ library.add(faQuestion);
+ 
+-const FENCE = "```";
++defineProps<{
++    markdownText: string;
++    steps?: Record<string, any>;
++    title: string;
++    mode: "report" | "page";
++}>();
++
++const showHelpModal = ref<boolean>(false);
+ 
+-export default {
+-    components: {
+-        FlexPanel,
+-        FontAwesomeIcon,
+-        MarkdownHelpModal,
+-        MarkdownToolBox,
+-    },
+-    props: {
+-        markdownText: {
+-            type: String,
+-            default: null,
+-        },
+-        steps: {
+-            type: Object,
+-            default: null,
+-        },
+-        title: {
+-            type: String,
+-            default: null,
+-        },
+-        mode: {
+-            type: String,
+-            default: "report",
+-        },
+-    },
+-    data() {
+-        return {
+-            content: this.markdownText,
+-        };
+-    },
+-    watch: {
+-        markdownText() {
+-            const textArea = this.$refs["text-area"];
+-            const textCursor = textArea.selectionEnd;
+-            this.content = this.markdownText;
+-            Vue.nextTick(() => {
+-                textArea.selectionEnd = textCursor;
+-                textArea.focus();
+-            });
+-        },
+-    },
+-    methods: {
+-        insertMarkdown(markdown) {
+-            markdown = markdown.replace(")(", ", ");
+-            markdown = `${FENCE}galaxy\n${markdown}\n${FENCE}\n`;
+-            const textArea = this.$refs["text-area"];
+-            textArea.focus();
+-            const cursorPosition = textArea.selectionStart;
+-            let newContent = this.content.substr(0, cursorPosition);
+-            newContent += `\r\n${markdown.trim()}\r\n`;
+-            newContent += this.content.substr(cursorPosition);
+-            this.$emit("update", newContent);
+-        },
+-        onUpdate: _.debounce(function (e) {
+-            this.$emit("update", this.content);
+-        }, 300),
+-        onHelp() {
+-            this.$refs.help.showMarkdownHelp();
+-        },
+-    },
+-};
++function onHelp() {
++    showHelpModal.value = true;
++}
+ </script>
+diff --git a/client/src/components/Markdown/MarkdownHelpModal.vue b/client/src/components/Markdown/MarkdownHelpModal.vue
+deleted file mode 100644
+index b4e605262c2a..000000000000
+--- a/client/src/components/Markdown/MarkdownHelpModal.vue
++++ /dev/null
+@@ -1,37 +0,0 @@
+-<script setup lang="ts">
+-import { computed, ref } from "vue";
+-
+-import MarkdownHelp from "./MarkdownHelp.vue";
+-
+-interface MarkdownHelpModalProps {
+-    mode: "report" | "page";
+-}
+-
+-const props = defineProps<MarkdownHelpModalProps>();
+-
+-const show = ref(false);
+-const title = computed(() => {
+-    if (props.mode == "page") {
+-        return "Markdown Help for Pages";
+-    } else {
+-        return "Markdown Help for Invocation Reports";
+-    }
+-});
+-
+-function showMarkdownHelp() {
+-    show.value = true;
+-}
+-
+-defineExpose({
+-    showMarkdownHelp,
+-});
+-</script>
+-
+-<template>
+-    <b-modal v-model="show" hide-footer>
+-        <template v-slot:modal-title>
+-            <h2 class="mb-0">{{ title }}</h2>
+-        </template>
+-        <MarkdownHelp :mode="mode" />
+-    </b-modal>
+-</template>
+diff --git a/client/src/components/Markdown/Sections/Elements/HistoryDatasetAsImage.vue b/client/src/components/Markdown/Sections/Elements/HistoryDatasetAsImage.vue
+new file mode 100644
+index 000000000000..c6dfa12a3c22
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/Elements/HistoryDatasetAsImage.vue
+@@ -0,0 +1,16 @@
++<script setup lang="ts">
++import DatasetAsImage from "@/components/Dataset/DatasetAsImage/DatasetAsImage.vue";
++
++interface Props {
++    datasetId: string;
++    path?: string;
++}
++
++defineProps<Props>();
++</script>
++
++<template>
++    <div>
++        <DatasetAsImage :path="path" :history-dataset-id="datasetId" />
++    </div>
++</template>
+diff --git a/client/src/components/Markdown/Elements/HistoryDatasetAsTable.vue b/client/src/components/Markdown/Sections/Elements/HistoryDatasetAsTable.vue
+similarity index 96%
+rename from client/src/components/Markdown/Elements/HistoryDatasetAsTable.vue
+rename to client/src/components/Markdown/Sections/Elements/HistoryDatasetAsTable.vue
+index dd74936ca879..fccbea90cfdf 100644
+--- a/client/src/components/Markdown/Elements/HistoryDatasetAsTable.vue
++++ b/client/src/components/Markdown/Sections/Elements/HistoryDatasetAsTable.vue
+@@ -6,11 +6,11 @@ import { UrlDataProvider } from "@/components/providers/UrlDataProvider.js";
+ import LoadingSpan from "@/components/LoadingSpan.vue";
+ 
+ interface HistoryDatasetAsTableProps {
+-    historyDatasetId: string;
+     compact: boolean;
++    datasetId: string;
++    footer?: string;
+     showColumnHeaders: boolean;
+     title?: string;
+-    footer?: string;
+ }
+ 
+ const props = withDefaults(defineProps<HistoryDatasetAsTableProps>(), {
+@@ -21,11 +21,11 @@ const props = withDefaults(defineProps<HistoryDatasetAsTableProps>(), {
+ });
+ 
+ const itemUrl = computed(() => {
+-    return `/api/datasets/${props.historyDatasetId}/get_content_as_text`;
++    return `/api/datasets/${props.datasetId}/get_content_as_text`;
+ });
+ 
+ const metaUrl = computed(() => {
+-    return `/api/datasets/${props.historyDatasetId}`;
++    return `/api/datasets/${props.datasetId}`;
+ });
+ 
+ const expanded = false;
+diff --git a/client/src/components/Markdown/Sections/Elements/HistoryDatasetCollection/CollectionDisplay.vue b/client/src/components/Markdown/Sections/Elements/HistoryDatasetCollection/CollectionDisplay.vue
+new file mode 100644
+index 000000000000..725ab3025330
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/Elements/HistoryDatasetCollection/CollectionDisplay.vue
+@@ -0,0 +1,115 @@
++<template>
++    <b-card body-class="p-0">
++        <b-card-header>
++            <span class="float-right">
++                <b-button
++                    v-b-tooltip.hover
++                    :href="downloadUrl"
++                    variant="link"
++                    size="sm"
++                    role="button"
++                    title="Download Collection"
++                    type="button"
++                    class="py-0 px-1">
++                    <span class="fa fa-download" />
++                </b-button>
++                <b-button
++                    v-if="currentUser && currentHistoryId"
++                    v-b-tooltip.hover
++                    href="#"
++                    role="button"
++                    variant="link"
++                    title="Import Collection"
++                    type="button"
++                    class="py-0 px-1"
++                    @click="onCopyCollection(currentHistoryId)">
++                    <span class="fa fa-file-import" />
++                </b-button>
++            </span>
++            <span>
++                <span>Dataset Collection:</span>
++                <span class="font-weight-light">{{ itemName }}</span>
++            </span>
++        </b-card-header>
++        <b-card-body>
++            <LoadingSpan v-if="loading" message="Loading Collection" />
++            <div v-else class="content-height">
++                <b-alert v-if="!!messageText" :variant="messageVariant" show>
++                    {{ messageText }}
++                </b-alert>
++                <CollectionTree :node="itemContent" :skip-head="true" />
++            </div>
++        </b-card-body>
++    </b-card>
++</template>
++
++<script setup lang="ts">
++import { computed, ref, watch } from "vue";
++
++import { GalaxyApi } from "@/api";
++import { copyCollection } from "@/components/Markdown/services";
++import { getAppRoot } from "@/onload/loadConfig";
++import { useHistoryStore } from "@/stores/historyStore";
++import { useUserStore } from "@/stores/userStore";
++
++import CollectionTree from "./CollectionTree.vue";
++import LoadingSpan from "@/components/LoadingSpan.vue";
++
++const props = defineProps<{
++    collectionId: string;
++}>();
++
++const userStore = useUserStore();
++const historyStore = useHistoryStore();
++
++const currentUser = computed(() => userStore.currentUser);
++const currentHistoryId = computed(() => historyStore.currentHistoryId);
++
++const itemContent = ref<any>(null);
++const loading = ref(true);
++const messageText = ref<string>("");
++const messageVariant = ref<string>("");
++
++const itemName = computed(() => itemContent.value?.name || "");
++const downloadUrl = computed(() => `${getAppRoot()}api/dataset_collections/${props.collectionId}/download`);
++
++const onCopyCollection = async (currentHistoryId: string) => {
++    try {
++        await copyCollection(props.collectionId, currentHistoryId);
++        messageVariant.value = "success";
++        messageText.value = "Successfully copied to current history.";
++    } catch (error) {
++        messageVariant.value = "danger";
++        messageText.value = error as string;
++    }
++};
++
++const getContent = async () => {
++    const { data, error } = await GalaxyApi().GET("/api/dataset_collections/{id}", {
++        params: {
++            path: { id: props.collectionId },
++        },
++    });
++    if (error) {
++        messageVariant.value = "danger";
++        messageText.value = `Failed to retrieve content. ${error}`;
++    } else {
++        messageText.value = "";
++    }
++    itemContent.value = data;
++    loading.value = false;
++};
++
++watch(
++    () => props.collectionId,
++    () => getContent(),
++    { immediate: true }
++);
++</script>
++
++<style scoped>
++.content-height {
++    max-height: 15rem;
++    overflow-y: auto;
++}
++</style>
+diff --git a/client/src/components/Markdown/Elements/HistoryDatasetCollection/CollectionTree.vue b/client/src/components/Markdown/Sections/Elements/HistoryDatasetCollection/CollectionTree.vue
+similarity index 100%
+rename from client/src/components/Markdown/Elements/HistoryDatasetCollection/CollectionTree.vue
+rename to client/src/components/Markdown/Sections/Elements/HistoryDatasetCollection/CollectionTree.vue
+diff --git a/client/src/components/Markdown/Sections/Elements/HistoryDatasetDetails.vue b/client/src/components/Markdown/Sections/Elements/HistoryDatasetDetails.vue
+new file mode 100644
+index 000000000000..993cc18e0201
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/Elements/HistoryDatasetDetails.vue
+@@ -0,0 +1,48 @@
++<script setup lang="ts">
++import { BAlert } from "bootstrap-vue";
++import { computed } from "vue";
++
++import { useDatasetStore } from "@/stores/datasetStore";
++
++type AttributeType = "name" | "info" | "peek" | "file_ext";
++
++const ATTRIBUTES: Record<string, AttributeType> = {
++    history_dataset_name: "name",
++    history_dataset_info: "info",
++    history_dataset_peek: "peek",
++    history_dataset_type: "file_ext",
++};
++
++interface Dataset {
++    name?: string;
++    info?: string;
++    peek?: string;
++    file_ext?: string;
++}
++
++const { getDatasetError, getDataset } = useDatasetStore();
++
++const props = defineProps<{
++    datasetId: string;
++    name: string;
++}>();
++
++const attributeValue = computed(() => {
++    if (dataset.value) {
++        const attributeName = ATTRIBUTES[props.name] || "";
++        if (attributeName) {
++            return dataset.value[attributeName] || `Dataset attribute '${attributeName}' unavailable.`;
++        }
++    }
++    return "";
++});
++
++const dataset = computed(() => getDataset(props.datasetId) as Dataset);
++const error = computed(() => getDatasetError(props.datasetId));
++const getClass = computed(() => `dataset-${ATTRIBUTES[props.name || ""]}`);
++</script>
++
++<template>
++    <BAlert v-if="error" show variant="warning">{{ error }}</BAlert>
++    <pre v-else><code :class="getClass">{{ attributeValue }}</code></pre>
++</template>
+diff --git a/client/src/components/Markdown/Elements/HistoryDatasetDisplay.test.js b/client/src/components/Markdown/Sections/Elements/HistoryDatasetDisplay.test.js
+similarity index 62%
+rename from client/src/components/Markdown/Elements/HistoryDatasetDisplay.test.js
+rename to client/src/components/Markdown/Sections/Elements/HistoryDatasetDisplay.test.js
+index e80863bedf64..bace74d04b34 100644
+--- a/client/src/components/Markdown/Elements/HistoryDatasetDisplay.test.js
++++ b/client/src/components/Markdown/Sections/Elements/HistoryDatasetDisplay.test.js
+@@ -1,9 +1,9 @@
+ import { createTestingPinia } from "@pinia/testing";
+ import { mount } from "@vue/test-utils";
+-import axios from "axios";
+-import MockAdapter from "axios-mock-adapter";
++import flushPromises from "flush-promises";
+ import { getLocalVue } from "tests/jest/helpers";
+ 
++import { useServerMock } from "@/api/client/__mocks__";
+ import { testDatatypesMapper } from "@/components/Datatypes/test_fixtures";
+ import { useDatatypesMapperStore } from "@/stores/datatypesMapperStore";
+ 
+@@ -11,44 +11,43 @@ import HistoryDatasetDisplay from "./HistoryDatasetDisplay.vue";
+ 
+ const localVue = getLocalVue();
+ 
+-const args = { history_dataset_id: "someId" };
++const { server, http } = useServerMock();
+ 
+ function setUpDatatypesStore() {
+     const pinia = createTestingPinia({ stubActions: false });
+-
+     const datatypesStore = useDatatypesMapperStore();
+     datatypesStore.datatypesMapper = testDatatypesMapper;
+-
+     return pinia;
+ }
+ 
+ describe("History Tabular Dataset Display", () => {
+     let wrapper;
+-    let axiosMock;
+-
++    const datasetId = "someId";
+     const tabular = { item_data: "29994\t-1.25\n37191\t-1.05\n36810\t2.08\n33320\t1.15" };
+-    const tabularMetaData = { metadata_columns: 2, metadata_data_lines: 4 };
+-    const tabularDatasets = { [args.history_dataset_id]: { ext: "tabular", name: "someName" } };
+-
++    const tabularMetaData = {
++        metadata_columns: 2,
++        metadata_data_lines: 4,
++        extension: "tabular",
++        name: "someName",
++        state: "ok",
++    };
+     const tabularTableDataCounts = tabularMetaData.metadata_columns * tabularMetaData.metadata_data_lines;
+ 
+-    beforeEach(async () => {
+-        axiosMock = new MockAdapter(axios);
+-        axiosMock.onGet(`/api/datasets/${args.history_dataset_id}`).reply(200, tabularMetaData);
+-        axiosMock.onGet(`/api/datasets/${args.history_dataset_id}/get_content_as_text`).reply(200, tabular);
+-
++    async function mountTarget() {
++        server.use(
++            http.get("/api/datasets/{dataset_id}", ({ response }) => response(200).json(tabularMetaData)),
++            http.get("/api/datasets/{dataset_id}/get_content_as_text", ({ response }) => response(200).json(tabular))
++        );
+         wrapper = mount(HistoryDatasetDisplay, {
+             localVue,
+-            propsData: { datasets: tabularDatasets, args },
++            propsData: { datasetId },
+             pinia: setUpDatatypesStore(),
+         });
+-    });
+-
+-    afterEach(() => {
+-        axiosMock.restore();
+-    });
++        await flushPromises();
++    }
+ 
+-    it("should render table", () => {
++    it("should render table", async () => {
++        await mountTarget();
+         expect(wrapper.find("table").exists()).toBe(true);
+         expect(wrapper.findAll("td").length).toBe(tabularTableDataCounts);
+         expect(wrapper.findAll("th").length).toBe(tabularMetaData.metadata_columns);
+@@ -57,40 +56,40 @@ describe("History Tabular Dataset Display", () => {
+ 
+ describe("History Text Dataset Display", () => {
+     let wrapper;
+-    let axiosMock;
+-
++    const datasetId = "otherId";
+     const text = { item_data: "some text" };
+-    const textDatasets = { [args.history_dataset_id]: { ext: "txt", name: "someName" } };
+-
+-    beforeEach(async () => {
+-        axiosMock = new MockAdapter(axios);
+-
+-        axiosMock.onGet(`/api/datasets/${args.history_dataset_id}/get_content_as_text`).reply(200, text);
+-
++    const textMetaData = { extension: "txt", name: "someName", state: "ok" };
++
++    async function mountTarget() {
++        server.resetHandlers();
++        server.use(
++            http.get("/api/datasets/{dataset_id}", ({ response }) => response(200).json(textMetaData)),
++            http.get("/api/datasets/{dataset_id}/get_content_as_text", ({ response }) => response(200).json(text))
++        );
+         wrapper = mount(HistoryDatasetDisplay, {
+             localVue,
+-            propsData: { datasets: textDatasets, args },
++            propsData: { datasetId },
+             pinia: setUpDatatypesStore(),
+         });
+-    });
+-
+-    afterEach(() => {
+-        axiosMock.restore();
+-    });
++        await flushPromises();
++    }
+ 
+-    it("should render text", () => {
++    it("should render text", async () => {
++        await mountTarget();
+         const renderedText = wrapper.find(".word-wrap-normal");
+         expect(renderedText.exists()).toBe(true);
+         expect(renderedText.text()).toBe(text.item_data);
+     });
+ 
+     it("should render header with embedded true", async () => {
++        await mountTarget();
+         expect(wrapper.find(".card-header").exists()).toBe(true);
+         await wrapper.setProps({ embedded: true });
+         expect(wrapper.find(".card-header").exists()).toBe(false);
+     });
+ 
+     it("should expand dataset", async () => {
++        await mountTarget();
+         const expandBTN = wrapper.find('.btn[title="Expand"]');
+         expect(expandBTN.exists()).toBe(true);
+         expect(wrapper.find(".embedded-dataset").exists()).toBe(true);
+diff --git a/client/src/components/Markdown/Sections/Elements/HistoryDatasetDisplay.vue b/client/src/components/Markdown/Sections/Elements/HistoryDatasetDisplay.vue
+new file mode 100644
+index 000000000000..fd6eff98f440
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/Elements/HistoryDatasetDisplay.vue
+@@ -0,0 +1,224 @@
++<template>
++    <b-card body-class="p-0">
++        <b-card-header v-if="!embedded">
++            <span class="float-right">
++                <b-button
++                    v-b-tooltip.hover
++                    :href="downloadUrl"
++                    variant="link"
++                    size="sm"
++                    role="button"
++                    title="Download Dataset"
++                    type="button"
++                    class="py-0 px-1">
++                    <span class="fa fa-download" />
++                </b-button>
++                <b-button
++                    v-b-tooltip.hover
++                    :href="importUrl"
++                    role="button"
++                    variant="link"
++                    title="Import Dataset"
++                    type="button"
++                    class="py-0 px-1">
++                    <span class="fa fa-file-import" />
++                </b-button>
++                <b-button
++                    v-if="expandable && expanded"
++                    v-b-tooltip.hover
++                    href="#"
++                    role="button"
++                    variant="link"
++                    title="Collapse"
++                    type="button"
++                    class="py-0 px-1"
++                    @click="onExpand">
++                    <span class="fa fa-angle-double-up" />
++                </b-button>
++                <b-button
++                    v-else-if="expandable"
++                    v-b-tooltip.hover
++                    href="#"
++                    role="button"
++                    variant="link"
++                    title="Expand"
++                    type="button"
++                    class="py-0 px-1"
++                    @click="onExpand">
++                    <span class="fa fa-angle-double-down" />
++                </b-button>
++            </span>
++            <span>
++                <span>Dataset:</span>
++                <span class="font-weight-light">{{ metaContent?.name || "..." }}</span>
++            </span>
++        </b-card-header>
++        <b-card-body>
++            <div v-if="metaError">{{ metaError }}</div>
++            <LoadingSpan v-else-if="!metaType" message="Loading Metadata" />
++            <LoadingSpan v-else-if="dataLoading" message="Loading Dataset" />
++            <div v-else-if="dataError">{{ dataError }}</div>
++            <LoadingSpan v-else-if="datatypesLoading" message="Loading Datatypes" />
++            <div v-else-if="!datatypesMapper">Datatypes not loaded.</div>
++            <div v-else>
++                <b-embed
++                    v-if="datatypesMapper.isSubTypeOfAny(metaType, ['pdf', 'html'])"
++                    type="iframe"
++                    aspect="16by9"
++                    :src="displayUrl" />
++                <HistoryDatasetAsImage
++                    v-else-if="datatypesMapper.isSubTypeOfAny(metaType, ['galaxy.datatypes.images.Image'])"
++                    :dataset-id="datasetId" />
++                <div v-else-if="dataContent?.item_data">
++                    <div v-if="datatypesMapper.isSubTypeOfAny(metaType, ['tabular'])">
++                        <b-table
++                            id="tabular-dataset-table"
++                            sticky-header
++                            thead-tr-class="sticky-top"
++                            striped
++                            hover
++                            :per-page="perPage"
++                            :current-page="currentPage"
++                            :fields="getFields(metaContent)"
++                            :items="getItems(dataContent.item_data, metaContent)" />
++                        <b-pagination
++                            v-model="currentPage"
++                            align="center"
++                            :total-rows="getItems(dataContent.item_data, metaContent).length"
++                            :per-page="perPage"
++                            aria-controls="tabular-dataset-table" />
++                    </div>
++                    <pre v-else :class="{ 'embedded-dataset': !expanded, 'embedded-dataset-expanded': expanded }">
++                        <code class="word-wrap-normal">{{ dataContent.item_data }}</code>
++                    </pre>
++                </div>
++                <div v-else>No content found.</div>
++                <b-link v-if="dataContent?.truncated" :href="dataContent?.item_url"> Show More... </b-link>
++            </div>
++        </b-card-body>
++    </b-card>
++</template>
++
++<script setup lang="ts">
++import { storeToRefs } from "pinia";
++import { computed, onMounted, ref } from "vue";
++
++import { getAppRoot } from "@/onload/loadConfig";
++import { useDatasetStore } from "@/stores/datasetStore";
++import { useDatasetTextContentStore } from "@/stores/datasetTextContentStore";
++import { useDatatypesMapperStore } from "@/stores/datatypesMapperStore";
++
++import HistoryDatasetAsImage from "./HistoryDatasetAsImage.vue";
++import LoadingSpan from "@/components/LoadingSpan.vue";
++
++interface Dataset {
++    name?: string;
++    extension?: string;
++    metadata_column_names?: Array<string>;
++    metadata_columns?: number;
++    metadata_delimiter?: string;
++    metadata_comment_lines?: number;
++}
++
++// Props
++const props = defineProps<{
++    datasetId: string;
++    embedded?: boolean;
++}>();
++
++// Reactive state
++const currentPage = ref(1);
++const expanded = ref(false);
++const perPage = ref(100);
++
++// Store
++const { getDatasetError, getDataset } = useDatasetStore();
++const {
++    getItemById: getContentById,
++    getItemLoadError: getContentLoadError,
++    isLoadingItem: isLoadingContent,
++} = useDatasetTextContentStore();
++
++// Dataset Mapper Store
++const datatypesMapperStore = useDatatypesMapperStore();
++const { datatypesMapper, loading: datatypesLoading } = storeToRefs(datatypesMapperStore);
++const { createMapper } = datatypesMapperStore;
++
++// Computed
++const expandable = computed(
++    () =>
++        metaType.value &&
++        !datatypesMapper.value?.isSubTypeOfAny(metaType.value, [
++            "tabular",
++            "galaxy.datatypes.images.Image",
++            "pdf",
++            "html",
++        ])
++);
++const dataContent = computed(() => getContentById(props.datasetId));
++const dataError = computed(() => getContentLoadError(props.datasetId));
++const dataLoading = computed(() => isLoadingContent(props.datasetId));
++const downloadUrl = computed(() => `${getAppRoot()}dataset/display?dataset_id=${props.datasetId}`);
++const displayUrl = computed(() => `${getAppRoot()}datasets/${props.datasetId}/display/?preview=True`);
++const importUrl = computed(() => `${getAppRoot()}dataset/imp?dataset_id=${props.datasetId}`);
++const metaContent = computed(() => getDataset(props.datasetId) as Dataset);
++const metaError = computed(() => getDatasetError(props.datasetId));
++const metaType = computed(() => metaContent.value?.extension);
++
++const getFields = (metaContent: Dataset) => {
++    const fields = [];
++    const columnNames = metaContent.metadata_column_names || [];
++    const columnCount = metaContent.metadata_columns || 0;
++    for (let i = 0; i < columnCount; i++) {
++        fields.push({
++            key: `${i}`,
++            label: columnNames[i] || i,
++            sortable: true,
++        });
++    }
++    return fields;
++};
++
++const getItems = (textData: string, metaData: Dataset) => {
++    const tableData: any[] = [];
++    const delimiter = metaData.metadata_delimiter || "\t";
++    const comments = metaData.metadata_comment_lines || 0;
++    const lines = textData.split("\n");
++    lines.forEach((line, i) => {
++        if (i >= comments) {
++            const tabs = line.split(delimiter);
++            const rowData: Record<string, string> = {};
++            let hasData = false;
++            tabs.forEach((cellData, j) => {
++                const cellDataTrimmed = cellData.trim();
++                if (cellDataTrimmed) {
++                    hasData = true;
++                }
++                rowData[j] = cellDataTrimmed;
++            });
++            if (hasData) {
++                tableData.push(rowData);
++            }
++        }
++    });
++    return tableData;
++};
++
++const onExpand = () => {
++    expanded.value = !expanded.value;
++};
++
++// Lifecycle hooks
++onMounted(() => {
++    createMapper();
++});
++</script>
++
++<style>
++.embedded-dataset {
++    height: 10rem;
++}
++.embedded-dataset-expanded {
++    height: 30rem;
++}
++</style>
+diff --git a/client/src/components/Markdown/Elements/HistoryDatasetIndex.vue b/client/src/components/Markdown/Sections/Elements/HistoryDatasetIndex.vue
+similarity index 100%
+rename from client/src/components/Markdown/Elements/HistoryDatasetIndex.vue
+rename to client/src/components/Markdown/Sections/Elements/HistoryDatasetIndex.vue
+diff --git a/client/src/components/Markdown/Elements/HistoryDatasetLink.vue b/client/src/components/Markdown/Sections/Elements/HistoryDatasetLink.vue
+similarity index 100%
+rename from client/src/components/Markdown/Elements/HistoryDatasetLink.vue
+rename to client/src/components/Markdown/Sections/Elements/HistoryDatasetLink.vue
+diff --git a/client/src/components/Markdown/Sections/Elements/HistoryLink.vue b/client/src/components/Markdown/Sections/Elements/HistoryLink.vue
+new file mode 100644
+index 000000000000..48bafa26c076
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/Elements/HistoryLink.vue
+@@ -0,0 +1,50 @@
++<script setup lang="ts">
++import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
++import axios from "axios";
++//@ts-ignore
++import { errorMessageAsString } from "utils/simple-error";
++import { computed, ref } from "vue";
++
++import { getAppRoot } from "@/onload/loadConfig";
++import { useHistoryStore } from "@/stores/historyStore";
++
++interface Props {
++    historyId: string;
++}
++
++const { getHistoryNameById } = useHistoryStore();
++
++const props = defineProps<Props>();
++
++const imported = ref(false);
++const error = ref<string | null>(null);
++
++const name = computed(() => getHistoryNameById(props.historyId));
++const showLink = computed(() => !imported.value && !error.value);
++
++const onImport = async () => {
++    try {
++        await axios.post(`${getAppRoot()}api/histories`, { history_id: props.historyId });
++        imported.value = true;
++    } catch (e) {
++        error.value = errorMessageAsString(e);
++    }
++};
++</script>
++
++<template>
++    <div>
++        <b-link v-if="showLink" data-description="history import link" :data-history-id="historyId" @click="onImport">
++            Click to Import History: {{ name }}
++        </b-link>
++        <div v-if="imported" class="text-success">
++            <FontAwesomeIcon icon="check" class="mr-1" />
++            <span>Successfully Imported History: {{ name }}!</span>
++        </div>
++        <div v-if="!!error" class="text-danger">
++            <FontAwesomeIcon icon="exclamation-triangle" class="mr-1" />
++            <span>Failed to handle History: {{ name || "n/a" }}!</span>
++            <span>{{ error }}</span>
++        </div>
++    </div>
++</template>
+diff --git a/client/src/components/Markdown/Sections/Elements/InstanceUrl.vue b/client/src/components/Markdown/Sections/Elements/InstanceUrl.vue
+new file mode 100644
+index 000000000000..0768ea5c774b
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/Elements/InstanceUrl.vue
+@@ -0,0 +1,20 @@
++<script setup lang="ts">
++import ExternalLink from "@/components/ExternalLink.vue";
++import LoadingSpan from "@/components/LoadingSpan.vue";
++
++defineProps<{
++    href?: string;
++    title?: string;
++    loading: boolean;
++}>();
++</script>
++
++<template>
++    <p>
++        <LoadingSpan v-if="loading" message="Loading instance configuration" />
++        <ExternalLink v-else-if="href" :href="href">
++            {{ title ?? href }}
++        </ExternalLink>
++        <i v-else>Configuration value unset, please contact Galaxy admin.</i>
++    </p>
++</template>
+diff --git a/client/src/components/Markdown/Sections/Elements/InvocationTime.vue b/client/src/components/Markdown/Sections/Elements/InvocationTime.vue
+new file mode 100644
+index 000000000000..6e3f6ce612f1
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/Elements/InvocationTime.vue
+@@ -0,0 +1,36 @@
++<script setup lang="ts">
++import axios from "axios";
++import { ref, watch } from "vue";
++
++import { getAppRoot } from "@/onload/loadConfig";
++
++const props = defineProps<{
++    invocationId: string;
++}>();
++
++const invocationTime = ref();
++
++async function fetchInvocation(invocationId: string) {
++    try {
++        const { data } = await axios.get(`${getAppRoot()}api/invocations/${invocationId}`);
++        if (data.create_time) {
++            invocationTime.value = new Date(data.create_time).toUTCString();
++        }
++    } catch (error) {
++        console.error("Error fetching invocation time:", error);
++        invocationTime.value = "";
++    }
++}
++
++watch(
++    () => props.invocationId,
++    () => fetchInvocation(props.invocationId),
++    { immediate: true }
++);
++</script>
++
++<template>
++    <div class="invocation-time">
++        <pre><code>{{ invocationTime }}</code></pre>
++    </div>
++</template>
+diff --git a/client/src/components/Markdown/Elements/JobMetrics.vue b/client/src/components/Markdown/Sections/Elements/JobMetrics.vue
+similarity index 100%
+rename from client/src/components/Markdown/Elements/JobMetrics.vue
+rename to client/src/components/Markdown/Sections/Elements/JobMetrics.vue
+diff --git a/client/src/components/Markdown/Elements/JobParameters.vue b/client/src/components/Markdown/Sections/Elements/JobParameters.vue
+similarity index 100%
+rename from client/src/components/Markdown/Elements/JobParameters.vue
+rename to client/src/components/Markdown/Sections/Elements/JobParameters.vue
+diff --git a/client/src/components/Markdown/Elements/JobSelection.vue b/client/src/components/Markdown/Sections/Elements/JobSelection.vue
+similarity index 100%
+rename from client/src/components/Markdown/Elements/JobSelection.vue
+rename to client/src/components/Markdown/Sections/Elements/JobSelection.vue
+diff --git a/client/src/components/Markdown/Elements/ToolStd.vue b/client/src/components/Markdown/Sections/Elements/ToolStd.vue
+similarity index 100%
+rename from client/src/components/Markdown/Elements/ToolStd.vue
+rename to client/src/components/Markdown/Sections/Elements/ToolStd.vue
+diff --git a/client/src/components/Markdown/Elements/Visualization.vue b/client/src/components/Markdown/Sections/Elements/Visualization.vue
+similarity index 100%
+rename from client/src/components/Markdown/Elements/Visualization.vue
+rename to client/src/components/Markdown/Sections/Elements/Visualization.vue
+diff --git a/client/src/components/Markdown/Elements/Workflow/WorkflowDisplay.test.js b/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowDisplay.test.js
+similarity index 95%
+rename from client/src/components/Markdown/Elements/Workflow/WorkflowDisplay.test.js
+rename to client/src/components/Markdown/Sections/Elements/Workflow/WorkflowDisplay.test.js
+index 95771664bc2a..a64a46f68f11 100644
+--- a/client/src/components/Markdown/Elements/Workflow/WorkflowDisplay.test.js
++++ b/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowDisplay.test.js
+@@ -62,8 +62,6 @@ describe("WorkflowDisplay", () => {
+             secondError: "secondValue",
+         });
+         await flushPromises();
+-        const cardHeader = wrapper.find(".card-header");
+-        expect(cardHeader.text()).toBe("Workflow: ...");
+         const errorContent = wrapper.findAll("li");
+         expect(errorContent.at(0).text()).toBe("firstError: firstValue");
+         expect(errorContent.at(1).text()).toBe("secondError: secondValue");
+diff --git a/client/src/components/Markdown/Elements/Workflow/WorkflowDisplay.vue b/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowDisplay.vue
+similarity index 78%
+rename from client/src/components/Markdown/Elements/Workflow/WorkflowDisplay.vue
+rename to client/src/components/Markdown/Sections/Elements/Workflow/WorkflowDisplay.vue
+index e61fba44f71f..15b3c3982d45 100644
+--- a/client/src/components/Markdown/Elements/Workflow/WorkflowDisplay.vue
++++ b/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowDisplay.vue
+@@ -1,6 +1,6 @@
+ <script setup lang="ts">
+ import axios from "axios";
+-import { computed, onMounted, ref } from "vue";
++import { computed, ref, watch } from "vue";
+ 
+ import { withPrefix } from "@/utils/redirect";
+ import { isEmpty } from "@/utils/utils";
+@@ -44,22 +44,41 @@ const itemUrl = computed(() => {
+     return withPrefix(`/api/workflows/${props.workflowId}/download?style=preview${extra}`);
+ });
+ 
+-onMounted(async () => {
+-    axios
+-        .get(itemUrl.value)
+-        .then((response) => {
+-            itemContent.value = response.data;
++watch(
++    () => props.workflowId,
++    () => {
++        loading.value = true;
++        if (props.workflowId) {
++            axios
++                .get(itemUrl.value)
++                .then((response) => {
++                    errorContent.value = null;
++                    itemContent.value = response.data;
++                    loading.value = false;
++                })
++                .catch((error) => {
++                    errorContent.value = error.response.data.err_msg;
++                    itemContent.value = null;
++                    loading.value = false;
++                });
++        } else {
++            errorContent.value = "Workflow id is missing.";
++            itemContent.value = null;
+             loading.value = false;
+-        })
+-        .catch((error) => {
+-            errorContent.value = error.response.data.err_msg;
+-            loading.value = false;
+-        });
+-});
++        }
++    },
++    { immediate: true }
++);
+ </script>
+ 
+ <template>
+-    <b-card body-class="p-0" class="workflow-display">
++    <b-alert v-if="!isEmpty(errorContent)" variant="warning" show>
++        <ul v-if="typeof errorContent === 'object'" class="my-2">
++            <li v-for="(errorValue, errorKey) in errorContent" :key="errorKey">{{ errorKey }}: {{ errorValue }}</li>
++        </ul>
++        <div v-else>{{ errorContent }}</div>
++    </b-alert>
++    <b-card v-else body-class="p-0" class="workflow-display">
+         <b-card-header v-if="!embedded">
+             <span class="float-right">
+                 <b-button
+@@ -94,15 +113,6 @@ onMounted(async () => {
+         <b-card-body>
+             <LoadingSpan v-if="loading" message="Loading Workflow" />
+             <div v-else :class="!expanded && 'content-height'">
+-                <b-alert v-if="!isEmpty(errorContent)" variant="danger" show>
+-                    <b>Please fix the following error(s):</b>
+-                    <ul v-if="typeof errorContent === 'object'" class="my-2">
+-                        <li v-for="(errorValue, errorKey) in errorContent" :key="errorKey">
+-                            {{ errorKey }}: {{ errorValue }}
+-                        </li>
+-                    </ul>
+-                    <div v-else>{{ errorContent }}</div>
+-                </b-alert>
+                 <div v-if="itemContent !== null">
+                     <div v-for="step in itemContent?.steps" :key="step.order_index" class="mb-2">
+                         <span :id="`step-icon-${step.order_index}`">
+diff --git a/client/src/components/Markdown/Elements/Workflow/WorkflowImage.vue b/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowImage.vue
+similarity index 100%
+rename from client/src/components/Markdown/Elements/Workflow/WorkflowImage.vue
+rename to client/src/components/Markdown/Sections/Elements/Workflow/WorkflowImage.vue
+diff --git a/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowLicense.test.js b/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowLicense.test.js
+new file mode 100644
+index 000000000000..67d6ae4dc558
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowLicense.test.js
+@@ -0,0 +1,45 @@
++import { createTestingPinia } from "@pinia/testing";
++import { mount } from "@vue/test-utils";
++import flushPromises from "flush-promises";
++import { getLocalVue } from "tests/jest/helpers";
++
++import { useServerMock } from "@/api/client/__mocks__";
++
++import WorkflowLicense from "./WorkflowLicense.vue";
++
++const localVue = getLocalVue();
++
++const { server, http } = useServerMock();
++
++describe("Workflow License", () => {
++    function mountTarget() {
++        const pinia = createTestingPinia({ stubActions: false });
++        server.use(
++            http.get("/api/workflows/{workflow_id}", ({ response }) =>
++                response(200).json({
++                    license: "MIT",
++                })
++            ),
++            http.get("/api/licenses/MIT", ({ response }) =>
++                response(200).json({
++                    licenseId: "MIT",
++                    name: "MIT License",
++                    url: "https://opensource.org/licenses/MIT",
++                })
++            )
++        );
++        return mount(WorkflowLicense, {
++            localVue,
++            pinia,
++            propsData: { workflowId: "workflow_id" },
++        });
++    }
++
++    it("should render name and link", async () => {
++        const wrapper = mountTarget();
++        expect(wrapper.find("[title='loading']").exists()).toBeTruthy();
++        await flushPromises();
++        expect(wrapper.text()).toBe("MIT License");
++        expect(wrapper.find("[href='https://opensource.org/licenses/MIT']").exists()).toBeTruthy();
++    });
++});
+diff --git a/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowLicense.vue b/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowLicense.vue
+new file mode 100644
+index 000000000000..9222bc2befb6
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowLicense.vue
+@@ -0,0 +1,48 @@
++<script setup lang="ts">
++import { ref, watch } from "vue";
++
++import { GalaxyApi } from "@/api";
++
++import License from "@/components/License/License.vue";
++import LoadingSpan from "@/components/LoadingSpan.vue";
++
++interface WorkflowLicenseProps {
++    workflowId: string;
++}
++
++const props = defineProps<WorkflowLicenseProps>();
++
++const errorMessage = ref("");
++const licenseId = ref("");
++const loading = ref(true);
++
++async function fetchLicense(workflowId: string) {
++    loading.value = true;
++    const { data, error } = await GalaxyApi().GET("/api/workflows/{workflow_id}", {
++        params: {
++            path: { workflow_id: workflowId },
++        },
++    });
++    if (error) {
++        errorMessage.value = `Failed to retrieve content. ${error.err_msg}`;
++        licenseId.value = "";
++    } else {
++        errorMessage.value = "";
++        licenseId.value = data?.license || "";
++    }
++    loading.value = false;
++}
++
++watch(
++    () => props.workflowId,
++    () => fetchLicense(props.workflowId),
++    { immediate: true }
++);
++</script>
++
++<template>
++    <LoadingSpan v-if="loading" />
++    <BAlert v-else-if="errorMessage" show variant="warning">{{ errorMessage }}</BAlert>
++    <License v-else-if="licenseId" :license-id="licenseId" />
++    <i v-else>Workflow does not define a license.</i>
++</template>
+diff --git a/client/src/components/Markdown/Elements/Workflow/WorkflowTree.vue b/client/src/components/Markdown/Sections/Elements/Workflow/WorkflowTree.vue
+similarity index 100%
+rename from client/src/components/Markdown/Elements/Workflow/WorkflowTree.vue
+rename to client/src/components/Markdown/Sections/Elements/Workflow/WorkflowTree.vue
+diff --git a/client/src/components/Markdown/Elements/handlesMappingJobs.ts b/client/src/components/Markdown/Sections/Elements/handlesMappingJobs.ts
+similarity index 100%
+rename from client/src/components/Markdown/Elements/handlesMappingJobs.ts
+rename to client/src/components/Markdown/Sections/Elements/handlesMappingJobs.ts
+diff --git a/client/src/components/Markdown/Sections/MarkdownDefault.vue b/client/src/components/Markdown/Sections/MarkdownDefault.vue
+new file mode 100644
+index 000000000000..ba7910a0a260
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/MarkdownDefault.vue
+@@ -0,0 +1,23 @@
++<script setup lang="ts">
++import MarkdownIt from "markdown-it";
++//@ts-ignore
++import markdownItRegexp from "markdown-it-regexp";
++import { computed } from "vue";
++
++const mdNewline = markdownItRegexp(/<br>/, () => {
++    return "<div style='clear:both;'/><br>";
++});
++
++const md = MarkdownIt();
++md.use(mdNewline);
++
++const props = defineProps<{
++    content: string;
++}>();
++
++const renderedContent = computed(() => md.render(props.content));
++</script>
++
++<template>
++    <div class="text-justify" v-html="renderedContent" />
++</template>
+diff --git a/client/src/components/Markdown/MarkdownContainer.test.js b/client/src/components/Markdown/Sections/MarkdownGalaxy.test.js
+similarity index 54%
+rename from client/src/components/Markdown/MarkdownContainer.test.js
+rename to client/src/components/Markdown/Sections/MarkdownGalaxy.test.js
+index a40f1d810176..9902607c19de 100644
+--- a/client/src/components/Markdown/MarkdownContainer.test.js
++++ b/client/src/components/Markdown/Sections/MarkdownGalaxy.test.js
+@@ -1,3 +1,4 @@
++import { createTestingPinia } from "@pinia/testing";
+ import { mount } from "@vue/test-utils";
+ import axios from "axios";
+ import MockAdapter from "axios-mock-adapter";
+@@ -5,7 +6,11 @@ import flushPromises from "flush-promises";
+ import { getLocalVue } from "tests/jest/helpers";
+ import { withPrefix } from "utils/redirect";
+ 
+-import MountTarget from "./MarkdownContainer.vue";
++import { useServerMock } from "@/api/client/__mocks__";
++
++import MountTarget from "./MarkdownGalaxy.vue";
++
++const { server, http } = useServerMock();
+ 
+ // mock routes
+ jest.mock("utils/redirect");
+@@ -13,7 +18,9 @@ withPrefix.mockImplementation((url) => url);
+ 
+ jest.mock("@/composables/config", () => ({
+     useConfig: jest.fn(() => ({
+-        config: {},
++        config: {
++            version_major: "test_version",
++        },
+         isConfigLoaded: true,
+     })),
+ }));
+@@ -21,13 +28,17 @@ jest.mock("@/composables/config", () => ({
+ const localVue = getLocalVue();
+ const axiosMock = new MockAdapter(axios);
+ 
+-async function mountComponent(propsData, apiMap = {}) {
++function mapAxios(apiMap = {}) {
+     axiosMock.reset();
+     for (const [method, apiDetails] of Object.entries(apiMap)) {
+         for (const [path, response] of Object.entries(apiDetails)) {
+             axiosMock[method](path).reply(200, response);
+         }
+     }
++}
++
++async function mountComponent(propsData, apiMap = {}) {
++    mapAxios(apiMap);
+     return mount(MountTarget, {
+         localVue,
+         propsData,
+@@ -37,59 +48,71 @@ async function mountComponent(propsData, apiMap = {}) {
+     });
+ }
+ 
+-async function testCollapse(wrapper) {
+-    const nolink = wrapper.find("a");
+-    expect(nolink.exists()).toBe(false);
+-    const collapse = "Click here to expand/collapse";
+-    await wrapper.setProps({ args: { collapse } });
+-    const link = wrapper.find("a");
+-    expect(link.text()).toBe(collapse);
+-    const container = wrapper.find(".collapse");
+-    expect(container.attributes("style")).toBe("display: none;");
+-    await link.trigger("click");
+-    expect(container.attributes("style")).toBe("");
++function mountComponentWithServer(propsData = {}, apiMap = {}) {
++    mapAxios(apiMap);
++    const pinia = createTestingPinia({ stubActions: false });
++    server.use(
++        http.get("/api/histories/test_history_id", ({ response }) =>
++            response(200).json({ id: "test_history_id", name: "history_name" })
++        )
++    );
++    return mount(MountTarget, {
++        localVue,
++        pinia,
++        propsData,
++        stubs: {
++            FontAwesomeIcon: true,
++        },
++    });
+ }
+ 
+ describe("MarkdownContainer", () => {
+     it("Renders version", async () => {
+         const version = "test_version";
+         const wrapper = await mountComponent({
+-            name: "generate_galaxy_version",
+-            args: {},
+-            version,
++            content: "generate_galaxy_version()",
+         });
+         const versionEl = wrapper.find(".galaxy-version");
+         expect(versionEl.exists()).toBe(true);
+         expect(versionEl.find("code").text()).toBe(version);
+-        testCollapse(wrapper);
++
++        // test collapsing
++        const nolink = wrapper.find("a");
++        expect(nolink.exists()).toBe(false);
++        const collapse = "Click here to expand/collapse";
++        await wrapper.setProps({ content: `generate_galaxy_version(collapse="${collapse}")` });
++        const link = wrapper.find("a");
++        expect(link.text()).toBe(collapse);
++        const container = wrapper.find(".collapse");
++        expect(container.attributes("style")).toBe("display: none;");
++        await link.trigger("click");
++        expect(container.attributes("style")).toBe("");
+     });
+ 
+     it("Renders time stamp", async () => {
+-        const time = "test_time";
++        const time = new Date();
++        jest.useFakeTimers().setSystemTime(time);
+         const wrapper = await mountComponent({
+-            name: "generate_time",
+-            args: {},
+-            time,
++            content: "generate_time()",
+         });
+         const version = wrapper.find(".galaxy-time");
+         expect(version.exists()).toBe(true);
+-        expect(version.find("code").text()).toBe(time);
+-        testCollapse(wrapper);
++        expect(version.find("code").text()).toBe(time.toUTCString());
+     });
+ 
+     it("Renders history link", async () => {
+-        const wrapper = await mountComponent(
++        const wrapper = mountComponentWithServer(
+             {
+-                name: "history_link",
+-                args: { history_id: "test_history_id" },
+-                histories: { test_history_id: { name: "history_name" } },
++                content: "history_link(history_id=test_history_id)",
+             },
+             {
+                 onPost: { "/api/histories": {} },
+             }
+         );
++        expect(wrapper.find("a").text()).toBe("Click to Import History: ...");
++        await flushPromises();
+         const link = wrapper.find("a");
+-        expect(link.text()).toBe("Click to Import History: history_name.");
++        expect(link.text()).toBe("Click to Import History: history_name");
+         await link.trigger("click");
+         const postedData = JSON.parse(axiosMock.history.post[0].data);
+         expect(postedData.history_id).toBe("test_history_id");
+@@ -100,15 +123,13 @@ describe("MarkdownContainer", () => {
+     });
+ 
+     it("Renders history link (with failing import error message)", async () => {
+-        const wrapper = await mountComponent({
+-            name: "history_link",
+-            args: { history_id: "test_history_id" },
+-            histories: { test_history_id: { name: "history_name" } },
++        const wrapper = mountComponentWithServer({
++            content: "history_link(history_id=test_history_id)",
+         });
+         await wrapper.find("a").trigger("click");
+         await flushPromises();
+         const error = wrapper.find(".text-danger");
+         const message = error.find("span");
+-        expect(message.text()).toBe("Failed to Import History: history_name!");
++        expect(message.text()).toBe("Failed to handle History: history_name!");
+     });
+ });
+diff --git a/client/src/components/Markdown/MarkdownContainer.vue b/client/src/components/Markdown/Sections/MarkdownGalaxy.vue
+similarity index 61%
+rename from client/src/components/Markdown/MarkdownContainer.vue
+rename to client/src/components/Markdown/Sections/MarkdownGalaxy.vue
+index 72f487deb26e..d07a560e4f9e 100644
+--- a/client/src/components/Markdown/MarkdownContainer.vue
++++ b/client/src/components/Markdown/Sections/MarkdownGalaxy.vue
+@@ -1,6 +1,7 @@
+ <script setup>
+-import { computed, ref } from "vue";
++import { computed, ref, watch } from "vue";
+ 
++import { getArgs } from "@/components/Markdown/parse";
+ import { useConfig } from "@/composables/config";
+ 
+ import HistoryDatasetAsImage from "./Elements/HistoryDatasetAsImage.vue";
+@@ -23,63 +24,51 @@ import WorkflowLicense from "./Elements/Workflow/WorkflowLicense.vue";
+ 
+ const { config, isConfigLoaded } = useConfig();
+ 
+-const toggle = ref(false);
+ const props = defineProps({
+-    name: {
++    content: {
+         type: String,
+         required: true,
+     },
+-    args: {
+-        type: Object,
+-        required: true,
+-    },
+-    datasets: {
+-        type: Object,
+-        default: null,
+-    },
+-    collections: {
+-        type: Object,
+-        default: null,
+-    },
+-    histories: {
+-        type: Object,
+-        default: null,
+-    },
+-    invocations: {
+-        type: Object,
+-        default: null,
+-    },
+-    time: {
+-        type: String,
+-        default: null,
+-    },
+-    version: {
+-        type: String,
+-        default: null,
+-    },
+-    workflows: {
+-        type: Object,
+-        default: null,
+-    },
+ });
+ 
+-const isCollapsible = computed(() => props.args.collapse !== undefined);
++const args = ref();
++const attributes = ref();
++const error = ref("");
++const loaded = ref(false);
++const toggle = ref(false);
++
++const isCollapsible = computed(() => args.value?.collapse !== undefined);
+ const isVisible = computed(() => !isCollapsible.value || toggle.value);
++const name = computed(() => attributes.value.name);
++const version = computed(() => config.version_major);
+ 
+-function argToBoolean(args, name, booleanDefault) {
+-    const valueAsString = args[name];
+-    if (valueAsString == "true") {
+-        return true;
+-    } else if (valueAsString == "false") {
+-        return false;
+-    } else {
+-        return booleanDefault;
++async function handleArgs() {
++    try {
++        error.value = "";
++        attributes.value = getArgs(props.content);
++        const attributesArgs = { ...attributes.value.args };
++        args.value = attributesArgs;
++    } catch (e) {
++        error.value = "The directive provided below is invalid. Please review it for errors.";
++        attributes.value = {};
+     }
++    loaded.value = true;
+ }
++
++watch(
++    () => props.content,
++    () => {
++        handleArgs();
++    },
++    { immediate: true }
++);
+ </script>
+ 
+ <template>
+-    <div>
++    <div v-if="loaded">
++        <b-alert v-if="error" variant="danger" show>
++            {{ error }}
++        </b-alert>
+         <b-link v-if="isCollapsible" class="font-weight-bold" @click="toggle = !toggle">
+             {{ args.collapse }}
+         </b-link>
+@@ -88,62 +77,80 @@ function argToBoolean(args, name, booleanDefault) {
+                 <pre><code>{{ version }}</code></pre>
+             </div>
+             <div v-else-if="name == 'generate_time'" class="galaxy-time">
+-                <pre><code>{{ time }}</code></pre>
+-            </div>
+-            <div v-else-if="name == 'workflow_image'" class="workflow-image" style="text-align: center">
+-                <WorkflowImage
+-                    :workflow-id="args.workflow_id"
+-                    :size="args.size || 'lg'"
+-                    :workflow-version="args.workflow_checkpoint || undefined" />
+-            </div>
+-            <div v-else-if="name == 'workflow_license'" class="workflow-license">
+-                <WorkflowLicense :license-id="workflows[args.workflow_id]['license']" />
++                <pre><code>{{ new Date().toUTCString() }}</code></pre>
+             </div>
++            <HistoryDatasetAsImage
++                v-else-if="name == 'history_dataset_as_image'"
++                :dataset-id="args.history_target_id || args.history_dataset_id"
++                :path="args.path" />
++            <HistoryDatasetAsTable
++                v-else-if="name == 'history_dataset_as_table'"
++                :compact="argToBoolean(args, 'compact', false)"
++                :dataset-id="args.history_target_id || args.history_dataset_id"
++                :footer="args.footer"
++                :show-column-headers="argToBoolean(args, 'show_column_headers', true)"
++                :title="args.title" />
++            <HistoryDatasetCollectionDisplay
++                v-else-if="name == 'history_dataset_collection_display'"
++                :collection-id="args.history_target_id || args.history_dataset_collection_id" />
++            <HistoryDatasetDetails
++                v-else-if="
++                    [
++                        'history_dataset_name',
++                        'history_dataset_info',
++                        'history_dataset_peek',
++                        'history_dataset_type',
++                    ].includes(name)
++                "
++                :dataset-id="args.history_target_id || args.history_dataset_id"
++                :name="name" />
++            <HistoryDatasetDisplay
++                v-else-if="['history_dataset_embedded', 'history_dataset_display'].includes(name)"
++                :dataset-id="args.history_target_id || args.history_dataset_id"
++                :embedded="name == 'history_dataset_embedded'" />
++            <HistoryDatasetIndex v-else-if="name == 'history_dataset_index'" :args="args" />
++            <HistoryDatasetLink v-else-if="name == 'history_dataset_link'" :args="args" />
++            <HistoryLink v-else-if="name == 'history_link'" :history-id="args.history_id" />
++            <InstanceUrl
++                v-else-if="name == 'instance_access_link'"
++                :href="config.instance_access_url"
++                :loading="!isConfigLoaded" />
+             <InstanceUrl
+                 v-else-if="name == 'instance_citation_link'"
+                 :href="config.citation_url"
+-                :loading="!isConfigLoaded">
+-            </InstanceUrl>
+-            <InstanceUrl v-else-if="name == 'instance_terms_link'" :href="config.terms_url" :loading="!isConfigLoaded">
+-            </InstanceUrl>
+-            <InstanceUrl
+-                v-else-if="name == 'instance_support_link'"
+-                :href="config.support_url"
+-                :loading="!isConfigLoaded">
+-            </InstanceUrl>
++                :loading="!isConfigLoaded" />
+             <InstanceUrl
+                 v-else-if="name == 'instance_help_link'"
+                 :href="config.helpsite_url"
+-                :loading="!isConfigLoaded">
+-            </InstanceUrl>
++                :loading="!isConfigLoaded" />
++            <InstanceUrl
++                v-else-if="name == 'instance_organization_link'"
++                :href="config.ga4gh_service_organization_url"
++                :title="config.ga4gh_service_organization_name"
++                :loading="!isConfigLoaded" />
+             <InstanceUrl
+                 v-else-if="name == 'instance_resources_link'"
+                 :href="config.instance_resource_url"
+-                :loading="!isConfigLoaded">
+-            </InstanceUrl>
++                :loading="!isConfigLoaded" />
+             <InstanceUrl
+-                v-else-if="name == 'instance_access_link'"
+-                :href="config.instance_access_url"
+-                :loading="!isConfigLoaded">
+-            </InstanceUrl>
++                v-else-if="name == 'instance_support_link'"
++                :href="config.support_url"
++                :loading="!isConfigLoaded" />
+             <InstanceUrl
+-                v-else-if="name == 'instance_organization_link'"
+-                :href="config.ga4gh_service_organization_url"
+-                :title="config.ga4gh_service_organization_name"
+-                :loading="!isConfigLoaded">
+-            </InstanceUrl>
+-            <HistoryLink v-else-if="name == 'history_link'" :args="args" :histories="histories" />
+-            <HistoryDatasetAsImage v-else-if="name == 'history_dataset_as_image'" :args="args" />
+-            <HistoryDatasetAsTable
+-                v-else-if="name == 'history_dataset_as_table'"
+-                :history-dataset-id="args.history_dataset_id"
+-                :compact="argToBoolean(args, 'compact', false)"
+-                :show-column-headers="argToBoolean(args, 'show_column_headers', true)"
+-                :title="args.title"
+-                :footer="args.footer" />
+-            <HistoryDatasetLink v-else-if="name == 'history_dataset_link'" :args="args" />
+-            <HistoryDatasetIndex v-else-if="name == 'history_dataset_index'" :args="args" />
+-            <InvocationTime v-else-if="name == 'invocation_time'" :args="args" :invocations="invocations" />
++                v-else-if="name == 'instance_terms_link'"
++                :href="config.terms_url"
++                :loading="!isConfigLoaded" />
++            <InvocationTime v-else-if="name == 'invocation_time'" :invocation-id="args.invocation_id" />
++            <div v-else-if="name === 'invocation_inputs'">
++                <div v-for="(input, index) in args.invocation.inputs" :key="index">
++                    <h4>Input {{ parseInt(index) + 1 }}: {{ input.label }}</h4>
++                </div>
++            </div>
++            <div v-else-if="name === 'invocation_outputs'">
++                <div v-for="(outputKey, index) in Object.keys(args.invocation.outputs)" :key="index">
++                    <h4>Output {{ index + 1 }}: {{ outputKey }}</h4>
++                </div>
++            </div>
+             <JobMetrics
+                 v-else-if="name == 'job_metrics'"
+                 :job-id="args.job_id"
+@@ -157,38 +164,22 @@ function argToBoolean(args, name, booleanDefault) {
+                 :param="args.param || undefined"
+                 :title="args.title"
+                 :footer="args.footer" />
+-            <WorkflowDisplay
+-                v-else-if="name == 'workflow_display'"
+-                :workflow-id="args.workflow_id"
+-                :workflow-version="args.workflow_checkpoint"
+-                :workflows="workflows" />
+-            <Visualization v-else-if="name == 'visualization'" :args="args" />
+-            <HistoryDatasetCollectionDisplay
+-                v-else-if="name == 'history_dataset_collection_display'"
+-                :args="args"
+-                :collections="collections" />
+             <ToolStd
+                 v-else-if="['tool_stdout', 'tool_stderr'].includes(name)"
+                 :job-id="args.job_id"
+                 :implicit-collection-jobs-id="args.implicit_collection_jobs_id"
+                 :name="name" />
+-            <HistoryDatasetDisplay
+-                v-else-if="['history_dataset_embedded', 'history_dataset_display'].includes(name)"
+-                :args="args"
+-                :datasets="datasets"
+-                :embedded="name == 'history_dataset_embedded'" />
+-            <HistoryDatasetDetails
+-                v-else-if="
+-                    [
+-                        'history_dataset_name',
+-                        'history_dataset_info',
+-                        'history_dataset_peek',
+-                        'history_dataset_type',
+-                    ].includes(name)
+-                "
+-                :name="name"
+-                :args="args"
+-                :datasets="datasets" />
++            <Visualization v-else-if="name == 'visualization'" :args="args" />
++            <WorkflowDisplay
++                v-else-if="name == 'workflow_display'"
++                :workflow-id="args.workflow_id"
++                :workflow-version="args.workflow_checkpoint" />
++            <WorkflowImage
++                v-else-if="name == 'workflow_image'"
++                :workflow-id="args.workflow_id"
++                :size="args.size || 'lg'"
++                :workflow-version="args.workflow_checkpoint || undefined" />
++            <WorkflowLicense v-else-if="name == 'workflow_license'" :workflow-id="args.workflow_id" />
+         </b-collapse>
+     </div>
+ </template>
+diff --git a/client/src/components/Markdown/parse.test.js b/client/src/components/Markdown/parse.test.js
+index 50b1ae99397d..11f7c7e1d51f 100644
+--- a/client/src/components/Markdown/parse.test.js
++++ b/client/src/components/Markdown/parse.test.js
+@@ -1,4 +1,4 @@
+-import { getArgs, replaceLabel, splitMarkdown } from "./parse";
++import { getArgs, parseMarkdown, replaceLabel, splitMarkdown } from "./parse";
+ 
+ describe("parse.ts", () => {
+     describe("getArgs", () => {
+@@ -20,6 +20,23 @@ describe("parse.ts", () => {
+         });
+     });
+ 
++    describe("parseSections", () => {
++        it("strip leading whitespace by default", () => {
++            const sections = parseMarkdown(
++                "```galaxy\njob_metrics(job_id=THISFAKEID)\n```\n DEFAULT_CONTENT \n```special\n SPECIAL_CONTENT \n```\n MORE_DEFAULT_CONTENT"
++            );
++            expect(sections.length).toBe(4);
++            expect(sections[0].name).toBe("galaxy");
++            expect(sections[0].content).toBe("job_metrics(job_id=THISFAKEID)");
++            expect(sections[1].name).toBe("markdown");
++            expect(sections[1].content).toBe("DEFAULT_CONTENT");
++            expect(sections[2].name).toBe("special");
++            expect(sections[2].content).toBe("SPECIAL_CONTENT");
++            expect(sections[3].name).toBe("markdown");
++            expect(sections[3].content).toBe("MORE_DEFAULT_CONTENT");
++        });
++    });
++
+     describe("splitMarkdown", () => {
+         it("strip leading whitespace by default", () => {
+             const { sections } = splitMarkdown("\n```galaxy\njob_metrics(job_id=THISFAKEID)\n```");
+diff --git a/client/src/components/Markdown/parse.ts b/client/src/components/Markdown/parse.ts
+index e001e1861a0d..4fbd63cd1870 100644
+--- a/client/src/components/Markdown/parse.ts
++++ b/client/src/components/Markdown/parse.ts
+@@ -4,15 +4,41 @@ const FUNCTION_ARGUMENT_REGEX = `\\s*[\\w\\|]+\\s*=` + FUNCTION_ARGUMENT_VALUE_R
+ const FUNCTION_CALL_LINE = `\\s*(\\w+)\\s*\\(\\s*(?:(${FUNCTION_ARGUMENT_REGEX})(,${FUNCTION_ARGUMENT_REGEX})*)?\\s*\\)\\s*`;
+ const FUNCTION_CALL_LINE_TEMPLATE = new RegExp(FUNCTION_CALL_LINE, "m");
+ 
+-type DefaultSection = { name: "default"; content: string };
+-type GalaxyDirectiveSection = { name: string; content: string; args: { [key: string]: string } };
+-type Section = DefaultSection | GalaxyDirectiveSection;
++type DefaultSection = { name: "markdown"; content: string };
++type GalaxySection = { name: string; content: string; args: { [key: string]: string } };
++type Section = DefaultSection | GalaxySection;
+ 
+ type WorkflowLabelKind = "input" | "output" | "step";
+ 
+ const SINGLE_QUOTE = "'";
+ const DOUBLE_QUOTE = '"';
+ 
++function parseResult(result: { name: string; content: string }[], name: string, content: string[]) {
++    const trimmedContent = content.join("\n").trim();
++    if (trimmedContent.length > 0) {
++        result.push({ name: name, content: trimmedContent });
++    }
++}
++
++export function parseMarkdown(input: string): { name: string; content: string }[] {
++    const result: { name: string; content: string }[] = [];
++    const lines = input.split("\n");
++    let currentName: string = "markdown";
++    let currentContent: string[] = [];
++    lines.forEach((line) => {
++        const sectionMatch = line.trim().match(/^```(.*)$/);
++        if (sectionMatch) {
++            parseResult(result, currentName, currentContent);
++            currentName = sectionMatch[1] || "markdown";
++            currentContent = [];
++        } else {
++            currentContent.push(line);
++        }
++    });
++    parseResult(result, currentName, currentContent);
++    return result;
++}
++
+ export function splitMarkdown(markdown: string, preserveWhitespace = false) {
+     const sections: Section[] = [];
+     const markdownErrors = [];
+@@ -27,7 +53,7 @@ export function splitMarkdown(markdown: string, preserveWhitespace = false) {
+                     const defaultContent = rawContent.trim();
+                     if (preserveWhitespace || defaultContent) {
+                         sections.push({
+-                            name: "default",
++                            name: "markdown",
+                             content: preserveWhitespace ? rawContent : defaultContent,
+                         });
+                     }
+@@ -50,7 +76,7 @@ export function splitMarkdown(markdown: string, preserveWhitespace = false) {
+             }
+         } else {
+             sections.push({
+-                name: "default",
++                name: "markdown",
+                 content: digest,
+             });
+             break;
+@@ -69,7 +95,7 @@ export function replaceLabel(
+ 
+     function rewriteSection(section: Section) {
+         if ("args" in section) {
+-            const directiveSection = section as GalaxyDirectiveSection;
++            const directiveSection = section as GalaxySection;
+             const args = directiveSection.args;
+             if (!(labelType in args)) {
+                 return section;
+@@ -121,7 +147,7 @@ function getQuoteChar(argMatch: string): string {
+     return quoteChar;
+ }
+ 
+-export function getArgs(content: string): GalaxyDirectiveSection {
++export function getArgs(content: string): GalaxySection {
+     const galaxy_function = FUNCTION_CALL_LINE_TEMPLATE.exec(content);
+     if (galaxy_function == null) {
+         throw Error("Failed to parse galaxy directive");
+diff --git a/client/src/composables/keyedCache.ts b/client/src/composables/keyedCache.ts
+index 1e3696bb77d7..530f7e0dba5c 100644
+--- a/client/src/composables/keyedCache.ts
++++ b/client/src/composables/keyedCache.ts
+@@ -1,6 +1,8 @@
+ import { type MaybeRefOrGetter, toValue } from "@vueuse/core";
+ import { computed, del, type Ref, ref, set, unref } from "vue";
+ 
++import { LastQueue } from "@/utils/lastQueue";
++
+ /**
+  * Parameters for fetching an item from the server.
+  *
+@@ -45,6 +47,8 @@ export function useKeyedCache<T>(
+     const loadingItem = ref<{ [key: string]: boolean }>({});
+     const loadingErrors = ref<{ [key: string]: Error }>({});
+ 
++    const fetchQueue = new LastQueue<FetchHandler<T>>();
++
+     const getItemById = computed(() => {
+         return (id: string) => {
+             const item = storedItems.value[id];
+@@ -84,7 +88,7 @@ export function useKeyedCache<T>(
+         set(loadingItem.value, itemId, true);
+         try {
+             const fetchItem = unref(fetchItemHandler);
+-            const item = await fetchItem({ id: itemId });
++            const item = await fetchQueue.enqueue(fetchItem, { id: itemId }, itemId);
+             set(storedItems.value, itemId, item);
+             return item;
+         } catch (error) {
+diff --git a/client/src/stores/datasetStore.ts b/client/src/stores/datasetStore.ts
+index 235b901f36cf..6e48c9d51306 100644
+--- a/client/src/stores/datasetStore.ts
++++ b/client/src/stores/datasetStore.ts
+@@ -1,13 +1,13 @@
+ import { defineStore } from "pinia";
+ import { computed, set } from "vue";
+ 
+-import { type DatasetEntry, type HistoryContentItemBase, isInaccessible } from "@/api";
++import { type HDADetailed, type HistoryContentItemBase, isInaccessible } from "@/api";
+ import { fetchDatasetDetails } from "@/api/datasets";
+ import { useKeyedCache } from "@/composables/keyedCache";
+ 
+ export const useDatasetStore = defineStore("datasetStore", () => {
+     const shouldFetch = computed(() => {
+-        return (dataset?: DatasetEntry) => {
++        return (dataset?: HDADetailed) => {
+             if (!dataset) {
+                 return true;
+             }
+@@ -19,7 +19,7 @@ export const useDatasetStore = defineStore("datasetStore", () => {
+         };
+     });
+ 
+-    const { storedItems, getItemById, isLoadingItem, fetchItemById } = useKeyedCache<DatasetEntry>(
++    const { storedItems, getItemById, getItemLoadError, isLoadingItem, fetchItemById } = useKeyedCache<HDADetailed>(
+         fetchDatasetDetails,
+         shouldFetch
+     );
+@@ -27,7 +27,7 @@ export const useDatasetStore = defineStore("datasetStore", () => {
+     function saveDatasets(historyContentsPayload: HistoryContentItemBase[]) {
+         const datasetList = historyContentsPayload.filter(
+             (entry) => entry.history_content_type === "dataset"
+-        ) as DatasetEntry[];
++        ) as HDADetailed[];
+         for (const dataset of datasetList) {
+             set(storedItems.value, dataset.id, dataset);
+         }
+@@ -36,6 +36,7 @@ export const useDatasetStore = defineStore("datasetStore", () => {
+     return {
+         storedDatasets: storedItems,
+         getDataset: getItemById,
++        getDatasetError: getItemLoadError,
+         isLoadingDataset: isLoadingItem,
+         fetchDataset: fetchItemById,
+         saveDatasets,
+diff --git a/client/src/stores/datasetTextContentStore.ts b/client/src/stores/datasetTextContentStore.ts
+new file mode 100644
+index 000000000000..e9e1f6476385
+--- /dev/null
++++ b/client/src/stores/datasetTextContentStore.ts
+@@ -0,0 +1,18 @@
++import { defineStore } from "pinia";
++
++import type { DatasetTextContentDetails } from "@/api";
++import { fetchDatasetTextContentDetails } from "@/api/datasets";
++import { useKeyedCache } from "@/composables/keyedCache";
++
++export const useDatasetTextContentStore = defineStore("datasetTextContentStore", () => {
++    const { storedItems, getItemById, getItemLoadError, isLoadingItem, fetchItemById } =
++        useKeyedCache<DatasetTextContentDetails>(fetchDatasetTextContentDetails);
++
++    return {
++        storedItems,
++        getItemById,
++        getItemLoadError,
++        isLoadingItem,
++        fetchItemById,
++    };
++});
+diff --git a/client/src/stores/datatypesMapperStore.ts b/client/src/stores/datatypesMapperStore.ts
+index 5fef18a2f969..de8fe36c6638 100644
+--- a/client/src/stores/datatypesMapperStore.ts
++++ b/client/src/stores/datatypesMapperStore.ts
+@@ -1,7 +1,7 @@
+ import { defineStore } from "pinia";
+ 
+ import { getDatatypesMapper } from "@/components/Datatypes";
+-import { type DatatypesMapperModel } from "@/components/Datatypes/model";
++import type { DatatypesMapperModel } from "@/components/Datatypes/model";
+ import { rethrowSimple } from "@/utils/simple-error";
+ 
+ interface State {
+@@ -15,15 +15,15 @@ export const useDatatypesMapperStore = defineStore("datatypesMapperStore", {
+         loading: false,
+     }),
+     actions: {
+-        async createMapper(this: State) {
++        async createMapper() {
+             if (!this.loading && !this.datatypesMapper) {
+                 this.loading = true;
+                 try {
+                     this.datatypesMapper = await getDatatypesMapper(false);
+-                    this.loading = false;
+                 } catch (error) {
+-                    this.loading = false;
+                     rethrowSimple(error);
++                } finally {
++                    this.loading = false;
+                 }
+             }
+         },
+diff --git a/client/src/style/scss/markdown.scss b/client/src/style/scss/markdown.scss
+index 31de045c3a60..62292052aee4 100644
+--- a/client/src/style/scss/markdown.scss
++++ b/client/src/style/scss/markdown.scss
+@@ -1,18 +1,3 @@
+-.markdown-editor {
+-    display: flex;
+-    flex: 1;
+-    flex-direction: column;
+-    .markdown-textarea {
+-        @extend .p-4;
+-        @extend .w-100;
+-        border: none;
+-        resize: none;
+-        outline: none;
+-        font: 16px/1.7 Menlo, Consolas, Monaco, "Andale Mono", monospace;
+-        flex: 1;
+-    }
+-}
+-
+ .markdown-wrapper {
+     @extend .px-4;
+     .markdown-components {
+diff --git a/lib/galaxy_test/selenium/test_workflow_run.py b/lib/galaxy_test/selenium/test_workflow_run.py
+index 36a4a60af080..8dd83fef676c 100644
+--- a/lib/galaxy_test/selenium/test_workflow_run.py
++++ b/lib/galaxy_test/selenium/test_workflow_run.py
+@@ -339,7 +339,7 @@ def test_execution_with_custom_invocation_report(self):
+         self.workflow_populator.wait_for_history_workflows(history_id, expected_invocation_count=1)
+         invocation_0 = self.workflow_populator.history_invocations(history_id)[0]
+         self.get(f"workflows/invocations/report?id={invocation_0['id']}")
+-        self.wait_for_selector_visible(".embedded-dataset")
++        self.wait_for_selector_visible(".markdown-components")
+         self.screenshot("workflow_report_custom_1")
+ 
+     @selenium_test
