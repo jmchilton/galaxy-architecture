@@ -189,9 +189,15 @@ class TopicMetadata(BaseModel):
 # ============================================================================
 
 class ContentBlockType(str, Enum):
-    """Type of content block."""
+    """Type of content block.
+
+    - PROSE: Markdown content rendered in docs only (not slides)
+    - SLIDE: Content rendered in both slides and docs
+    - AGENT_CONTEXT: Content only available for agent command generation (not rendered anywhere)
+    """
     PROSE = "prose"
     SLIDE = "slide"
+    AGENT_CONTEXT = "agent-context"
 
 
 class DocRenderConfig(BaseModel):
@@ -292,6 +298,11 @@ class ContentBlock(BaseModel):
                 self.doc.render = True
             if self.slides.render is True:  # Using default
                 self.slides.render = True
+
+        elif self.type == ContentBlockType.AGENT_CONTEXT:
+            # Agent context: NOT rendered in docs or slides, only for agent commands
+            self.doc.render = False
+            self.slides.render = False
 
         return self
 
@@ -427,9 +438,16 @@ class TopicContent(BaseModel):
     @field_validator('root')
     @classmethod
     def validate_at_least_one_slide(cls, v: list[ContentBlock]) -> list[ContentBlock]:
-        """Ensure there's at least one slide for training materials."""
+        """Ensure there's at least one slide for training materials.
+
+        Topics with only agent-context blocks (no renderable content) are allowed
+        to have no slides - they exist purely for agent command generation.
+        """
         has_slide = any(block.type == ContentBlockType.SLIDE for block in v)
-        if not has_slide:
+        has_renderable = any(block.type in (ContentBlockType.SLIDE, ContentBlockType.PROSE) for block in v)
+
+        # If topic has renderable content (slides or prose), require at least one slide
+        if has_renderable and not has_slide:
             raise ValueError("Content must include at least one slide block")
         return v
 

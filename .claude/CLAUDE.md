@@ -105,8 +105,7 @@ Each topic is defined by three files:
    - Related topics and code paths
 
 2. **content.yaml** - Ordered sequence of content blocks
-   - Each block: type (prose/slide), id, heading, content source
-   - Smart defaults: prose renders in docs only; slides render everywhere
+   - Each block: type, id, heading, content source
    - Content from inline, single file, or multiple fragments
 
 3. **fragments/** - Actual content (optional for granular organization)
@@ -114,6 +113,20 @@ Each topic is defined by three files:
    - Can use single fragment per block or multiple fragments per block
 
 All content validated with Pydantic v2 models before build.
+
+### Content Block Types
+
+| Type | Slides | Sphinx Docs | Agent Commands | Use Case |
+|------|--------|-------------|----------------|----------|
+| `slide` | ✅ | ✅ | ✅ | Training slides, also rendered in docs |
+| `prose` | ❌ | ✅ | ✅ | Extended docs content, not for slides |
+| `agent-context` | ❌ | ❌ | ✅ | Context only for agent command generation |
+
+**slide** - Primary content type. Rendered in training slides AND Sphinx docs. Use for core architectural explanations.
+
+**prose** - Extended documentation. Rendered in Sphinx docs only. Use for detailed explanations too verbose for slides.
+
+**agent-context** - Agent-only context. NOT rendered anywhere. Use for guidance, examples, anti-patterns, and tips specifically for AI agents generating code or performing reviews. This content enriches generated agentic operations without cluttering human-facing docs.
 
 ## Build Artifacts
 

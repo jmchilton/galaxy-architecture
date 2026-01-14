@@ -29,6 +29,8 @@ Generate Claude slash command or skill from topic content by reading and reasoni
 
 2. **Understand the operation:**
    - Read the operation's `prompt` field to understand the development task
+   - If the prompt contains a TODO item, it is a indication that this is information you should
+     generate from the topic content and embed in the generated artifact.
    - Determine the operation type (claude-slash-command or claude-skill)
 
 3. **Reason about relevant content:**
@@ -61,6 +63,8 @@ Generate Claude slash command or skill from topic content by reading and reasoni
 ## Important Notes
 
 - **DO NOT mechanically copy** all content - use judgment about what's relevant
+- **DO** If either the files you're asked to generate already exist, do not read them, back them up,
+  and your new summary to the supplied path.
 - **DO** synthesize and reformulate content appropriately for the operation
 - **DO** prominently feature related_code_paths (Galaxy available at these paths)
 - **DO** fail if the operation doesn't exist or content is insufficient

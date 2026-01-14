@@ -21,4 +21,5 @@ startup
 production
 file-sources
 markdown
+tests
 ```

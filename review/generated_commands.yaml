@@ -1,0 +1,15 @@
+# Mapping of generated agentic operations to review command names
+# source: path relative to generated_agentic_operations/commands/
+# target: filename in review/generated_commands/
+
+commands:
+  - source: application-components-review-controllers-services-managers.md
+    target: gx-review-business-logic-organization.md
+
+  - source: dependency-injection-review-di.md
+    target: gx-review-di.md
+
+  - source: client-review-ui-components.md
+    target: gx-review-ui-components.md
+
+

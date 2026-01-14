@@ -21,6 +21,19 @@ training:
   time_estimation: 15m
   previous_to: tasks
   continues_to: plugins
+  agentic_operations:
+  - name: review-controllers-services-managers
+    prompt: |
+      Perform a Python code review on the provided code. Accept input in any of following forms:
+      1. A working directory path (analyze git diff in that directory)
+      2. A Git commit reference (analyze changes in that commit)
+      3. A list of Python file paths (analyze those files)
+      4. A planning document (analyze the Python files in the plan)    
+
+      Review the code and and if it contains Python files ensure Galaxy best practices around
+      what code belongs in controllers, services, and managers is followed.
+
+    type: claude-slash-command
 sphinx:
   section: Architecture
   subsection: Application Components

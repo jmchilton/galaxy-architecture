@@ -192,6 +192,77 @@ galaxy-architecture/
 - **Hub Articles**: Generate galaxyproject.org articles
 - **Galaxy Repo Migration**: Move content into main Galaxy repository
 
+## Agentic Code Review
+
+Architecture documentation enables **agentic code review** - generating AI-powered review commands from architectural knowledge.
+
+### The Plugin Marketplace
+
+The `review/` directory builds the `claude-galaxy-plugins` marketplace containing slash commands for reviewing Galaxy contributions. Commands come from two sources:
+
+- **Static commands**: Hand-written review prompts (`review/static_commands/`)
+- **Generated commands**: Created from architecture topics via `/generate-agentic-op`
+
+Build and use:
+```bash
+cd review && make
+claude --plugin-dir review/galaxy-plugins
+/gx-arch-review:gx-review <pr-or-commit>
+```
+
+Or install from GitHub:
+```bash
+/plugin marketplace add galaxyproject/claude-galaxy-plugins
+/plugin install gx-arch-review@claude-galaxy-plugins
+```
+
+See [review/galaxy-plugins/README.md](review/galaxy-plugins/README.md) for full marketplace documentation.
+
+### The Feedback Loop
+
+Architecture documentation, agentic commands, and code reviews form a **positive feedback loop**:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                                                                     │
+│   ┌──────────────────┐         ┌──────────────────┐                │
+│   │   Architecture   │────────▶│ Agentic Commands │                │
+│   │  Documentation   │         │   (gx-review)    │                │
+│   └────────▲─────────┘         └────────┬─────────┘                │
+│            │                            │                          │
+│            │                            ▼                          │
+│   ┌────────┴─────────┐         ┌──────────────────┐                │
+│   │   Suggestions    │◀────────│   Code Reviews   │                │
+│   │ (topic/suggests/)│         │                  │                │
+│   └──────────────────┘         └──────────────────┘                │
+│                                                                     │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+**Documentation → Commands**: Generating agentic commands from architecture docs produces `suggestions/` files identifying documentation gaps. If a topic lacks detail to produce a useful review command, that's signal to improve the docs.
+
+**Commands → Reviews**: Better architecture documentation yields more comprehensive review commands that catch more issues.
+
+**Reviews → Documentation**: When agentic reviews miss something a human reviewer catches, this reveals gaps in architecture documentation. The missed pattern should be documented, improving future command generation.
+
+This virtuous cycle means:
+- Every documentation improvement makes reviews better
+- Every review gap improves documentation
+- The system self-improves through use
+
+### Slash Commands
+
+| Command | Source | Description |
+|---------|--------|-------------|
+| `/generate-agentic-op` | Built-in | Generate review command from topic |
+| `/gx-arch-review:gx-review` | Plugin | Orchestrator - runs applicable sub-reviews |
+| `/gx-arch-review:review-di` | Generated | Dependency injection patterns |
+| `/gx-arch-review:review-business-logic-organization` | Generated | Controller/Service/Manager layers |
+| `/gx-arch-review:py-challenge-patches` | Static | Mock/patch quality in tests |
+| `/gx-arch-review:gx-vitest-review` | Static | Vue/TypeScript test review |
+
+See `review/galaxy-plugins/plugins/gx-arch-review/README.md` for the complete command list.
+
 ## Philosophy
 
 - **Clean Content First**: Source of truth is markdown, not presentation markup

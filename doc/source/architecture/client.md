@@ -179,6 +179,257 @@ You can learn more about webhooks using our webhook [training]({% link topics/de
 
 Adds an entry to the history menu - no functionality as of now
 
+## Galaxy Component Library
+
+Galaxy is replacing Bootstrap-Vue with custom components:
+
+- **Reduce dependency** - Prepare for framework upgrades
+- **Improve consistency** - Unified design language
+- **Enhance accessibility** - Built-in a11y
+- **Simplify maintenance** - Galaxy-specific needs
+
+
+The Galaxy client historically used Bootstrap-Vue for UI components. As Bootstrap-Vue's
+maintenance slowed and Galaxy's needs became more specific, the team began building a
+custom component library.
+
+The library lives in two locations:
+- `client/src/components/BaseComponents/` - Core interactive components (GButton, GLink, GModal)
+- `client/src/components/Common/` - Higher-level reusable components (GCard)
+
+
+## Deprecated BootstrapVue Components
+
+**Do not use these in new code:**
+
+| BootstrapVue | Use Instead |
+|--------------|-------------|
+| `BButton`, `b-button` | `GButton` |
+| `BLink`, `b-link` | `GLink` |
+| `BModal`, `b-modal` | `GModal` |
+| `BCard`, `b-card` | `GCard` |
+
+Existing usages should be migrated when touching related code.
+
+
+## Component Migration Reference
+
+When writing new Vue components or modifying existing ones, always prefer Galaxy's
+custom components over their Bootstrap-Vue equivalents.
+
+### GButton replaces BButton
+
+```vue
+<!-- ❌ Deprecated -->
+<BButton variant="primary" size="sm" :disabled="busy">Submit</BButton>
+
+<!-- ✅ Use instead -->
+<GButton color="blue" size="small" :disabled="busy">Submit</GButton>
+```
+
+Key differences:
+- `variant` → `color` (grey, blue, green, yellow, orange, red)
+- `size="sm"` → `size="small"` (small, medium, large)
+- Built-in tooltip support via `tooltip` prop
+- Polymorphic: renders as `<button>`, `<a>`, or `<router-link>` based on props
+
+See: `client/src/components/BaseComponents/GButton.vue`
+
+### GLink replaces BLink
+
+```vue
+<!-- ❌ Deprecated -->
+<BLink href="#" @click="doSomething">Click here</BLink>
+
+<!-- ✅ Use instead -->
+<GLink @click="doSomething">Click here</GLink>
+```
+
+See: `client/src/components/BaseComponents/GLink.vue`
+
+### GModal replaces BModal
+
+```vue
+<!-- ❌ Deprecated -->
+<BModal v-model="showModal" title="Confirm" ok-only>Content</BModal>
+
+<!-- ✅ Use instead -->
+<GModal v-model:show="showModal" title="Confirm" confirm>Content</GModal>
+```
+
+Key differences:
+- Uses native `<dialog>` element for better accessibility
+- `v-model` → `v-model:show`
+- `ok-only` → `confirm`
+
+See: `client/src/components/BaseComponents/GModal.vue`
+
+### GCard replaces BCard and custom card layouts
+
+```vue
+<!-- ❌ Deprecated custom layout -->
+<div class="workflow-card">
+  <div class="card-header"><h3>{{ name }}</h3></div>
+  <div class="card-body">{{ description }}</div>
+</div>
+
+<!-- ✅ Use instead -->
+<GCard :id="id" :title="name" :description="description" />
+```
+
+GCard provides a comprehensive props-driven API with support for actions, badges,
+indicators, tags, bookmarks, and selection state.
+
+See: `client/src/components/Common/GCard.vue`
+
+
+## Component Migration Effort
+
+**Migration strategy:**
+
+1. **New code** - Always use Galaxy components
+2. **Modified code** - Migrate when touching files
+3. **Batch migrations** - Periodic focused efforts
+
+Reference PRs:
+- [#19963](https://github.com/galaxyproject/galaxy/pull/19963) - Buttons
+- [#20063](https://github.com/galaxyproject/galaxy/pull/20063) - Links
+- [#20168](https://github.com/galaxyproject/galaxy/pull/20168) - Modal
+- [#19785](https://github.com/galaxyproject/galaxy/pull/19785) - Cards
+
+
+## Migration Effort
+
+The component library migration is ongoing and incremental. Bootstrap-Vue and Galaxy
+components coexist during the transition.
+
+### Finding Components to Migrate
+
+```bash
+# Find BButton usages
+grep -r "BButton\|b-button" client/src --include="*.vue"
+
+# Find BModal usages
+grep -r "BModal\|b-modal" client/src --include="*.vue"
+```
+
+### Coexistence with Bootstrap
+
+- Some Galaxy components (GCard) still use Bootstrap internally for badges/dropdowns
+- CSS may use `!important` to override Bootstrap styles where needed
+- Gradual migration allows testing without breaking changes
+
+
+## Component Library Patterns
+
+- **Polymorphic** - Same API for button, anchor, router-link
+- **Integrated tooltips** - Built-in via `title` + `tooltip` props
+- **Semantic colors** - `blue`, `red`, `green` not Bootstrap variants
+- **Composable internals** - Shared logic in composables
+
+
+## Component Library Patterns
+
+### Polymorphic Components
+
+GButton and GLink render as different HTML elements based on props:
+
+```vue
+<GButton @click="action">Button</GButton>     <!-- <button> -->
+<GButton href="/page">Anchor</GButton>        <!-- <a> -->
+<GButton to="/route">Router Link</GButton>    <!-- <router-link> -->
+```
+
+See: `client/src/components/BaseComponents/composables/clickableElement.ts`
+
+### Integrated Tooltips
+
+```vue
+<!-- ❌ Bootstrap-Vue (directive) -->
+<BButton v-b-tooltip.hover title="Click me">Button</BButton>
+
+<!-- ✅ Galaxy (integrated prop) -->
+<GButton tooltip title="Click me">Button</GButton>
+```
+
+See: `client/src/components/BaseComponents/GTooltip.vue`
+
+### Semantic Colors
+
+Available colors: `grey` (default), `blue`, `green`, `yellow`, `orange`, `red`
+
+See: `client/src/components/BaseComponents/componentVariants.ts`
+
+
+## Creating a Component Wrapper
+
+Follow established patterns:
+
+1. Use `ComponentColor` and `ComponentSize` types
+2. Integrate tooltips via `title`/`tooltip` props
+3. Use shared composables for common logic
+4. Apply CSS custom properties for theming
+5. Include ARIA attributes for accessibility
+
+See existing components in `client/src/components/BaseComponents/`
+
+
+## Creating a New Component Wrapper
+
+### Key Files to Reference
+
+- **Type definitions**: `client/src/components/BaseComponents/componentVariants.ts`
+- **Shared composables**: `client/src/components/BaseComponents/composables/`
+  - `clickableElement.ts` - Determines element type from props
+  - `currentTitle.ts` - Handles disabled title switching
+- **Tooltip integration**: `client/src/components/BaseComponents/GTooltip.vue`
+
+### Standard Props Pattern
+
+```typescript
+import type { ComponentColor, ComponentSize } from "./componentVariants";
+
+interface Props {
+  color?: ComponentColor;       // grey, blue, green, yellow, orange, red
+  size?: ComponentSize;         // small, medium, large
+  disabled?: boolean;
+  title?: string;
+  disabledTitle?: string;
+  tooltip?: boolean;
+}
+```
+
+### CSS Custom Properties
+
+Use Galaxy's design tokens:
+
+```scss
+.g-component {
+  padding: var(--spacing-2);
+  font-size: var(--font-size-medium);
+  background-color: var(--color-grey-100);
+}
+```
+
+### Accessibility
+
+- Use semantic HTML elements (`<button>`, `<dialog>`)
+- Include `aria-disabled`, `aria-describedby`
+- Support keyboard navigation
+- Use GTooltip for accessible hover text
+
+
+## Future Component Work
+
+Likely next components based on Bootstrap-Vue usage:
+
+- **GAlert** - Notification banners
+- **GDropdown** - Dropdown menus
+- **GTable** - Data tables with sorting
+- **GTabs** - Tab navigation
+- **GCollapse** - Collapsible sections
+
+
 ## Key Takeaways
 - Source in `client/src`, built bundles in `static/dist`
 - Webpack handles bundling and transpilation

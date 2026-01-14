@@ -190,12 +190,11 @@ def generate_slides(topic_name):
     metadata = load_metadata(topic_name)
     content = load_content(topic_name)
 
-    # Extract all slide-type content blocks (exclude prose-only blocks)
+    # Extract only SLIDE-type content blocks (exclude prose and agent-context)
     all_slides = []
     for block in content.root:
-        # Include blocks that are explicitly slides or blocks that are not marked as prose-only
-        # By default blocks render as slides (doc.render controls doc-only blocks)
-        if block.type != ContentBlockType.PROSE:
+        # Only include blocks explicitly marked as slides
+        if block.type == ContentBlockType.SLIDE:
             markdown = block.content or ""
             # Add heading to markdown if present
             if block.heading and block.heading.strip():
