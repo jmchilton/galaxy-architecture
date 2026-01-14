@@ -22,6 +22,21 @@ training:
   time_estimation: 15m
   previous_to: plugins
   continues_to: dependencies
+agentic_operations:
+  - name: review-ui-components
+    prompt: |
+      Perform a code review on the provided Galaxy code. Accept input in any of following forms:
+      * A working directory path (analyze git diff in that directory)
+      * A Git commit reference (analyze changes in that commit)
+      * A PR reference (analyze changes in that pull request)
+      * A list of Python file paths (analyze those files)
+      * A planning document (analyze the Python files in the plan)
+
+      Review the code and ensure it follows best practices for which components to use - preferring
+      Galaxy native components migrated from BootstrapVue components.
+
+    type: claude-slash-command
+
 sphinx:
   section: Architecture
   subsection: Client

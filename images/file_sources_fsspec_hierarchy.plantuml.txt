@@ -1,0 +1,80 @@
+@startuml
+!include plantuml_options.txt
+
+package "galaxy.files.sources" {
+
+    abstract class FsspecFilesSource {
+        +realize_to()
+        +write_from()
+        +list()
+        --
+        #_open_fs() {abstract}
+        ==
+        Subclasses only implement
+        _open_fs() method
+    }
+
+    class S3FsFilesSource {
+        plugin_type = "s3fs"
+        --
+        #_open_fs()
+    }
+
+    class HuggingFaceFilesSource {
+        plugin_type = "huggingface"
+        --
+        #_open_fs()
+    }
+
+    class AzureFileSource {
+        plugin_type = "azure"
+        --
+        #_open_fs()
+    }
+
+    class TempFilesSource {
+        plugin_type = "temp"
+        --
+        #_open_fs()
+    }
+
+}
+
+package "fsspec (external)" {
+    abstract class AbstractFileSystem {
+        +open()
+        +ls()
+        +info()
+        +cat()
+        +put()
+    }
+
+    class S3FileSystem
+    class HfFileSystem
+    class AzureBlobFileSystem
+    class LocalFileSystem
+}
+
+FsspecFilesSource <|-- S3FsFilesSource
+FsspecFilesSource <|-- HuggingFaceFilesSource
+FsspecFilesSource <|-- AzureFileSource
+FsspecFilesSource <|-- TempFilesSource
+
+FsspecFilesSource ..> AbstractFileSystem : _open_fs() returns
+
+AbstractFileSystem <|-- S3FileSystem
+AbstractFileSystem <|-- HfFileSystem
+AbstractFileSystem <|-- AzureBlobFileSystem
+AbstractFileSystem <|-- LocalFileSystem
+
+note bottom of FsspecFilesSource
+    10x code reduction
+    40+ backends available
+end note
+
+note right of AbstractFileSystem
+    Unified API across
+    all storage backends
+end note
+
+@enduml

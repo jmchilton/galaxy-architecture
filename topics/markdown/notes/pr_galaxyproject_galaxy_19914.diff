@@ -1,0 +1,1101 @@
+diff --git a/client/src/components/Form/FormElementLabel.test.js b/client/src/components/Form/FormElementLabel.test.js
+new file mode 100644
+index 000000000000..dd06bea55efd
+--- /dev/null
++++ b/client/src/components/Form/FormElementLabel.test.js
+@@ -0,0 +1,84 @@
++import { mount } from "@vue/test-utils";
++import { getLocalVue } from "tests/jest/helpers";
++
++import Target from "./FormElementLabel.vue";
++
++const localVue = getLocalVue();
++
++function mountTarget(props = {}, slots = {}) {
++    return mount(Target, {
++        localVue,
++        propsData: props,
++        slots,
++        stubs: {
++            FontAwesomeIcon: true,
++        },
++        directives: {
++            localize: () => {},
++        },
++    });
++}
++
++describe("FormElementLabel.vue", () => {
++    it("should render title", () => {
++        const wrapper = mountTarget({
++            title: "Form Label",
++            required: false,
++        });
++        expect(wrapper.text()).toContain("Form Label");
++    });
++
++    it("should render help text", () => {
++        const wrapper = mountTarget({
++            title: "Test",
++            help: "Helpful info",
++            required: false,
++        });
++        expect(wrapper.text()).toContain("Helpful info");
++    });
++
++    it("should render check icon if condition and required are true", () => {
++        const wrapper = mountTarget({
++            title: "Check Label",
++            required: true,
++            condition: true,
++        });
++        const asterisk = wrapper.find("small");
++        expect(asterisk.exists()).toBe(true);
++        expect(asterisk.text()).toBe("*");
++    });
++
++    it("should render asterisk if required is true and condition is false", () => {
++        const wrapper = mountTarget({
++            title: "Asterisk Label",
++            required: true,
++            condition: false,
++        });
++        const asterisk = wrapper.find("small.text-danger");
++        expect(asterisk.exists()).toBe(true);
++        expect(asterisk.text()).toBe("* required");
++    });
++
++    it("should render nothing extra if required is false", () => {
++        const wrapper = mountTarget({
++            title: "No Symbol",
++            required: false,
++        });
++        expect(wrapper.findComponent({ name: "FontAwesomeIcon" }).exists()).toBe(false);
++        expect(wrapper.find("span.text-danger").exists()).toBe(false);
++    });
++
++    it("should render slot content", () => {
++        const wrapper = mountTarget(
++            {
++                title: "Slot Test",
++                required: false,
++            },
++            {
++                default: "<div class='slot-content'>Hello Slot</div>",
++            }
++        );
++        expect(wrapper.find(".slot-content").exists()).toBe(true);
++        expect(wrapper.text()).toContain("Hello Slot");
++    });
++});
+diff --git a/client/src/components/Form/FormElementLabel.vue b/client/src/components/Form/FormElementLabel.vue
+new file mode 100644
+index 000000000000..6d5eb4907b7f
+--- /dev/null
++++ b/client/src/components/Form/FormElementLabel.vue
+@@ -0,0 +1,29 @@
++<script setup lang="ts">
++withDefaults(
++    defineProps<{
++        help?: string;
++        required?: boolean;
++        title: string;
++        condition?: boolean;
++    }>(),
++    {
++        condition: true,
++        required: false,
++    }
++);
++</script>
++
++<template>
++    <div>
++        <div class="font-weight-bold py-2">
++            <span>{{ title }}</span>
++            <small v-if="required && condition" class="align-top">*</small>
++            <small v-else-if="required" class="text-danger">
++                <span class="align-top">*</span>
++                <small class="align-top">required</small>
++            </small>
++        </div>
++        <slot />
++        <small v-localize class="text-muted py-2">{{ help }}</small>
++    </div>
++</template>
+diff --git a/client/src/components/Masthead/QuotaMeter.vue b/client/src/components/Masthead/QuotaMeter.vue
+index 5d3dc01ae72b..b550f14b566a 100644
+--- a/client/src/components/Masthead/QuotaMeter.vue
++++ b/client/src/components/Masthead/QuotaMeter.vue
+@@ -48,7 +48,7 @@ const variant = computed(() => {
+ </script>
+ 
+ <template>
+-    <div v-b-tooltip.hover.bottom class="quota-meter d-flex align-items-center" :title="quotaTitle">
++    <div v-b-tooltip.noninteractive.hover.bottom class="quota-meter d-flex align-items-center" :title="quotaTitle">
+         <BLink class="quota-progress" :to="quotaLink" data-description="storage dashboard link">
+             <BProgress :max="100">
+                 <BProgressBar aria-label="Quota usage" :value="usage" :variant="variant" />
+diff --git a/client/src/components/PageDisplay/PageCreate.test.js b/client/src/components/PageDisplay/PageCreate.test.js
+new file mode 100644
+index 000000000000..e42dd1a46110
+--- /dev/null
++++ b/client/src/components/PageDisplay/PageCreate.test.js
+@@ -0,0 +1,125 @@
++import { mount } from "@vue/test-utils";
++import flushPromises from "flush-promises";
++import { getLocalVue } from "tests/jest/helpers";
++
++import { useServerMock } from "@/api/client/__mocks__";
++import pageTemplate from "@/components/PageDisplay/pageTemplate.yml";
++
++import PageCreate from "./PageCreate.vue";
++
++const { server, http } = useServerMock();
++
++const localVue = getLocalVue();
++
++const mockPush = jest.fn();
++
++jest.mock("vue-router/composables", () => ({
++    useRoute: jest.fn(() => ({})),
++    useRouter: jest.fn(() => ({
++        push: (...args) => mockPush(...args),
++    })),
++}));
++
++function mountTarget(props = {}) {
++    return mount(PageCreate, {
++        localVue,
++        propsData: props,
++        stubs: {
++            FontAwesomeIcon: true,
++            BButton: true,
++            BAlert: true,
++        },
++        directives: {
++            localize: () => {},
++        },
++    });
++}
++
++describe("PageCreate.vue", () => {
++    it("renders loading spinner initially when fetching report", async () => {
++        server.use(
++            http.get("/api/invocations/:invocation_id/report", ({ response }) =>
++                response(200).json({
++                    id: 42,
++                    title: "Invoked Report Title",
++                    invocation_markdown: "## Report Content",
++                })
++            )
++        );
++        server.use(
++            http.post("/api/pages", async ({ request, response }) => {
++                const body = await request.json();
++                const { title, slug, content, annotation } = body;
++                expect(title).toBe("Invoked Report Title");
++                expect(slug).toBe("invocation-42");
++                expect(annotation).toBe("");
++                expect(content).toBe("## Report Content");
++                return response(200).json({ id: "new-page-321" });
++            })
++        );
++        const wrapper = mountTarget({ invocationId: "42" });
++        expect(wrapper.findComponent({ name: "LoadingSpan" }).exists()).toBe(true);
++        await flushPromises();
++        expect(wrapper.findComponent({ name: "LoadingSpan" }).exists()).toBe(false);
++        expect(wrapper.find("input#page-title").element.value).toBe("Invoked Report Title");
++        expect(wrapper.find("input#page-slug").element.value).toBe("invocation-42");
++        await wrapper.findComponent({ name: "BButton" }).trigger("click");
++        await flushPromises();
++        expect(mockPush).toHaveBeenCalledWith("/pages/editor?id=new-page-321");
++    });
++
++    it("shows error alert when fetching report fails", async () => {
++        server.use(
++            http.get("/api/invocations/:invocation_id/report", ({ response }) =>
++                response(500).json({ err_msg: "Failed to fetch report" })
++            )
++        );
++        const wrapper = mountTarget({ invocationId: "fail" });
++        await flushPromises();
++        const alert = wrapper.findComponent({ name: "BAlert" });
++        expect(alert.exists()).toBe(true);
++        expect(alert.text()).toContain("Failed to fetch report");
++    });
++
++    it("shows validation error if required fields are missing on submit", async () => {
++        const wrapper = mountTarget();
++        await wrapper.findComponent({ name: "BButton" }).trigger("click");
++        await flushPromises();
++        const alert = wrapper.findComponent({ name: "BAlert" });
++        expect(alert.exists()).toBe(true);
++        expect(alert.text()).toContain("Please complete all required inputs.");
++    });
++
++    it("submits page creation when title and slug are present", async () => {
++        server.use(
++            http.post("/api/pages", async ({ request, response }) => {
++                const body = await request.json();
++                const { title, slug, content, annotation } = body;
++                expect(title).toBe("My Title");
++                expect(slug).toBe("my-title");
++                expect(annotation).toBe("An annotation");
++                expect(content).toBe(pageTemplate.content);
++                return response(200).json({ id: "new-page-123" });
++            })
++        );
++        const wrapper = mountTarget();
++        await wrapper.find("#page-title").setValue("My Title");
++        await wrapper.find("#page-slug").setValue("my-title");
++        await wrapper.find("#page-annotation").setValue("An annotation");
++        await wrapper.findComponent({ name: "BButton" }).trigger("click");
++        await flushPromises();
++        expect(mockPush).toHaveBeenCalledWith("/pages/editor?id=new-page-123");
++    });
++
++    it("shows API error if creation fails", async () => {
++        server.use(http.post("/api/pages", ({ response }) => response(400).json({ err_msg: "Creation failed" })));
++        const wrapper = mountTarget();
++        await wrapper.find("#page-title").setValue("Some Title");
++        await wrapper.find("#page-slug").setValue("some-title");
++        await wrapper.findComponent({ name: "BButton" }).trigger("click");
++        await flushPromises();
++        const alert = wrapper.findComponent({ name: "BAlert" });
++        expect(alert.exists()).toBe(true);
++        expect(alert.text()).toContain("Creation failed");
++    });
++});
+diff --git a/client/src/components/PageDisplay/PageCreate.vue b/client/src/components/PageDisplay/PageCreate.vue
+new file mode 100644
+index 000000000000..2403f14daff2
+--- /dev/null
++++ b/client/src/components/PageDisplay/PageCreate.vue
+@@ -0,0 +1,103 @@
++<template>
++    <LoadingSpan v-if="loadingReport" />
++    <div v-else>
++        <BAlert v-if="errorMessage" variant="danger" show>{{ errorMessage }}</BAlert>
++        <FormCard title="Create a new Page" icon="fa-file-contract">
++            <template v-slot:body>
++                <FormElementLabel title="Title" :required="true" :condition="!!title">
++                    <FormInput id="page-title" v-model="title" />
++                </FormElementLabel>
++                <FormElementLabel
++                    title="Identifier"
++                    help="A unique identifier that will be used for public links to this page. This field can only contain lowercase letters, numbers, and dashes (-)."
++                    :required="true"
++                    :condition="!!slug">
++                    <FormInput id="page-slug" v-model="slug" />
++                </FormElementLabel>
++                <FormElementLabel
++                    title="Annotation"
++                    help="A description of the page. The annotation is shown alongside published pages.">
++                    <FormInput id="page-annotation" v-model="annotation" />
++                </FormElementLabel>
++            </template>
++        </FormCard>
++        <BButton id="page-submit" class="my-2" variant="primary" @click="onCreate">
++            <FontAwesomeIcon :icon="faSave" class="mr-1" />
++            <span v-localize>Create</span>
++        </BButton>
++    </div>
++</template>
++
++<script setup lang="ts">
++import { faSave } from "@fortawesome/free-solid-svg-icons";
++import { FontAwesomeIcon } from "@fortawesome/vue-fontawesome";
++import { BAlert, BButton } from "bootstrap-vue";
++import { ref, watch } from "vue";
++import { useRouter } from "vue-router/composables";
++
++import { GalaxyApi } from "@/api";
++import pageTemplate from "@/components/PageDisplay/pageTemplate.yml";
++
++import FormInput from "@/components/Form/Elements/FormInput.vue";
++import FormCard from "@/components/Form/FormCard.vue";
++import FormElementLabel from "@/components/Form/FormElementLabel.vue";
++import LoadingSpan from "@/components/LoadingSpan.vue";
++
++const router = useRouter();
++
++const props = defineProps<{
++    invocationId?: string;
++}>();
++
++const annotation = ref("");
++const content = ref(pageTemplate.content);
++const errorMessage = ref("");
++const loadingReport = ref(false);
++const slug = ref("");
++const title = ref("");
++
++async function fetchReport() {
++    if (props.invocationId) {
++        loadingReport.value = true;
++        const { data, error } = await GalaxyApi().GET("/api/invocations/{invocation_id}/report", {
++            params: { path: { invocation_id: props.invocationId } },
++        });
++        if (error) {
++            errorMessage.value = error.err_msg;
++        } else {
++            errorMessage.value = "";
++            content.value = data.invocation_markdown || "";
++            slug.value = `invocation-${data.id}`;
++            title.value = data.title;
++        }
++        loadingReport.value = false;
++    }
++}
++
++async function onCreate() {
++    if (slug.value && title.value) {
++        const { data, error } = await GalaxyApi().POST("/api/pages", {
++            body: {
++                annotation: annotation.value,
++                content: content.value,
++                content_format: "markdown",
++                slug: slug.value,
++                title: title.value,
++            },
++        });
++        if (error) {
++            errorMessage.value = error.err_msg;
++        } else {
++            router.push(`/pages/editor?id=${data.id}`);
++        }
++    } else {
++        errorMessage.value = "Please complete all required inputs.";
++    }
++}
++
++watch(
++    () => props.invocationId,
++    () => fetchReport(),
++    { immediate: true }
++);
++</script>
+diff --git a/client/src/components/PageDisplay/pageTemplate.yml b/client/src/components/PageDisplay/pageTemplate.yml
+new file mode 100644
+index 000000000000..85410a8ba5be
+--- /dev/null
++++ b/client/src/components/PageDisplay/pageTemplate.yml
+@@ -0,0 +1,4 @@
++content: |
++  #### Your Page Title
++
++  Welcome to Galaxy Pages — a *Markdown* space where you can add text, Galaxy components like Tables, Datasets, and Visualizations to create rich, Interactive Pages.
+\ No newline at end of file
+diff --git a/client/src/components/Tour/Tour.test.js b/client/src/components/Tour/Tour.test.js
+index e85ef380ae36..5171cf2bca01 100644
+--- a/client/src/components/Tour/Tour.test.js
++++ b/client/src/components/Tour/Tour.test.js
+@@ -1,23 +1,37 @@
+ import { shallowMount } from "@vue/test-utils";
+-import axios from "axios";
+-import MockAdapter from "axios-mock-adapter";
+ import flushPromises from "flush-promises";
+ import { getLocalVue } from "tests/jest/helpers";
+ 
++import { useServerMock } from "@/api/client/__mocks__";
++
+ import TourList from "./TourList.vue";
+ 
++const { server, http } = useServerMock();
++
+ const localVue = getLocalVue();
+-const TEST_TOUR_URI = "/api/tours";
+ 
+ jest.mock("app");
+ 
++const mockTours = [
++    {
++        id: "intro-to-galaxy",
++        name: "Intro to Galaxy",
++        description: "Learn the basics",
++        tags: ["beginner"],
++    },
++    {
++        id: "advanced-analysis",
++        name: "Advanced Analysis",
++        description: "Deep dive into tools",
++        tags: ["advanced"],
++    },
++];
++
+ describe("Tour", () => {
+-    let axiosMock;
+     let wrapper;
+ 
+     beforeEach(async () => {
+-        axiosMock = new MockAdapter(axios);
+-        axiosMock.onGet(TEST_TOUR_URI).reply(200, [{ id: "foo", writable: false }]);
++        server.use(http.get("/api/tours", ({ response }) => response(200).json(mockTours)));
+         wrapper = shallowMount(TourList, {
+             propsData: {},
+             localVue,
+@@ -26,6 +40,6 @@ describe("Tour", () => {
+     });
+ 
+     it("test tours", async () => {
+-        expect(wrapper.find("#tourList").exists()).toBeTruthy();
++        expect(wrapper.findAll("[data-description='tour link']").length).toBe(2);
+     });
+ });
+diff --git a/client/src/components/Tour/TourList.vue b/client/src/components/Tour/TourList.vue
+index 4958673e1d43..bca5bb868135 100644
+--- a/client/src/components/Tour/TourList.vue
++++ b/client/src/components/Tour/TourList.vue
+@@ -1,3 +1,49 @@
++<script setup lang="ts">
++import { BAlert } from "bootstrap-vue";
++import { ref } from "vue";
++
++import { GalaxyApi } from "@/api";
++import { withPrefix } from "@/utils/redirect";
++
++import DelayedInput from "@/components/Common/DelayedInput.vue";
++
++interface Tour {
++    id: string;
++    name?: string;
++    description?: string;
++    tags: string[];
++}
++
++const errorMessage = ref<string | null>(null);
++const tours = ref<Tour[]>([]);
++const searchQuery = ref("");
++
++const onSearch = (newValue: string) => {
++    searchQuery.value = newValue;
++};
++
++const match = (tour: Tour) => {
++    const query = searchQuery.value.toLowerCase();
++    return (
++        !query ||
++        (tour.id && tour.id.toLowerCase().includes(query)) ||
++        (tour.name && tour.name.toLowerCase().includes(query)) ||
++        (tour.description && tour.description.toLowerCase().includes(query)) ||
++        (tour.tags && tour.tags.join().toLowerCase().includes(query))
++    );
++};
++
++async function loadTours() {
++    const { data, error } = await GalaxyApi().GET("/api/tours");
++    if (error) {
++        errorMessage.value = String(error);
++    }
++    tours.value = data as Tour[];
++}
++
++loadTours();
++</script>
++
+ <template>
+     <div>
+         <h1 class="h-lg">Galaxy Tours</h1>
+@@ -6,69 +52,23 @@
+             started (and remember, you can click 'End Tour' at any time).
+         </p>
+         <h2 class="h-sm">Tours</h2>
+-        <div v-if="error" class="alert alert-danger">{{ error }}</div>
++        <BAlert v-if="errorMessage" variant="danger" show>{{ errorMessage }}</BAlert>
+         <div v-else>
+-            <DelayedInput class="mb-3" :value="search" :placeholder="searchTours" :delay="0" @change="onSearch" />
++            <DelayedInput class="mb-3" :value="searchQuery" placeholder="search tours" :delay="0" @change="onSearch" />
+             <div v-for="tour in tours" :key="tour.id">
+-                <ul v-if="match(tour)" id="tourList" class="list-group">
+-                    <li class="list-group-item">
+-                        <a :href="`${root}tours/${tour.id}`"> {{ tour.name || tour.id }} </a>&nbsp;&minus;&nbsp;
+-                        {{ tour.description }}
+-                        <span
++                <div v-if="match(tour)" class="rounded border p-2 mb-2">
++                    <a :href="withPrefix(`/tours/${tour.id}`)" data-description="tour link">
++                        <div class="text-primary">{{ tour.name || tour.id }}</div>
++                        <div v-html="tour.description" />
++                        <div
+                             v-for="(tag, index) in tour.tags"
+                             :key="index"
+                             class="badge badge-primary text-capitalize mr-1">
+                             {{ tag }}
+-                        </span>
+-                    </li>
+-                </ul>
++                        </div>
++                    </a>
++                </div>
+             </div>
+         </div>
+     </div>
+ </template>
+-
+-<script>
+-import DelayedInput from "components/Common/DelayedInput";
+-import { getAppRoot } from "onload/loadConfig";
+-import _l from "utils/localization";
+-import { urlData } from "utils/url";
+-
+-export default {
+-    components: {
+-        DelayedInput,
+-    },
+-    data() {
+-        return {
+-            tours: [],
+-            search: "",
+-            error: null,
+-            searchTours: _l("search tours"),
+-        };
+-    },
+-    created() {
+-        this.root = getAppRoot();
+-        urlData({ url: `/api/tours` })
+-            .then((response) => {
+-                this.tours = response;
+-            })
+-            .catch((error) => {
+-                this.error = error;
+-            });
+-    },
+-    methods: {
+-        onSearch(newValue) {
+-            this.search = newValue;
+-        },
+-        match(tour) {
+-            const query = this.search.toLowerCase();
+-            return (
+-                !query ||
+-                (tour.id && tour.id.toLowerCase().includes(query)) ||
+-                (tour.name && tour.name.toLowerCase().includes(query)) ||
+-                (tour.description && tour.description.toLowerCase().includes(query)) ||
+-                (tour.tags && tour.tags.join().toLowerCase().includes(query))
+-            );
+-        },
+-    },
+-};
+-</script>
+diff --git a/client/src/components/Tour/runTour.js b/client/src/components/Tour/runTour.js
+index a82abbe6dbd7..de05e316297b 100644
+--- a/client/src/components/Tour/runTour.js
++++ b/client/src/components/Tour/runTour.js
+@@ -39,7 +39,7 @@ function waitForElement(selector, resolve, reject, tries) {
+                 waitForElement(selector, resolve, reject, tries - 1);
+             }, delay);
+         } else {
+-            throw Error("Element not found.", selector);
++            throw Error(`Element not found. ${selector}`);
+         }
+     } else {
+         resolve();
+@@ -54,7 +54,7 @@ function doClick(targets) {
+             if (el) {
+                 el.click();
+             } else {
+-                throw Error("Click target not found.", selector);
++                throw Error(`Click target not found. ${selector}`);
+             }
+         });
+     }
+@@ -69,7 +69,7 @@ function doInsert(selector, value) {
+             const event = new Event("input");
+             el.dispatchEvent(event);
+         } else {
+-            throw Error("Insert target not found.", selector);
++            throw Error(`Insert target not found. ${selector}`);
+         }
+     }
+ }
+diff --git a/client/src/entry/analysis/router.js b/client/src/entry/analysis/router.js
+index 34139e07acca..7437064bb312 100644
+--- a/client/src/entry/analysis/router.js
++++ b/client/src/entry/analysis/router.js
+@@ -20,6 +20,7 @@ import JobDetails from "components/JobInformation/JobDetails";
+ import CarbonEmissionsCalculations from "components/JobMetrics/CarbonEmissions/CarbonEmissionsCalculations";
+ import ToolLanding from "components/Landing/ToolLanding";
+ import WorkflowLanding from "components/Landing/WorkflowLanding";
++import PageCreate from "components/PageDisplay/PageCreate";
+ import PageDisplay from "components/PageDisplay/PageDisplay";
+ import PageEditor from "components/PageEditor/PageEditor";
+ import ToolSuccess from "components/Tool/ToolSuccess";
+@@ -431,19 +432,10 @@ export function getRouter(Galaxy) {
+                     },
+                     {
+                         path: "pages/create",
+-                        component: FormGeneric,
+-                        props: (route) => {
+-                            let url = "/page/create";
+-                            const invocation_id = route.query.invocation_id;
+-                            if (invocation_id) {
+-                                url += `?invocation_id=${invocation_id}`;
+-                            }
+-                            return {
+-                                url: url,
+-                                redirect: "/pages/list",
+-                                active_tab: "user",
+-                            };
+-                        },
++                        component: PageCreate,
++                        props: (route) => ({
++                            invocationId: route.query.invocation_id,
++                        }),
+                     },
+                     {
+                         path: "pages/edit",
+diff --git a/client/src/utils/navigation/navigation.yml b/client/src/utils/navigation/navigation.yml
+index 71363ccfe6dc..118389fa5cf8 100644
+--- a/client/src/utils/navigation/navigation.yml
++++ b/client/src/utils/navigation/navigation.yml
+@@ -57,7 +57,7 @@ masthead:
+     username:
+       type: xpath
+       selector: '//a[contains(text(), "Signed in as")]'
+-    window_manager: '#enable-window-manager'
++    window_manager: '#enable-window-manager > .nav-link'
+     workflow: '#workflow .nav-link'
+ 
+ preferences:
+@@ -184,16 +184,15 @@ history_panel:
+       toolhelp_title: '${_} .toolhelp strong'
+       state_icon: '${_} .state-icon'
+ 
+-      # Title buttons...
+-      display_button: '${_} .display-btn'
+-      edit_button: '${_} .edit-btn'
++      # Actions
++      alltags: '${_} .stateless-tags .tag'
+       delete_button: '${_} .delete-btn'
+-
+-      # Action buttons...
++      display_button: '${_} .display-btn'
+       download_button: '${_} .download-btn'
++      edit_button: '${_} .edit-btn'
+       info_button: '${_} .params-btn'
+       rerun_button: '${_} .rerun-btn'
+-      alltags: '${_} .stateless-tags .tag'
++      visualize_button: '${_} .visualize-btn'
+ 
+   # history content item
+   content_item:
+@@ -528,12 +527,12 @@ history_import:
+ 
+ pages:
+   selectors:
+-    activity: "#activity-pages"
++    activity: '#activity-pages'
+     create: '#page-create'
+-    submit: '#submit'
+-    create_title_input: '#form-element-title input'
+-    create_slug_input: '#form-element-slug input'
+     export: '.markdown-pdf-export'
++    slug_input: '#page-slug'
++    submit: '#page-submit'
++    title_input: '#page-title'
+ 
+   editor:
+     selectors:
+diff --git a/config/plugins/tours/core.visualizations.yaml b/config/plugins/tours/core.visualizations.yaml
+new file mode 100644
+index 000000000000..fcf7fa814cdb
+--- /dev/null
++++ b/config/plugins/tours/core.visualizations.yaml
+@@ -0,0 +1,54 @@
++name: Visualizations - Introduction
++description: "An introduction on how to visualize datasets."
++title_default: "Visualizations Tour"
++tags:
++  - "core"
++  - "UI"
++  - "visualization"
++
++requirements:
++  - new_history
++
++steps:
++    - content: "This short tour will walk you through <b>Galaxy's Visualization</b> feature."
++
++    - component: upload.start
++      intro: "First, we will upload some tabular data into our new history."
++      postclick: true
++
++    - component: upload.create_button
++      intro: "We will be using the paste feature to create a new dataset."
++      postclick: true
++
++    - component: upload.paste_content(n=0)
++      intro: "...and paste content into the text area field."
++      textinsert: http://cdn.jsdelivr.net/gh/galaxyproject/galaxy-test-data/matrix_generator_for_pc_and_lda_output.tabular
++
++    - component: upload.start_button
++      intro: "Upload the data into your Galaxy history."
++      postclick: true
++
++    - component: upload.close_button
++      intro: "Hit the close button to close the upload dialog."
++      postclick: true
++
++    - component: history_panel
++      intro: "This is your history. It contains our matrix being uploaded."
++
++    - component: history_panel.item(hid=1,state=ok).title
++      intro: "Clicking on a dataset expands its options."
++      postclick: true
++
++    - component: history_panel.item(hid=1,state=ok).visualize_button
++      intro: "Clicking the diagram-icon will visualize your dataset."
++      postclick: true
++
++    - component: visualization.plugin_item(id=plotly_surface)
++      intro: "Select the surface visualization."
++      postclick: true
++
++    - element: 'iframe[id="galaxy_visualization"]'
++      intro: "This visualization is interactive."
++
++    - title: "Enjoy Galaxy"
++      intro: "Thanks for taking this tour! Happy research with Galaxy!"
+diff --git a/config/plugins/visualizations/cytoscape/config/cytoscape.xml b/config/plugins/visualizations/cytoscape/config/cytoscape.xml
+index 39b9933de02f..cc2b8f902c01 100644
+--- a/config/plugins/visualizations/cytoscape/config/cytoscape.xml
++++ b/config/plugins/visualizations/cytoscape/config/cytoscape.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+ <visualization name="Cytoscape" embeddable="true">
+-    <description>A viewer based on graph theory/ network library for analysis and visualisation hosted at http://js.cytoscape.org.</description>
++    <description>Graph viewer from http://js.cytoscape.org</description>
+     <data_sources>
+         <data_source>
+             <model_class>HistoryDatasetAssociation</model_class>
+diff --git a/config/plugins/visualizations/ngl/static/logo.png b/config/plugins/visualizations/ngl/static/logo.png
+deleted file mode 100644
+index e2e3d4ceb8d9..000000000000
+Binary files a/config/plugins/visualizations/ngl/static/logo.png and /dev/null differ
+diff --git a/config/plugins/visualizations/ngl/static/logo.svg b/config/plugins/visualizations/ngl/static/logo.svg
+new file mode 100644
+index 000000000000..29e7b57f21b9
+--- /dev/null
++++ b/config/plugins/visualizations/ngl/static/logo.svg
+@@ -0,0 +1,7 @@
++<svg version="1.1" viewBox="-5.0 -10.0 110.0 135.0" xmlns="http://www.w3.org/2000/svg" fill="#E30A17">
++  <path d="m 49.118643,30.307021 c -0.985012,0.008 -2.008701,0.477187 -2.794567,1.263055 l -9.443717,9.443715 c 10.25521,-2.233156 29.812386,16.692701 41.010632,16.606302 0.985013,-0.008 2.008701,-0.477188 2.794569,-1.263057 l 9.443715,-9.443714 C 79.877348,49.143194 60.316889,30.220622 49.118643,30.307021 z" />
++  <path d="m 20.183115,59.24255 c -0.985013,0.008 -2.008699,0.477186 -2.794568,1.263055 L 7.9448329,69.949319 C 18.20004,67.716164 37.757217,86.64202 48.955463,86.555621 c 0.985013,-0.008 2.008701,-0.477189 2.794569,-1.263055 L 61.193747,75.84885 C 50.94182,78.078724 31.381361,59.15615 20.183115,59.24255 z" />
++  <path d="m 66.932417,12.366161 c -0.274465,6.696326 5.377875,17.077005 9.635142,26.588207 5.225173,2.897199 10.500923,5.332005 13.55779,4.666775 l 1.527333,-0.3338 C 91.493807,32.862857 78.805579,14.361259 77.752423,3.430546 77.629371,2.1434909 76.067889,1.8249251 75.015666,2.8771479 l -6.826175,6.8261752 c -0.749689,0.7496889 -1.218302,1.7147309 -1.257289,2.6621179 z" />
++  <path d="m 61.19033,72.557515 1.488429,-0.326574 C 62.390584,66.234616 57.097808,58.028507 52.533889,50.15024 46.666048,46.781416 40.358149,43.551163 36.892505,44.307458 l -1.488423,0.32658 c 0.288176,5.996324 5.580952,14.202435 10.144871,22.080703 5.867841,3.36882 12.175739,6.599074 15.641383,5.842781 z" />
++  <path d="M 31.141719,104.49618 C 31.416186,97.799851 25.763847,87.419172 21.506581,77.907969 16.281408,75.010772 11.005657,72.575964 7.9487892,73.241196 l -1.5273295,0.333799 c 0.1555925,10.42777 12.8471023,28.926085 13.8941923,39.857455 0.123036,1.28707 1.684534,1.60562 2.736748,0.55341 l 6.826173,-6.82618 c 0.749689,-0.74969 1.218303,-1.71473 1.257288,-2.66212 z" />
++</svg>
+diff --git a/config/plugins/visualizations/phylocanvas/config/phylocanvas.xml b/config/plugins/visualizations/phylocanvas/config/phylocanvas.xml
+index ff84ecfcfb45..3ebd53f0f59d 100644
+--- a/config/plugins/visualizations/phylocanvas/config/phylocanvas.xml
++++ b/config/plugins/visualizations/phylocanvas/config/phylocanvas.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+-<visualization name="Phylogenetic Tree Visualization" embeddable="true">
+-    <description>A performant, reusable, and extensible tree visualisation from the Centre for Genomic Pathogen Surveillance at https://www.phylocanvas.gl</description>
++<visualization name="Phylogenetic Tree" embeddable="true">
++    <description>Phylogenetic Tree Viewer from https://www.phylocanvas.gl</description>
+     <data_sources>
+         <data_source>
+             <model_class>HistoryDatasetAssociation</model_class>
+diff --git a/config/plugins/visualizations/plotly/config/plotly.xml b/config/plugins/visualizations/plotly/config/plotly.xml
+index 82cb52b592e2..6006a659e6a5 100644
+--- a/config/plugins/visualizations/plotly/config/plotly.xml
++++ b/config/plugins/visualizations/plotly/config/plotly.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+-<visualization name="Bar, Line and Scatter (plotly.js)" embeddable="true">
+-    <description>Basic Diagrams from Plotly Graphing Library.</description>
++<visualization name="Bar, Line and Scatter" embeddable="true">
++    <description>Basic Diagrams from http://plotly.com</description>
+     <data_sources>
+         <data_source>
+             <model_class>HistoryDatasetAssociation</model_class>
+@@ -14,7 +14,7 @@
+         <param type="dataset" var_name_in_template="hda" required="true">dataset_id</param>
+     </params>
+     <requirements>
+-        <requirement type="npm" version="0.0.11" package="@galaxyproject/plotly"/>
++        <requirement type="npm" version="0.0.14" package="@galaxyproject/plotly"/>
+     </requirements>
+     <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+     <settings>
+diff --git a/config/plugins/visualizations/plotly_box/config/plotly_box.xml b/config/plugins/visualizations/plotly_box/config/plotly_box.xml
+index dbab0290472f..9e8225c71d35 100644
+--- a/config/plugins/visualizations/plotly_box/config/plotly_box.xml
++++ b/config/plugins/visualizations/plotly_box/config/plotly_box.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+-<visualization name="Box Plot (plotly.js)" embeddable="true">
+-    <description>Box Plot from Plotly Graphing Library.</description>
++<visualization name="Box Plot" embeddable="true">
++    <description>Box Plot from http://plotly.com</description>
+     <data_sources>
+         <data_source>
+             <model_class>HistoryDatasetAssociation</model_class>
+diff --git a/config/plugins/visualizations/plotly_histogram/config/plotly_histogram.xml b/config/plugins/visualizations/plotly_histogram/config/plotly_histogram.xml
+index 35780e2faebd..d1ac3f93badf 100644
+--- a/config/plugins/visualizations/plotly_histogram/config/plotly_histogram.xml
++++ b/config/plugins/visualizations/plotly_histogram/config/plotly_histogram.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+-<visualization name="Histogram (plotly.js)" embeddable="true">
+-    <description>Histogram from Plotly Graphing Library.</description>
++<visualization name="Histogram" embeddable="true">
++    <description>Histogram from http://plotly.com</description>
+     <data_sources>
+         <data_source>
+             <model_class>HistoryDatasetAssociation</model_class>
+diff --git a/config/plugins/visualizations/plotly_surface/config/plotly_surface.xml b/config/plugins/visualizations/plotly_surface/config/plotly_surface.xml
+new file mode 100644
+index 000000000000..a122f80b5013
+--- /dev/null
++++ b/config/plugins/visualizations/plotly_surface/config/plotly_surface.xml
+@@ -0,0 +1,20 @@
++<?xml version="1.0" encoding="UTF-8"?>
++<!DOCTYPE visualization SYSTEM "../../visualization.dtd">
++<visualization name="Surface Plot" embeddable="true">
++    <description>Surface Plot from http://plotly.com</description>
++    <data_sources>
++        <data_source>
++            <model_class>HistoryDatasetAssociation</model_class>
++            <test type="isinstance" test_attr="datatype" result_type="datatype">tabular.Tabular</test>
++            <test type="isinstance" test_attr="datatype" result_type="datatype">tabular.CSV</test>
++            <to_param param_attr="id">dataset_id</to_param>
++        </data_source>
++    </data_sources>
++    <params>
++        <param type="dataset" var_name_in_template="hda" required="true">dataset_id</param>
++    </params>
++    <entry_point entry_point_type="script" src="../../plotly/static/dist/index.js" css="../../plotly/static/dist/index.css" />
++    <specs>
++        <variant>surface</variant>
++    </specs>
++</visualization>
+\ No newline at end of file
+diff --git a/config/plugins/visualizations/plotly_surface/static/logo.svg b/config/plugins/visualizations/plotly_surface/static/logo.svg
+new file mode 100644
+index 000000000000..b884364f2c9b
+--- /dev/null
++++ b/config/plugins/visualizations/plotly_surface/static/logo.svg
+@@ -0,0 +1,63 @@
++<?xml version="1.0" encoding="utf-8"?>
++<!-- Generator: Adobe Illustrator 25.2.3, SVG Export Plug-In . SVG Version: 6.00 Build 0)  -->
++<svg version="1.1" id="Layer_1" xmlns="http://www.w3.org/2000/svg" xmlns:xlink="http://www.w3.org/1999/xlink" x="0px" y="0px"
++	 viewBox="0 0 45 45">
++<style type="text/css">
++	.st0{fill:#282D33;}
++	.st1{fill:#8C99CD;}
++	.st2{fill:url(#SVGID_1_);}
++	.st3{fill:url(#SVGID_2_);}
++	.st4{fill:url(#SVGID_3_);}
++	.st5{fill:url(#SVGID_4_);}
++	.st6{fill:url(#SVGID_5_);}
++	.st7{fill:url(#SVGID_6_);}
++</style>
++<g id="Layer_2_1_">
++	<g id="Layer_1-2">
++		<circle class="st1" cx="28.6" cy="15.9" r="3.2"/>
++		<circle class="st1" cx="41.3" cy="3.2" r="3.2"/>
++		<circle class="st1" cx="28.6" cy="3.2" r="3.2"/>
++		<circle class="st1" cx="15.9" cy="3.2" r="3.2"/>
++		<circle class="st1" cx="3.2" cy="3.2" r="3.2"/>
++		<circle class="st1" cx="3.2" cy="15.9" r="3.2"/>
++		<linearGradient id="SVGID_1_" gradientUnits="userSpaceOnUse" x1="38" y1="-148.9" x2="82.52" y2="-148.9" gradientTransform="matrix(1 0 0 -1 -38 -133)">
++			<stop  offset="0" style="stop-color:#3479F3"/>
++			<stop  offset="1" style="stop-color:#7FE4FF"/>
++		</linearGradient>
++		<circle class="st2" cx="28.6" cy="15.9" r="3.2"/>
++			<linearGradient id="SVGID_2_" gradientUnits="userSpaceOnUse" x1="38" y1="-136.18" x2="82.52" y2="-136.18" gradientTransform="matrix(1 0 0 -1 -38 -133)">
++			<stop  offset="0" style="stop-color:#3479F3"/>
++			<stop  offset="1" style="stop-color:#7FE4FF"/>
++		</linearGradient>
++		<circle class="st3" cx="41.3" cy="3.2" r="3.2"/>
++			<linearGradient id="SVGID_3_" gradientUnits="userSpaceOnUse" x1="38" y1="-136.18" x2="82.52" y2="-136.18" gradientTransform="matrix(1 0 0 -1 -38 -133)">
++			<stop  offset="0" style="stop-color:#3479F3"/>
++			<stop  offset="1" style="stop-color:#7FE4FF"/>
++		</linearGradient>
++		<circle class="st4" cx="28.6" cy="3.2" r="3.2"/>
++			<linearGradient id="SVGID_4_" gradientUnits="userSpaceOnUse" x1="38" y1="-136.18" x2="82.52" y2="-136.18" gradientTransform="matrix(1 0 0 -1 -38 -133)">
++			<stop  offset="0" style="stop-color:#3479F3"/>
++			<stop  offset="1" style="stop-color:#7FE4FF"/>
++		</linearGradient>
++		<circle class="st5" cx="15.9" cy="3.2" r="3.2"/>
++			<linearGradient id="SVGID_5_" gradientUnits="userSpaceOnUse" x1="38" y1="-136.18" x2="82.52" y2="-136.18" gradientTransform="matrix(1 0 0 -1 -38 -133)">
++			<stop  offset="0" style="stop-color:#3479F3"/>
++			<stop  offset="1" style="stop-color:#7FE4FF"/>
++		</linearGradient>
++		<circle class="st6" cx="3.2" cy="3.2" r="3.2"/>
++			<linearGradient id="SVGID_6_" gradientUnits="userSpaceOnUse" x1="38" y1="-148.9" x2="82.52" y2="-148.9" gradientTransform="matrix(1 0 0 -1 -38 -133)">
++			<stop  offset="0" style="stop-color:#3479F3"/>
++			<stop  offset="1" style="stop-color:#7FE4FF"/>
++		</linearGradient>
++		<circle class="st7" cx="3.2" cy="15.9" r="3.2"/>
++		<path class="st0" d="M3.2,25.4c-1.8,0-3.2,1.4-3.2,3.2c0,0,0,0,0,0v12.7c0,1.8,1.4,3.2,3.2,3.2s3.2-1.4,3.2-3.2V28.6
++			C6.4,26.9,4.9,25.4,3.2,25.4L3.2,25.4z"/>
++		<path class="st0" d="M28.6,25.4c-1.8,0-3.2,1.4-3.2,3.2l0,0v12.7c0,1.8,1.4,3.2,3.2,3.2s3.2-1.4,3.2-3.2V28.6
++			C31.8,26.9,30.4,25.4,28.6,25.4L28.6,25.4z"/>
++		<path class="st0" d="M15.9,12.7c-1.8,0-3.2,1.4-3.2,3.2l0,0v25.4c0,1.8,1.4,3.2,3.2,3.2s3.2-1.4,3.2-3.2V15.9
++			C19.1,14.1,17.7,12.7,15.9,12.7z"/>
++		<path class="st0" d="M41.3,12.7c-1.8,0-3.2,1.4-3.2,3.2l0,0v25.4c0,1.8,1.4,3.2,3.2,3.2s3.2-1.4,3.2-3.2V15.9
++			C44.5,14.1,43.1,12.7,41.3,12.7z"/>
++	</g>
++</g>
++</svg>
+diff --git a/config/plugins/visualizations/venn/config/venn.xml b/config/plugins/visualizations/venn/config/venn.xml
+index d8b7d48561b2..dbe20c2aac56 100644
+--- a/config/plugins/visualizations/venn/config/venn.xml
++++ b/config/plugins/visualizations/venn/config/venn.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+-<visualization name="Venn Diagram (Benfred)" embeddable="true">
+-    <description>A javascript library for laying out area proportional venn and euler diagrams hosted at https://github.com/benfred/venn.js.</description>
++<visualization name="Venn Diagram" embeddable="true">
++    <description>Area proportional Venn and Euler Diagrams from http://github.com/benfred/venn.js</description>
+     <data_sources>
+         <data_source>
+             <model_class>HistoryDatasetAssociation</model_class>
+diff --git a/config/plugins/visualizations/vizarr/config/vizarr.xml b/config/plugins/visualizations/vizarr/config/vizarr.xml
+index b213605eeaf8..5e41e5e3e5d5 100644
+--- a/config/plugins/visualizations/vizarr/config/vizarr.xml
++++ b/config/plugins/visualizations/vizarr/config/vizarr.xml
+@@ -1,7 +1,7 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+ <visualization name="Vizarr Viewer" embeddable="true">
+-    <description>Basic visualization for Zarr-based images like OME-Zarr</description>
++    <description>Zarr-based images like OME-Zarr from https://github.com/hms-dbmi/vizarr</description>
+     <requirements>
+         <requirement type="npm" version="0.1.7" package="@galaxyproject/vizarr"/>
+     </requirements>
+@@ -9,10 +9,8 @@
+     <data_sources>
+         <data_source>
+             <model_class>HistoryDatasetAssociation</model_class>
+-
+             <test type="isinstance" test_attr="datatype" result_type="datatype" allow_uri_if_protocol="https,http">data.ZarrDirectory</test>
+             <test type="isinstance" test_attr="datatype" result_type="datatype" allow_uri_if_protocol="https,http">images.OMEZarr</test>
+-
+             <to_param param_attr="id">dataset_id</to_param>
+         </data_source>
+     </data_sources>
+diff --git a/lib/galaxy/selenium/navigates_galaxy.py b/lib/galaxy/selenium/navigates_galaxy.py
+index b9812013f228..b4975aec5fe3 100644
+--- a/lib/galaxy/selenium/navigates_galaxy.py
++++ b/lib/galaxy/selenium/navigates_galaxy.py
+@@ -1742,7 +1742,6 @@ def select_storage(self, storage_id: str) -> None:
+ 
+     def create_page_and_edit(self, name=None, slug=None, screenshot_name=None):
+         name = self.create_page(name=name, slug=slug, screenshot_name=screenshot_name)
+-        self.select_grid_operation(name, "Edit content")
+         self.components.pages.editor.markdown_editor.wait_for_visible()
+         return name
+ 
+@@ -1752,10 +1751,10 @@ def create_page(self, name=None, slug=None, screenshot_name=None):
+         self.components.pages.create.wait_for_and_click()
+         self.sleep_for(self.wait_types.UX_TRANSITION)
+         self.screenshot("before_title_input")
+-        self.components.pages.create_title_input.wait_for_and_send_keys(name)
++        self.components.pages.title_input.wait_for_and_send_keys(name)
+         self.sleep_for(self.wait_types.UX_RENDER)
+         self.screenshot("before_slug_input")
+-        self.components.pages.create_slug_input.wait_for_and_send_keys(slug)
++        self.components.pages.slug_input.wait_for_and_send_keys(slug)
+         self.sleep_for(self.wait_types.UX_RENDER)
+         self.screenshot_if(screenshot_name)
+         self.components.pages.submit.wait_for_and_click()
+diff --git a/lib/galaxy/webapps/galaxy/controllers/page.py b/lib/galaxy/webapps/galaxy/controllers/page.py
+index ded11eaa191a..799d11c838fb 100644
+--- a/lib/galaxy/webapps/galaxy/controllers/page.py
++++ b/lib/galaxy/webapps/galaxy/controllers/page.py
+@@ -16,7 +16,6 @@
+ from galaxy.managers.workflows import WorkflowsManager
+ from galaxy.model.db.user import get_user_by_username
+ from galaxy.model.item_attrs import UsesItemRatings
+-from galaxy.schema.schema import CreatePagePayload
+ from galaxy.structured_app import StructuredApp
+ from galaxy.util.sanitize_html import sanitize_html
+ from galaxy.web import error
+@@ -41,64 +40,6 @@ class PageController(BaseUIController, SharableMixin, UsesStoredWorkflowMixin, U
+     def __init__(self, app: StructuredApp):
+         super().__init__(app)
+ 
+-    @web.expose_api
+-    @web.require_login("create pages")
+-    def create(self, trans, payload=None, **kwd):
+-        """
+-        Create a new page.
+-        """
+-        if trans.request.method == "GET":
+-            form_title = "Create new Page"
+-            title = ""
+-            slug = ""
+-            content = ""
+-            if "invocation_id" in kwd:
+-                invocation_id = kwd.get("invocation_id")
+-                form_title = f"{form_title} from Invocation Report"
+-                slug = f"invocation-report-{invocation_id}"
+-                invocation_report = self.workflow_manager.get_invocation_report(
+-                    trans, trans.security.decode_id(invocation_id)
+-                )
+-                title = invocation_report.get("title")
+-                content = invocation_report.get("markdown")
+-            return {
+-                "title": form_title,
+-                "inputs": [
+-                    {
+-                        "name": "title",
+-                        "label": "Name",
+-                        "value": title,
+-                    },
+-                    {
+-                        "name": "slug",
+-                        "label": "Identifier",
+-                        "help": "A unique identifier that will be used for public links to this page. This field can only contain lowercase letters, numbers, and dashes (-).",
+-                        "value": slug,
+-                    },
+-                    {
+-                        "name": "annotation",
+-                        "label": "Annotation",
+-                        "help": "A description of the page. The annotation is shown alongside published pages.",
+-                    },
+-                    {
+-                        "name": "content_format",
+-                        "label": "Content Format",
+-                        "value": "markdown",
+-                        "hidden": True,
+-                    },
+-                    {
+-                        "name": "content",
+-                        "label": "Content",
+-                        "area": True,
+-                        "value": content,
+-                        "hidden": True,
+-                    },
+-                ],
+-            }
+-        else:
+-            page = self.page_manager.create_page(trans, CreatePagePayload(**payload))
+-            return {"message": f"Page '{page.title}' successfully created.", "status": "success"}
+-
+     @web.legacy_expose_api
+     @web.require_login("edit pages")
+     def edit(self, trans, payload=None, **kwd):
+diff --git a/test/integration_selenium/test_pages_pdf_export.py b/test/integration_selenium/test_pages_pdf_export.py
+index 9efc0e539ece..899eca4a4a17 100644
+--- a/test/integration_selenium/test_pages_pdf_export.py
++++ b/test/integration_selenium/test_pages_pdf_export.py
+@@ -17,7 +17,6 @@ def test_page_pdf_export(self):
+         self.navigate_to_pages()
+         self.screenshot("pages_grid")
+         page_name = self.create_page()
+-        self.select_grid_operation(page_name, "Edit content")
+         self.components.pages.editor.markdown_editor.wait_for_and_send_keys("moo\n\n\ncow\n\n")
+         self.screenshot("pages_markdown_editor")
+         self.sleep_for(self.wait_types.UX_RENDER)

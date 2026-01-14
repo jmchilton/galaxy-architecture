@@ -1,0 +1,47 @@
+@startuml
+!include plantuml_options.txt
+
+start
+
+:Choose base class;
+
+if (Need server-side pagination?) then (yes)
+    :Use PyFilesystem2FilesSource;
+else (no)
+    if (fsspec backend exists?) then (yes)
+        :Use FsspecFilesSource;
+        note right: Preferred for most cases
+    else (no)
+        :Use BaseFilesSource;
+    endif
+endif
+
+:Set plugin_type class variable;
+
+:Implement _open_fs();
+note right
+    Return filesystem object
+    (fsspec or PyFilesystem2)
+end note
+
+:Add Pydantic config models;
+note right
+    TemplateConfiguration
+    + FileSourceConfiguration
+end note
+
+:Register in sources/__init__.py;
+
+if (User-defined template?) then (yes)
+    :Add to file_source_templates.yml;
+else (no)
+endif
+
+:Test plugin;
+note right
+    pytest + integration tests
+end note
+
+stop
+
+@enduml

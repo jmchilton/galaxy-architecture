@@ -39,7 +39,7 @@
 - type: slide
   id: more-links-well-mention-as-we-go-throug
   heading: ''
-  class: reduce70 center
+  class: center
   content: |-
     More links we'll mention as we go through the slides:
 
@@ -195,7 +195,7 @@
 - type: slide
   id: galaxyprojecttools-iuc-httpsg
   heading: ''
-  class: reduce70 center
+  class: center
   content: |-
     [galaxyproject/**tools-iuc** ](https://github.com/galaxyproject/tools-iuc)
 
@@ -218,7 +218,7 @@
 - type: slide
   id: tools-aside-more-repositories
   heading: Tools Aside - More Repositories
-  class: center reduce70
+  class: center
   content: "Other repositories with high quality tools:\n\n * [Bj\xF6rn Gr\xFCning's\
     \ repo](https://github.com/bgruening/galaxytools)\n * Peter Cock's repos:\n  \
     \ * [blast repo](https://github.com/peterjc/galaxy_blast)\n   * [pico repo](https://github.com/peterjc/pico_galaxy)\n\
@@ -406,9 +406,8 @@
   class: enlarge150
 - type: slide
   id: total-perspective-vortex
-  heading: Total Perspective Vortex
   content: |-
-    [galaxyproject/total-perspective-vortex **](https://github.com/galaxyproject/total-perspective-vortex)
+    [galaxyproject/**total-perspective-vortex** ](https://github.com/galaxyproject/total-perspective-vortex)
 
     ![TPV Logo](https://raw.githubusercontent.com/galaxyproject/total-perspective-vortex/main/docs/images/tpv-logo-wide.png)
 

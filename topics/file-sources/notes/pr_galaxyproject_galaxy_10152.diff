@@ -1,0 +1,833 @@
+diff --git a/client/src/components/FilesDialog/FilesDialog.vue b/client/src/components/FilesDialog/FilesDialog.vue
+index 6c31f8204b8f..4d05e124f50a 100644
+--- a/client/src/components/FilesDialog/FilesDialog.vue
++++ b/client/src/components/FilesDialog/FilesDialog.vue
+@@ -60,6 +60,10 @@ export default {
+             default: "file",
+             validator: (prop) => ["file", "directory"].includes(prop),
+         },
++        requireWritable: {
++            type: Boolean,
++            default: false,
++        },
+     },
+     data() {
+         return {
+@@ -129,16 +133,19 @@ export default {
+                 this.services
+                     .getFileSources()
+                     .then((items) => {
+-                        this.items = items.map((item) => {
+-                            return {
+-                                id: item.id,
+-                                label: item.label,
+-                                details: item.doc,
+-                                isLeaf: false,
+-                                url: item.uri_root,
+-                                labelTitle: item.uri_root,
+-                            };
+-                        });
++                        items = items
++                            .filter((item) => !this.requireWritable || item.writable)
++                            .map((item) => {
++                                return {
++                                    id: item.id,
++                                    label: item.label,
++                                    details: item.doc,
++                                    isLeaf: false,
++                                    url: item.uri_root,
++                                    labelTitle: item.uri_root,
++                                };
++                            });
++                        this.items = items;
+                         this.formatRows();
+                         this.optionsShow = true;
+                         this.showTime = false;
+diff --git a/client/src/mvc/form/form-parameters.js b/client/src/mvc/form/form-parameters.js
+index 92d4079d22a6..189d8856f56e 100644
+--- a/client/src/mvc/form/form-parameters.js
++++ b/client/src/mvc/form/form-parameters.js
+@@ -10,6 +10,7 @@ import SelectContent from "mvc/ui/ui-select-content";
+ import SelectLibrary from "mvc/ui/ui-select-library";
+ import SelectFtp from "mvc/ui/ui-select-ftp";
+ import RulesEdit from "mvc/ui/ui-rules-edit";
++import FileSource from "mvc/ui/ui-file-source";
+ import ColorPicker from "mvc/ui/ui-color-picker";
+ import DataPicker from "mvc/ui/ui-data-picker";
+ 
+@@ -37,6 +38,7 @@ export default Backbone.Model.extend({
+         ftpfile: "_fieldFtp",
+         upload: "_fieldUpload",
+         rules: "_fieldRulesEdit",
++        directory_uri: "_fieldDirectoryUri",
+         data_dialog: "_fieldDialog",
+     },
+ 
+@@ -238,6 +240,14 @@ export default Backbone.Model.extend({
+         });
+     },
+ 
++    _fieldDirectoryUri: function (input_def) {
++        return new FileSource.View({
++            id: `field-${input_def.id}`,
++            onchange: input_def.onchange,
++            target: input_def.target,
++        });
++    },
++
+     _fieldRulesEdit: function (input_def) {
+         return new RulesEdit.View({
+             id: `field-${input_def.id}`,
+diff --git a/client/src/mvc/ui/ui-file-source.js b/client/src/mvc/ui/ui-file-source.js
+new file mode 100644
+index 000000000000..879bf20ebd7f
+--- /dev/null
++++ b/client/src/mvc/ui/ui-file-source.js
+@@ -0,0 +1,100 @@
++import Backbone from "backbone";
++import { filesDialog } from "utils/data";
++import _l from "utils/localization";
++import Ui from "mvc/ui/ui-misc";
++
++var View = Backbone.View.extend({
++    initialize: function (options) {
++        this.model = new Backbone.Model();
++        this.target = options.target;
++        const props = {
++            mode: "directory",
++            requireWritable: true,
++        };
++        // create insert edit button
++        this.browse_button = new Ui.Button({
++            title: _l("Select"),
++            icon: "fa fa-edit",
++            tooltip: _l("Select URI"),
++            onclick: () => {
++                filesDialog((uri) => {
++                    this._handleRemoteFilesUri(uri);
++                }, props);
++            },
++        });
++
++        // add change event. fires on trigger
++        this.on("change", () => {
++            if (options.onchange) {
++                options.onchange(this.value());
++            }
++        });
++
++        // create elements
++        this.setElement(this._template(options));
++        this.$text = this.$(".ui-uri-preview");
++        this.$(".ui-file-select-button").append(this.browse_button.$el);
++        this.listenTo(this.model, "change", this.render, this);
++        this.render();
++    },
++
++    _handleRemoteFilesUri: function (uri) {
++        this._setValue(uri);
++    },
++
++    render: function () {
++        const value = this._value;
++        if (value) {
++            if (value.url !== this.$text.text()) {
++                this.$text.text(value.url);
++            }
++        } else {
++            this.$text.text("select...");
++        }
++    },
++
++    /** Main Template */
++    _template: function (options) {
++        return `
++            <div class="ui-rules-edit clearfix">
++                <span class="ui-uri-preview" />
++                <span class="ui-file-select-button float-left" />
++            </div>
++        `;
++    },
++
++    /** Return/Set current value */
++    value: function (new_value) {
++        if (new_value !== undefined) {
++            this._setValue(new_value);
++        } else {
++            return this._getValue();
++        }
++    },
++
++    /** Update input element options */
++    update: function (input_def) {
++        this.target = input_def.target;
++    },
++
++    /** Returns current value */
++    _getValue: function () {
++        return this._value.url;
++    },
++
++    /** Sets current value */
++    _setValue: function (new_value) {
++        if (new_value) {
++            if (typeof new_value == "string") {
++                new_value = JSON.parse(new_value);
++            }
++            this._value = new_value;
++            this.model.trigger("error", null);
++            this.model.trigger("change");
++        }
++    },
++});
++
++export default {
++    View: View,
++};
+diff --git a/client/src/mvc/ui/ui-rules-edit.js b/client/src/mvc/ui/ui-rules-edit.js
+index 566a61047124..ebb09946d454 100644
+--- a/client/src/mvc/ui/ui-rules-edit.js
++++ b/client/src/mvc/ui/ui-rules-edit.js
+@@ -23,7 +23,7 @@ var View = Backbone.View.extend({
+             tooltip: _l("Edit Rules"),
+             onclick: () => {
+                 if (view.target) {
+-                    view._fetcCollectionAndEdit();
++                    view._fetchCollectionAndEdit();
+                 } else {
+                     view._showRuleEditor(null);
+                 }
+@@ -55,7 +55,7 @@ var View = Backbone.View.extend({
+         this.collapsible_disabled = true;
+     },
+ 
+-    _fetcCollectionAndEdit: function () {
++    _fetchCollectionAndEdit: function () {
+         const view = this;
+         const url = `${getAppRoot()}api/dataset_collections/${view.target.id}?instance_type=history`;
+         axios
+diff --git a/lib/galaxy/files/__init__.py b/lib/galaxy/files/__init__.py
+index a86664aee60d..89bfc92fefa3 100644
+--- a/lib/galaxy/files/__init__.py
++++ b/lib/galaxy/files/__init__.py
+@@ -68,7 +68,7 @@ def get_file_source_path(self, uri):
+         if "://" not in uri:
+             raise exceptions.RequestParameterInvalidException("Invalid uri [%s]" % uri)
+         scheme, rest = uri.split("://", 1)
+-        if scheme not in self.get_schemas():
++        if scheme not in self.get_schemes():
+             raise exceptions.RequestParameterInvalidException("Unsupported URI scheme [%s]" % scheme)
+ 
+         if scheme != "gxfiles":
+@@ -107,30 +107,30 @@ def validate_uri_root(self, uri, user_context):
+             if not user_ftp_dir or not os.path.exists(user_ftp_dir):
+                 raise exceptions.ObjectNotFound('Your FTP directory does not exist, attempting to upload files to it may cause it to be created.')
+ 
+-    def get_file_source(self, id_prefix, schema):
++    def get_file_source(self, id_prefix, scheme):
+         for file_source in self._file_sources:
+-            # gxfiles uses prefix to find plugin, other schema are assumed to have
++            # gxfiles uses prefix to find plugin, other scheme are assumed to have
+             # at most one file_source.
+-            if schema != file_source.get_schema():
++            if scheme != file_source.get_scheme():
+                 continue
+-            prefix_match = schema != "gxfiles" or file_source.get_prefix() == id_prefix
++            prefix_match = scheme != "gxfiles" or file_source.get_prefix() == id_prefix
+             if prefix_match:
+                 return file_source
+ 
+     def looks_like_uri(self, path_or_uri):
+         # is this string a URI this object understands how to realize
+         if path_or_uri.startswith("gx") and "://" in path_or_uri:
+-            for scheme in self.get_schemas():
++            for scheme in self.get_schemes():
+                 if path_or_uri.startswith("%s://" % scheme):
+                     return True
+ 
+         return False
+ 
+-    def get_schemas(self):
+-        schemas = set()
++    def get_schemes(self):
++        schemes = set()
+         for file_source in self._file_sources:
+-            schemas.add(file_source.get_schema())
+-        return schemas
++            schemes.add(file_source.get_scheme())
++        return schemes
+ 
+     def plugins_to_dict(self, for_serialization=False, user_context=None):
+         rval = []
+diff --git a/lib/galaxy/files/sources/__init__.py b/lib/galaxy/files/sources/__init__.py
+index 78dafe68e7bb..f92bda85e725 100644
+--- a/lib/galaxy/files/sources/__init__.py
++++ b/lib/galaxy/files/sources/__init__.py
+@@ -6,20 +6,27 @@
+ 
+ from galaxy.util.template import fill_template
+ 
++DEFAULT_SCHEME = "gxfiles"
++DEFAULT_WRITABLE = False
++
+ 
+ @six.add_metaclass(abc.ABCMeta)
+ class FilesSource(object):
+     """
+     """
+ 
+-    @abc.abstractproperty
++    @abc.abstractmethod
+     def get_uri_root(self):
+         """Return a prefix for the root (e.g. gxfiles://prefix/)."""
+ 
+-    @abc.abstractproperty
+-    def get_schema(self):
++    @abc.abstractmethod
++    def get_scheme(self):
+         """Return a prefix for the root (e.g. the gxfiles in gxfiles://prefix/path)."""
+ 
++    @abc.abstractmethod
++    def get_writable(self):
++        """Return a boolean indicating if this target is writable."""
++
+     # TODO: off-by-default
+     @abc.abstractmethod
+     def list(self, source_path="/", recursive=False, user_context=None):
+@@ -29,6 +36,10 @@ def list(self, source_path="/", recursive=False, user_context=None):
+     def realize_to(self, source_path, native_path, user_context=None):
+         """Realize source path (relative to uri root) to local file system path."""
+ 
++    def write_from(self, target_path, native_path, user_context=None):
++        """Write file at native path to target_path (relative to uri root).
++        """
++
+     @abc.abstractmethod
+     def to_dict(self, for_serialization=False, user_context=None):
+         """Return a dictified representation of this FileSource instance.
+@@ -43,13 +54,16 @@ class BaseFilesSource(FilesSource):
+     def get_prefix(self):
+         return self.id
+ 
+-    def get_schema(self):
++    def get_scheme(self):
+         return "gxfiles"
+ 
++    def get_writable(self):
++        return self.writable
++
+     def get_uri_root(self):
+         prefix = self.get_prefix()
+-        schema = self.get_schema()
+-        root = "%s://" % schema
++        scheme = self.get_scheme()
++        root = "%s://" % scheme
+         if prefix:
+             root = uri_join(root, prefix)
+         return root
+@@ -63,7 +77,8 @@ def _parse_common_config_opts(self, kwd):
+         self.id = kwd.pop("id")
+         self.label = kwd.pop("label", None) or self.id
+         self.doc = kwd.pop("doc", None)
+-        self.schema = kwd.pop("schema", "gxfiles")
++        self.scheme = kwd.pop("scheme", DEFAULT_SCHEME)
++        self.writable = kwd.pop("writable", DEFAULT_WRITABLE)
+         # If coming from to_dict, strip API helper values
+         kwd.pop("uri_root", None)
+         kwd.pop("type", None)
+@@ -76,6 +91,7 @@ def to_dict(self, for_serialization=False, user_context=None):
+             "uri_root": self.get_uri_root(),
+             "label": self.label,
+             "doc": self.doc,
++            "writable": self.writable,
+         }
+         if for_serialization:
+             rval.update(self._serialization_props(user_context=user_context))
+@@ -96,6 +112,15 @@ def _serialization_props(self):
+         Used in to_dict method if for_serialization is True.
+         """
+ 
++    def write_from(self, target_path, native_path, user_context=None):
++        if not self.get_writable():
++            raise Exception("Cannot write to a non-writable file source.")
++        self._write_from(target_path, native_path, user_context=user_context)
++
++    @abc.abstractmethod
++    def _write_from(self, target_path, native_path, user_context=None):
++        pass
++
+     def _evaluate_prop(self, prop_val, user_context):
+         rval = prop_val
+         if isinstance(prop_val, str) and "$" in prop_val:
+diff --git a/lib/galaxy/files/sources/_pyfilesystem2.py b/lib/galaxy/files/sources/_pyfilesystem2.py
+index 5f49eb5eb81c..941442d90364 100644
+--- a/lib/galaxy/files/sources/_pyfilesystem2.py
++++ b/lib/galaxy/files/sources/_pyfilesystem2.py
+@@ -42,6 +42,10 @@ def realize_to(self, source_path, native_path, user_context=None):
+         with open(native_path, 'wb') as write_file:
+             self._open_fs(user_context=user_context).download(source_path, write_file)
+ 
++    def _write_from(self, target_path, native_path, user_context=None):
++        with open(native_path, 'rb') as read_file:
++            self._open_fs(user_context=user_context).upload(target_path, read_file)
++
+     def _resource_info_to_dict(self, dir_path, resource_info):
+         name = resource_info.name
+         path = os.path.join(dir_path, name)
+diff --git a/lib/galaxy/files/sources/galaxy.py b/lib/galaxy/files/sources/galaxy.py
+index 6b0fdc1ccef1..7cc0ae02f63f 100644
+--- a/lib/galaxy/files/sources/galaxy.py
++++ b/lib/galaxy/files/sources/galaxy.py
+@@ -12,6 +12,7 @@ def __init__(self, label="FTP Directory", doc="Galaxy User's FTP Directory", roo
+             root=root,
+             label=label,
+             doc=doc,
++            writable=True,
+         )
+         posix_kwds.update(kwd)
+         if "delete_on_realize" not in posix_kwds:
+@@ -22,7 +23,7 @@ def __init__(self, label="FTP Directory", doc="Galaxy User's FTP Directory", roo
+     def get_prefix(self):
+         return None
+ 
+-    def get_schema(self):
++    def get_scheme(self):
+         return "gxftp"
+ 
+ 
+@@ -42,7 +43,7 @@ def __init__(self, label="Library Import Directory", doc="Galaxy's library impor
+     def get_prefix(self):
+         return None
+ 
+-    def get_schema(self):
++    def get_scheme(self):
+         return "gximport"
+ 
+ 
+@@ -62,7 +63,7 @@ def __init__(self, label="Library User Import Directory", doc="Galaxy's user lib
+     def get_prefix(self):
+         return None
+ 
+-    def get_schema(self):
++    def get_scheme(self):
+         return "gxuserimport"
+ 
+ 
+diff --git a/lib/galaxy/files/sources/posix.py b/lib/galaxy/files/sources/posix.py
+index 96f611dff7ae..5c9140bf9161 100644
+--- a/lib/galaxy/files/sources/posix.py
++++ b/lib/galaxy/files/sources/posix.py
+@@ -62,6 +62,22 @@ def realize_to(self, source_path, native_path, user_context=None):
+         else:
+             shutil.move(source_native_path, native_path)
+ 
++    def _write_from(self, target_path, native_path, user_context=None):
++        effective_root = self._effective_root(user_context)
++        target_native_path = self._to_native_path(target_path, user_context=user_context)
++        if self.enforce_symlink_security:
++            if not safe_contains(effective_root, target_native_path, allowlist=self._allowlist):
++                raise Exception("Operation not allowed.")
++        else:
++            target_native_path = os.path.normpath(target_native_path)
++            assert target_native_path.startswith(os.path.normpath(effective_root))
++
++        target_native_path_parent = os.path.dirname(target_native_path)
++        if not os.path.exists(target_native_path_parent):
++            raise Exception("Parent directory does not exist.")
++
++        shutil.copyfile(native_path, target_native_path)
++
+     def _to_native_path(self, source_path, user_context=None):
+         source_path = os.path.normpath(source_path)
+         if source_path.startswith("/"):
+diff --git a/lib/galaxy/tool_util/xsd/galaxy.xsd b/lib/galaxy/tool_util/xsd/galaxy.xsd
+index 514aeed31e5d..a2c877c9317d 100644
+--- a/lib/galaxy/tool_util/xsd/galaxy.xsd
++++ b/lib/galaxy/tool_util/xsd/galaxy.xsd
+@@ -2398,6 +2398,14 @@ sanitizer to prevent Galaxy from escaping the result.
+ </param>
+ ```
+ 
++#### ``directory_uri``
++
++This is used to tie into galaxy.files URI infrastructure. This should only be used by
++core Galaxy tools until the interface around files has stabilized.
++
++Currently ``directory_uri`` parameters provide user's the option of selecting a writable
++directory destination for unstructured outputs of tools (e.g. history exports).
++
+ $attribute_list:value,rgb:5
+ 
+ This covers examples of the most common parameter types, the remaining parameter
+@@ -2693,6 +2701,7 @@ allow access to Python code to generate options for a select list. See
+       <xs:enumeration value="drill_down"/>
+       <xs:enumeration value="group_tag"/>
+       <xs:enumeration value="data_collection"/>
++      <xs:enumeration value="directory_uri" />
+     </xs:restriction>
+   </xs:simpleType>
+ 
+diff --git a/lib/galaxy/tools/__init__.py b/lib/galaxy/tools/__init__.py
+index 1c37da97dfa2..5bf919c19268 100755
+--- a/lib/galaxy/tools/__init__.py
++++ b/lib/galaxy/tools/__init__.py
+@@ -128,6 +128,7 @@
+     "upload1",
+     "send_to_cloud",
+     "__DATA_FETCH__",
++    "directory_uri",
+     # Legacy tools bundled with Galaxy.
+     "laj_1",
+     "gff2bed1",
+diff --git a/lib/galaxy/tools/parameters/basic.py b/lib/galaxy/tools/parameters/basic.py
+index 739e6cf2be8b..1dc2a1a23df0 100644
+--- a/lib/galaxy/tools/parameters/basic.py
++++ b/lib/galaxy/tools/parameters/basic.py
+@@ -296,7 +296,26 @@ def parse_name(input_source):
+         return input_source.parse_name()
+ 
+ 
+-class TextToolParameter(ToolParameter):
++class SimpleTextToolParameter(ToolParameter):
++
++    def __init__(self, tool, input_source):
++        input_source = ensure_input_source(input_source)
++        super().__init__(tool, input_source)
++        self.value = ''
++
++    def to_json(self, value, app, use_security):
++        """Convert a value to a string representation suitable for persisting"""
++        if value is None:
++            rval = ''
++        else:
++            rval = unicodify(value)
++        return rval
++
++    def get_initial_value(self, trans, other_values):
++        return self.value
++
++
++class TextToolParameter(SimpleTextToolParameter):
+     """
+     Parameter that can take on any text value.
+ 
+@@ -317,22 +336,11 @@ def __init__(self, tool, input_source):
+         self.value = input_source.get('value')
+         self.area = input_source.get_bool('area', False)
+ 
+-    def to_json(self, value, app, use_security):
+-        """Convert a value to a string representation suitable for persisting"""
+-        if value is None:
+-            rval = ''
+-        else:
+-            rval = unicodify(value)
+-        return rval
+-
+     def validate(self, value, trans=None):
+         search = self.type == "text"
+         if not (trans and trans.workflow_building_mode is workflow_building_modes.ENABLED and contains_workflow_parameter(value, search=search)):
+             return super().validate(value, trans)
+ 
+-    def get_initial_value(self, trans, other_values):
+-        return self.value
+-
+     def to_dict(self, trans, other_values={}):
+         d = super().to_dict(trans)
+         d['area'] = self.area
+@@ -2328,6 +2336,14 @@ def to_python(self, value, app):
+         return json.loads(value)
+ 
+ 
++class DirectoryUriToolParameter(SimpleTextToolParameter):
++    """galaxy.files URIs for directories."""
++
++    def __init__(self, tool, input_source, context=None):
++        input_source = ensure_input_source(input_source)
++        SimpleTextToolParameter.__init__(self, tool, input_source)
++
++
+ class RulesListToolParameter(BaseJsonToolParameter):
+     """
+     Parameter that allows for the creation of a list of rules using the Galaxy rules DSL.
+@@ -2388,6 +2404,7 @@ def to_text(self, value):
+     data_collection=DataCollectionToolParameter,
+     library_data=LibraryDatasetToolParameter,
+     rules=RulesListToolParameter,
++    directory_uri=DirectoryUriToolParameter,
+     drill_down=DrillDownSelectToolParameter
+ )
+ 
+diff --git a/test/functional/tools/directory_uri.xml b/test/functional/tools/directory_uri.xml
+new file mode 100644
+index 000000000000..610674e7c3c7
+--- /dev/null
++++ b/test/functional/tools/directory_uri.xml
+@@ -0,0 +1,17 @@
++<tool id="directory_uri" name="directory_uri" version="1.0.0">
++    <command><![CDATA[
++        python '$__tool_directory__/directory_uri_copy_to.py'
++            --file_sources '$file_sources'
++            --directory_uri '$d_uri'
++    ]]></command>
++    <inputs>
++        <param type="directory_uri" name="d_uri" label="Directory URI" />
++    </inputs>
++    <outputs>
++    </outputs>
++    <configfiles>
++        <file_sources name="file_sources" />
++    </configfiles>
++    <tests>
++    </tests>
++</tool>
+diff --git a/test/functional/tools/directory_uri_copy_to.py b/test/functional/tools/directory_uri_copy_to.py
+new file mode 100644
+index 000000000000..8a9883414617
+--- /dev/null
++++ b/test/functional/tools/directory_uri_copy_to.py
+@@ -0,0 +1,46 @@
++import argparse
++import json
++import os
++import sys
++import tempfile
++
++from galaxy.files import ConfiguredFileSources
++
++
++def get_file_sources(file_sources_path):
++    assert os.path.exists(file_sources_path), "file sources path [%s] does not exist" % file_sources_path
++    with open(file_sources_path, "r") as f:
++        file_sources_as_dict = json.load(f)
++    file_sources = ConfiguredFileSources.from_dict(file_sources_as_dict)
++    return file_sources
++
++
++def main(argv=None):
++    if argv is None:
++        argv = sys.argv[1:]
++
++    args = _parser().parse_args(argv)
++    file_sources = get_file_sources(args.file_sources)
++    directory_uri = args.directory_uri
++    if directory_uri.endswith("/"):
++        target_uri = directory_uri + "helloworld"
++    else:
++        target_uri = directory_uri + "/helloworld"
++    file_source_path = file_sources.get_file_source_path(target_uri)
++    file_source = file_source_path.file_source
++    fd, temp_name = tempfile.mkstemp()
++    with open(fd, 'w') as f:
++        f.write('hello world!\n')
++    file_source.write_from(file_source_path.path, temp_name)
++
++
++def _parser():
++    parser = argparse.ArgumentParser()
++    parser.add_argument('--directory_uri', type=str,
++                        help='directory target URI')
++    parser.add_argument('--file_sources', type=str, help='file sources json')
++    return parser
++
++
++if __name__ == "__main__":
++    main()
+diff --git a/test/functional/tools/samples_tool_conf.xml b/test/functional/tools/samples_tool_conf.xml
+index 358c850dab68..2f5d6a21de63 100644
+--- a/test/functional/tools/samples_tool_conf.xml
++++ b/test/functional/tools/samples_tool_conf.xml
+@@ -62,6 +62,7 @@
+   <tool file="detect_errors.xml" />
+   <tool file="detect_errors_aggressive.xml" />
+   <tool file="qc_stdout.xml" />
++  <tool file="directory_uri.xml" />
+   <tool file="md5sum.xml" />
+   <tool file="checksum.xml" />
+   <tool file="sim_size_delta.xml" />
+diff --git a/test/integration/test_remote_files.py b/test/integration/test_remote_files.py
+index b60f40d1e1c9..99325ca79913 100644
+--- a/test/integration/test_remote_files.py
++++ b/test/integration/test_remote_files.py
+@@ -18,6 +18,8 @@
+ 
+ class RemoteFilesIntegrationTestCase(integration_util.IntegrationTestCase):
+ 
++    framework_tool_and_types = True
++
+     @classmethod
+     def handle_galaxy_config_kwds(cls, config):
+         root = os.path.realpath(mkdtemp())
+@@ -109,6 +111,20 @@ def test_fetch_from_ftp(self):
+ 
+         assert not os.path.exists(os.path.join(ftp_dir, "a"))
+ 
++    def test_write_to_files(self):
++        dataset_populator = self.dataset_populator
++        ftp_dir = os.path.join(self.ftp_upload_dir, USER_EMAIL)
++        _write_file_fixtures(self.root, ftp_dir)
++        with dataset_populator.test_history() as history_id:
++            inputs = {
++                "d_uri": "gxftp://",
++            }
++            response = dataset_populator.run_tool("directory_uri", inputs, history_id)
++            dataset_populator.wait_for_job(response["jobs"][0]["id"])
++            assert 'helloworld' in os.listdir(ftp_dir)
++            with open(os.path.join(ftp_dir, 'helloworld'), 'r') as f:
++                assert 'hello world!\n' == f.read()
++
+     def _assert_index_empty(self, index):
+         assert len(index) == 0
+ 
+diff --git a/test/unit/files/_util.py b/test/unit/files/_util.py
+index acaa4fd1bcff..15ebe01217de 100644
+--- a/test/unit/files/_util.py
++++ b/test/unit/files/_util.py
+@@ -66,7 +66,22 @@ def assert_realizes_as(file_sources, uri, expected, user_context=None):
+     file_source_path.file_source.realize_to(file_source_path.path, temp_name, user_context=user_context)
+     try:
+         with open(temp_name, "r") as f:
+-            assert f.read() == expected
++            realized_contents = f.read()
++        if realized_contents != expected:
++            message = "Expected to realize contents at [{}] as [{}], instead found [{}]".format(
++                uri,
++                expected,
++                realized_contents,
++            )
++            raise AssertionError(message)
+     finally:
+         os.remove(temp_name)
+     return temp_name
++
++
++def write_from(file_sources, uri, content, user_context=None):
++    file_source_path = file_sources.get_file_source_path(uri)
++    fd, temp_name = tempfile.mkstemp()
++    with open(fd, 'w') as f:
++        f.write(content)
++    file_source_path.file_source.write_from(file_source_path.path, temp_name, user_context=user_context)
+diff --git a/test/unit/files/posix.py b/test/unit/files/posix.py
+index d9c5c59c8676..9acf372f723b 100644
+--- a/test/unit/files/posix.py
++++ b/test/unit/files/posix.py
+@@ -14,6 +14,7 @@
+     list_root,
+     serialize_and_recover,
+     user_context_fixture,
++    write_from,
+ )
+ 
+ EMAIL = 'alice@galaxyproject.org'
+@@ -63,7 +64,17 @@ def test_posix_link_security():
+         sniff.stream_url_to_file("gxfiles://test1/unsafe", file_sources=file_sources)
+     except Exception as ex:
+         e = ex
+-    assert e is not None
++    _assert_access_prohibited(e)
++
++
++def test_posix_link_security_write():
++    file_sources = _configured_file_sources(writable=True)
++    e = None
++    try:
++        write_from(file_sources, "gxfiles://test1/unsafe", "my test content")
++    except Exception as ex:
++        e = ex
++    _assert_access_prohibited(e)
+ 
+ 
+ def test_posix_link_security_allowlist():
+@@ -76,6 +87,13 @@ def test_posix_link_security_allowlist():
+         os.remove(tmp_name)
+ 
+ 
++def test_posix_link_security_allowlist_write():
++    file_sources = _configured_file_sources(include_allowlist=True, writable=True)
++    write_from(file_sources, "gxfiles://test1/unsafe", "my test content")
++    with open(os.path.join(file_sources.test_root, "unsafe"), "r") as f:
++        assert f.read() == "my test content"
++
++
+ def test_posix_disable_link_security():
+     file_sources = _configured_file_sources(plugin_extra_config={"enforce_symlink_security": False})
+     tmp_name = sniff.stream_url_to_file("gxfiles://test1/unsafe", file_sources=file_sources)
+@@ -86,6 +104,17 @@ def test_posix_disable_link_security():
+         os.remove(tmp_name)
+ 
+ 
++def test_posix_nonexistent_parent_write():
++    file_sources = _configured_file_sources(include_allowlist=True, writable=True)
++    e = None
++    try:
++        write_from(file_sources, "gxfiles://test1/notreal/myfile", "my test content")
++    except Exception as ex:
++        e = ex
++    assert e is not None
++    assert "Parent" in str(e)
++
++
+ def test_posix_per_user():
+     file_sources = _configured_file_sources(per_user=True)
+     user_context = user_context_fixture()
+@@ -95,6 +124,23 @@ def test_posix_per_user():
+     assert find_file_a(res)
+ 
+ 
++def test_posix_per_user_writable():
++    file_sources = _configured_file_sources(per_user=True, writable=True)
++    user_context = user_context_fixture()
++
++    res = list_root(file_sources, "gxfiles://test1", recursive=False, user_context=user_context)
++    b = find(res, name="b")
++    assert b is None
++
++    write_from(file_sources, "gxfiles://test1/b", "my test content", user_context=user_context)
++
++    res = list_root(file_sources, "gxfiles://test1", recursive=False, user_context=user_context)
++    b = find(res, name="b")
++    assert b is not None, b
++
++    assert_realizes_as(file_sources, "gxfiles://test1/b", "my test content", user_context=user_context)
++
++
+ def test_posix_per_user_serialized():
+     user_context = user_context_fixture()
+     file_sources = serialize_and_recover(_configured_file_sources(per_user=True), user_context=user_context)
+@@ -208,7 +254,7 @@ def test_user_import_dir_implicit_config():
+     assert_realizes_as(file_sources, "gxuserimport://a", "a\n", user_context=user_context)
+ 
+ 
+-def _configured_file_sources(include_allowlist=False, plugin_extra_config=None, per_user=False):
++def _configured_file_sources(include_allowlist=False, plugin_extra_config=None, per_user=False, writable=None):
+     tmp, root = _setup_root()
+     config_kwd = {}
+     if include_allowlist:
+@@ -218,6 +264,8 @@ def _configured_file_sources(include_allowlist=False, plugin_extra_config=None,
+         'type': 'posix',
+         'id': 'test1',
+     }
++    if writable is not None:
++        plugin['writable'] = writable
+     if per_user:
+         plugin['root'] = "%s/${user.username}" % root
+         # setup files just for alice
+@@ -227,7 +275,9 @@ def _configured_file_sources(include_allowlist=False, plugin_extra_config=None,
+         plugin['root'] = root
+     plugin.update(plugin_extra_config or {})
+     _write_file_fixtures(tmp, root)
+-    return ConfiguredFileSources(file_sources_config, conf_dict=[plugin])
++    file_sources = ConfiguredFileSources(file_sources_config, conf_dict=[plugin])
++    file_sources.test_root = root
++    return file_sources
+ 
+ 
+ def _setup_root():
+@@ -266,3 +316,8 @@ def _download_and_check_file(file_sources):
+         assert a_contents == "a\n"
+     finally:
+         os.remove(tmp_name)
++
++
++def _assert_access_prohibited(e):
++    assert e is not None
++    assert "Operation not allowed" in str(e)

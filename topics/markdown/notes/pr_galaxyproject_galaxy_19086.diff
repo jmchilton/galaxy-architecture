@@ -1,0 +1,955 @@
+diff --git a/client/src/api/schema/schema.ts b/client/src/api/schema/schema.ts
+index d75db5e81cfd..22b06973ffbd 100644
+--- a/client/src/api/schema/schema.ts
++++ b/client/src/api/schema/schema.ts
+@@ -8041,7 +8041,7 @@ export interface components {
+             annotation?: string | null;
+             /**
+              * Content
+-             * @description Raw text contents of the last page revision (type dependent on content_format).
++             * @description Text contents of the last page revision with embedded directives expanded (type dependent on content_format).
+              * @default
+              */
+             content: string | null;
+@@ -17065,10 +17065,16 @@ export interface components {
+             author_deleted: boolean;
+             /**
+              * Content
+-             * @description Raw text contents of the last page revision (type dependent on content_format).
++             * @description Text contents of the last page revision with embedded directives expanded (type dependent on content_format).
+              * @default
+              */
+             content: string | null;
++            /**
++             * Content for Editor
++             * @description Raw text contents of the last page revision (type dependent on content_format).
++             * @default
++             */
++            content_editor: string | null;
+             /**
+              * Content format
+              * @description Either `markdown` or `html`.
+@@ -20130,7 +20136,7 @@ export interface components {
+         ToolReportForDataset: {
+             /**
+              * Content
+-             * @description Raw text contents of the last page revision (type dependent on content_format).
++             * @description Text contents of the last page revision with embedded directives expanded (type dependent on content_format).
+              * @default
+              */
+             content: string | null;
+diff --git a/client/src/components/Markdown/MarkdownHelpPopovers.vue b/client/src/components/Markdown/MarkdownHelpPopovers.vue
+new file mode 100644
+index 000000000000..260ab173cef6
+--- /dev/null
++++ b/client/src/components/Markdown/MarkdownHelpPopovers.vue
+@@ -0,0 +1,19 @@
++<script setup lang="ts">
++import type { HelpElementReference } from "@/components/Markdown/gxuris-types";
++
++import HelpPopover from "@/components/Help/HelpPopover.vue";
++
++interface Props {
++    elements: HelpElementReference[];
++}
++
++defineProps<Props>();
++</script>
++
++<template>
++    <span>
++        <span v-for="(value, i) in elements" :key="i">
++            <HelpPopover :target="value.element" :term="value.term" />
++        </span>
++    </span>
++</template>
+diff --git a/client/src/components/Markdown/Sections/MarkdownDefault.vue b/client/src/components/Markdown/Sections/MarkdownDefault.vue
+index d3d51e3411ac..b30a386e11a2 100644
+--- a/client/src/components/Markdown/Sections/MarkdownDefault.vue
++++ b/client/src/components/Markdown/Sections/MarkdownDefault.vue
+@@ -2,7 +2,9 @@
+ import MarkdownIt from "markdown-it";
+ //@ts-ignore
+ import markdownItRegexp from "markdown-it-regexp";
+-import { computed } from "vue";
++import { computed, ref } from "vue";
++
++import { useGxUris } from "@/components/Markdown/gxuris";
+ 
+ //@ts-ignore
+ import markdownItKatex from "./Plugins/markdown-it-katex";
+@@ -20,8 +22,14 @@ const props = defineProps<{
+ }>();
+ 
+ const renderedContent = computed(() => md.render(props.content));
++
++const renderedMarkdownDiv = ref<HTMLDivElement>();
++const { internalHelpReferences, MarkdownHelpPopovers } = useGxUris(renderedMarkdownDiv);
+ </script>
+ 
+ <template>
+-    <div class="text-justify" v-html="renderedContent" />
++    <span>
++        <div ref="renderedMarkdownDiv" class="text-justify" v-html="renderedContent" />
++        <MarkdownHelpPopovers :elements="internalHelpReferences" />
++    </span>
+ </template>
+diff --git a/client/src/components/Markdown/gxuris-types.ts b/client/src/components/Markdown/gxuris-types.ts
+new file mode 100644
+index 000000000000..a339769dc145
+--- /dev/null
++++ b/client/src/components/Markdown/gxuris-types.ts
+@@ -0,0 +1,4 @@
++export interface HelpElementReference {
++    element: HTMLElement;
++    term: string;
++}
+diff --git a/client/src/components/Markdown/gxuris.ts b/client/src/components/Markdown/gxuris.ts
+new file mode 100644
+index 000000000000..729813711d2f
+--- /dev/null
++++ b/client/src/components/Markdown/gxuris.ts
+@@ -0,0 +1,51 @@
++import { type Ref, ref, watch } from "vue";
++
++import { getAppRoot } from "@/onload/loadConfig";
++
++import type { HelpElementReference } from "./gxuris-types";
++
++import MarkdownHelpPopovers from "./MarkdownHelpPopovers.vue";
++
++function rewriteGxUris(ref: Ref<HTMLDivElement | undefined>, internalHelpReferences: Ref<HelpElementReference[]>) {
++    internalHelpReferences.value.length = 0;
++    if (ref.value) {
++        const links = ref.value.getElementsByTagName("a");
++        Array.from(links).forEach((link: HTMLAnchorElement) => {
++            if (link.href.startsWith("gxhelp://")) {
++                const uri = link.href.substr("gxhelp://".length);
++                internalHelpReferences.value.push({ element: link, term: uri });
++                link.href = `${getAppRoot()}help/terms/${uri}`;
++                link.style.color = "inherit";
++                link.style.textDecorationLine = "underline";
++                link.style.textDecorationStyle = "dashed";
++            }
++        });
++        const imgs = ref.value.getElementsByTagName("img");
++        Array.from(imgs).forEach((img) => {
++            if (img.src.startsWith("gxstatic://")) {
++                const rest = img.src.substr("gxstatic://".length);
++                img.src = `${getAppRoot()}static/${rest}`;
++            }
++            if (img.src.startsWith("gxdatasetasimage://")) {
++                const historyDatasetId = img.src.substr("gxdatasetasimage://".length);
++                const imageUrl = `${getAppRoot()}dataset/display?dataset_id=${historyDatasetId}`;
++                img.src = imageUrl;
++            }
++        });
++    }
++}
++
++export function useGxUris(divRef: Ref<HTMLDivElement | undefined>) {
++    const internalHelpReferences = ref<HelpElementReference[]>([]);
++
++    function refresh() {
++        rewriteGxUris(divRef, internalHelpReferences);
++    }
++
++    watch(divRef, refresh, { immediate: true });
++
++    return {
++        internalHelpReferences,
++        MarkdownHelpPopovers,
++    };
++}
+diff --git a/client/src/components/PageEditor/PageEditor.vue b/client/src/components/PageEditor/PageEditor.vue
+index 5b0771997df9..504e8919d2a0 100644
+--- a/client/src/components/PageEditor/PageEditor.vue
++++ b/client/src/components/PageEditor/PageEditor.vue
+@@ -5,7 +5,7 @@
+         :title="title"
+         :page-id="pageId"
+         :public-url="publicUrl"
+-        :content="content"
++        :content="contentEditor"
+         :content-data="contentData" />
+ </template>
+ 
+@@ -24,6 +24,7 @@ interface PageData {
+     title: string;
+     content: string;
+     content_format: string;
++    content_editor: string;
+     username: string;
+     slug: string;
+ }
+@@ -34,6 +35,7 @@ const props = defineProps<{
+ 
+ const title = ref("");
+ const content = ref<string>("");
++const contentEditor = ref<string>("");
+ const contentFormat = ref<string>("");
+ const contentData = ref<PageData>();
+ const publicUrl = ref<string>("");
+@@ -60,6 +62,7 @@ const loadPage = async () => {
+         if (data) {
+             publicUrl.value = `${getAppRoot()}u/${data.username}/p/${data.slug}`;
+             content.value = data.content;
++            contentEditor.value = data.content_editor;
+             contentFormat.value = data.content_format;
+             contentData.value = data || {};
+             title.value = data.title;
+diff --git a/client/src/components/Tool/ToolHelpMarkdown.vue b/client/src/components/Tool/ToolHelpMarkdown.vue
+index 5fdda004e86b..214506cd996e 100644
+--- a/client/src/components/Tool/ToolHelpMarkdown.vue
++++ b/client/src/components/Tool/ToolHelpMarkdown.vue
+@@ -1,11 +1,9 @@
+ <script setup lang="ts">
+-import { computed, onMounted, ref } from "vue";
++import { computed, ref } from "vue";
+ 
++import { useGxUris } from "@/components/Markdown/gxuris";
+ import { markup } from "@/components/ObjectStore/configurationMarkdown";
+ import { useFormattedToolHelp } from "@/composables/formattedToolHelp";
+-import { getAppRoot } from "@/onload/loadConfig";
+-
+-import HelpPopover from "@/components/Help/HelpPopover.vue";
+ 
+ const props = defineProps<{
+     content: string;
+@@ -18,38 +16,7 @@ const { formattedContent } = useFormattedToolHelp(markdownHtml);
+ 
+ const helpHtml = ref<HTMLDivElement>();
+ 
+-interface InternalTypeReference {
+-    element: HTMLElement;
+-    term: string;
+-}
+-
+-const internalHelpReferences = ref<InternalTypeReference[]>([]);
+-
+-function setupPopovers() {
+-    internalHelpReferences.value.length = 0;
+-    if (helpHtml.value) {
+-        const links = helpHtml.value.getElementsByTagName("a");
+-        Array.from(links).forEach((link) => {
+-            if (link.href.startsWith("gxhelp://")) {
+-                const uri = link.href.substr("gxhelp://".length);
+-                internalHelpReferences.value.push({ element: link, term: uri });
+-                link.href = `${getAppRoot()}help/terms/${uri}`;
+-                link.style.color = "inherit";
+-                link.style.textDecorationLine = "underline";
+-                link.style.textDecorationStyle = "dashed";
+-            }
+-        });
+-        const imgs = helpHtml.value.getElementsByTagName("img");
+-        Array.from(imgs).forEach((img) => {
+-            if (img.src.startsWith("gxstatic://")) {
+-                const rest = img.src.substr("gxstatic://".length);
+-                img.src = `${getAppRoot()}static/${rest}`;
+-            }
+-        });
+-    }
+-}
+-
+-onMounted(setupPopovers);
++const { internalHelpReferences, MarkdownHelpPopovers } = useGxUris(helpHtml);
+ </script>
+ 
+ <template>
+@@ -60,8 +27,6 @@ onMounted(setupPopovers);
+         -->
+         <!-- eslint-disable-next-line vue/no-v-html -->
+         <div ref="helpHtml" v-html="formattedContent" />
+-        <span v-for="(value, i) in internalHelpReferences" :key="i">
+-            <HelpPopover :target="value.element" :term="value.term" />
+-        </span>
++        <MarkdownHelpPopovers :elements="internalHelpReferences" />
+     </span>
+ </template>
+diff --git a/lib/galaxy/managers/markdown_parse.py b/lib/galaxy/managers/markdown_parse.py
+index 20e13c595781..b721b3d797c9 100644
+--- a/lib/galaxy/managers/markdown_parse.py
++++ b/lib/galaxy/managers/markdown_parse.py
+@@ -67,8 +67,26 @@ class DynamicArguments:
+     "workflow_image": ["invocation_id", "workflow_checkpoint", "workflow_id", "size"],
+     "workflow_license": ["invocation_id", "workflow_id"],
+ }
++EMBED_CAPABLE_DIRECTIVES = [
++    "history_dataset_as_image",
++    "history_dataset_name",
++    "history_dataset_type",
++    "workflow_license",
++    "invocation_time",
++    "generate_time",
++    "generate_galaxy_version",
++    "instance_access_link",
++    "instance_resources_link",
++    "instance_help_link",
++    "instance_support_link",
++    "instance_citation_link",
++    "instance_terms_link",
++    "instance_organization_link",
++]
++
+ GALAXY_FLAVORED_MARKDOWN_CONTAINERS = list(VALID_ARGUMENTS.keys())
+ GALAXY_FLAVORED_MARKDOWN_CONTAINER_REGEX = r"(?P<container>{})".format("|".join(GALAXY_FLAVORED_MARKDOWN_CONTAINERS))
++GALAXY_FLAVORED_MARKDOWN_EMBED_CONTAIN_REGEX = r"(?P<container>{})".format("|".join(EMBED_CAPABLE_DIRECTIVES))
+ 
+ ARG_VAL_REGEX = r"""[\w_\-]+|\"[^\"]+\"|\'[^\']+\'"""
+ FUNCTION_ARG = rf"\s*[\w\|]+\s*=\s*(?:{ARG_VAL_REGEX})\s*"
+@@ -79,21 +97,15 @@ class DynamicArguments:
+ GALAXY_MARKDOWN_FUNCTION_CALL_LINE = re.compile(FUNCTION_CALL_LINE_TEMPLATE % GALAXY_FLAVORED_MARKDOWN_CONTAINER_REGEX)
+ WHITE_SPACE_ONLY_PATTERN = re.compile(r"^[\s]+$")
+ 
++GALAXY_MARKDOWN_EMBED_FUNCTION_CALL_LINE = FUNCTION_CALL_LINE_TEMPLATE % GALAXY_FLAVORED_MARKDOWN_EMBED_CONTAIN_REGEX
++GALAXY_MARKDOWN_EMBED_FUNCTION_CALL_LINE_PATT = re.compile(GALAXY_MARKDOWN_EMBED_FUNCTION_CALL_LINE)
++EMBED_DIRECTIVE_REGEX = re.compile(r"\$\{galaxy\s+%s\}" % GALAXY_MARKDOWN_EMBED_FUNCTION_CALL_LINE)  # noqa: UP031
++EMBED_DIRECTIVE_REGEX_ANY = re.compile(r"\$\{galaxy\s+.*\}")
++
+ 
+ def validate_galaxy_markdown(galaxy_markdown, internal=True):
+     """Validate the supplied markdown and throw an ValueError with reason if invalid."""
+ 
+-    def invalid_line(template, line_no: int, **kwd):
+-        if "line" in kwd:
+-            kwd["line"] = kwd["line"].rstrip("\r\n")
+-        raise ValueError(f"Invalid line {line_no + 1}: {template.format(**kwd)}")
+-
+-    def _validate_arg(arg_str, valid_args, line_no: int):
+-        if arg_str is not None:
+-            arg_name = arg_str.split("=", 1)[0].strip()
+-            if arg_name not in valid_args and arg_name not in SHARED_ARGUMENTS:
+-                invalid_line("Invalid argument to Galaxy directive [{argument}]", line_no, argument=arg_name)
+-
+     expecting_container_close_for = None
+     last_line_no = 0
+     function_calls = 0
+@@ -102,7 +114,7 @@ def _validate_arg(arg_str, valid_args, line_no: int):
+ 
+         expecting_container_close = expecting_container_close_for is not None
+         if not fenced and expecting_container_close:
+-            invalid_line(
++            _invalid_line(
+                 "[{line}] is not expected close line for [{expected_for}]",
+                 line_no,
+                 line=line,
+@@ -110,7 +122,17 @@ def _validate_arg(arg_str, valid_args, line_no: int):
+             )
+             continue
+         elif not fenced:
+-            continue
++            first_match_any = EMBED_DIRECTIVE_REGEX_ANY.search(line)
++            first_match = EMBED_DIRECTIVE_REGEX.search(line)
++            if first_match_any:
++                if not first_match:
++                    _invalid_line(
++                        "[{line}] contains invalid template expansion",
++                        line_no,
++                        line=line,
++                    )
++                else:
++                    _check_func_call(first_match, line_no)
+         elif fenced and expecting_container_close and BLOCK_FENCE_END.match(line):
+             # reset
+             expecting_container_close_for = None
+@@ -118,7 +140,7 @@ def _validate_arg(arg_str, valid_args, line_no: int):
+         elif open_fence and GALAXY_FLAVORED_MARKDOWN_CONTAINER_LINE_PATTERN.match(line):
+             if expecting_container_close:
+                 if not VALID_CONTAINER_END_PATTERN.match(line):
+-                    invalid_line(
++                    _invalid_line(
+                         "Invalid command close line [{line}] for [{expected_for}]",
+                         line_no,
+                         line=line,
+@@ -136,28 +158,10 @@ def _validate_arg(arg_str, valid_args, line_no: int):
+             if func_call_match:
+                 function_calls += 1
+                 if function_calls > 1:
+-                    invalid_line("Only one Galaxy directive is allowed per fenced Galaxy block (```galaxy)", line_no)
+-                container = func_call_match.group("container")
+-                valid_args = VALID_ARGUMENTS[container]
+-                if isinstance(valid_args, DynamicArguments):
+-                    continue
+-
+-                first_arg_call = func_call_match.group("firstargcall")
+-
+-                _validate_arg(first_arg_call, valid_args, line_no)
+-                rest = func_call_match.group("restargcalls")
+-                while rest:
+-                    rest = rest.strip().split(",", 1)[1]
+-                    arg_match = FUNCTION_MULTIPLE_ARGS_PATTERN.match(rest)
+-                    if not arg_match:
+-                        break
+-                    first_arg_call = arg_match.group("firstargcall")
+-                    _validate_arg(first_arg_call, valid_args, line_no)
+-                    rest = arg_match.group("restargcalls")
+-
+-                continue
++                    _invalid_line("Only one Galaxy directive is allowed per fenced Galaxy block (```galaxy)", line_no)
++                _check_func_call(func_call_match, line_no)
+             else:
+-                invalid_line("Invalid embedded Galaxy markup line [{line}]", line_no, line=line)
++                _invalid_line("Invalid embedded Galaxy markup line [{line}]", line_no, line=line)
+ 
+         # Markdown unrelated to Galaxy object containers.
+         continue
+@@ -168,6 +172,39 @@ def _validate_arg(arg_str, valid_args, line_no: int):
+         raise ValueError(msg)
+ 
+ 
++def _invalid_line(template: str, line_no: int, **kwd):
++    if "line" in kwd:
++        kwd["line"] = kwd["line"].rstrip("\r\n")
++    raise ValueError(f"Invalid line {line_no + 1}: {template.format(**kwd)}")
++
++
++def _validate_arg(arg_str: str, valid_args, line_no: int):
++    if arg_str is not None:
++        arg_name = arg_str.split("=", 1)[0].strip()
++        if arg_name not in valid_args and arg_name not in SHARED_ARGUMENTS:
++            _invalid_line("Invalid argument to Galaxy directive [{argument}]", line_no, argument=arg_name)
++
++
++def _check_func_call(func_call_match, line_no):
++    container = func_call_match.group("container")
++    valid_args = VALID_ARGUMENTS[container]
++    if isinstance(valid_args, DynamicArguments):
++        return
++
++    first_arg_call = func_call_match.group("firstargcall")
++
++    _validate_arg(first_arg_call, valid_args, line_no)
++    rest = func_call_match.group("restargcalls")
++    while rest:
++        rest = rest.strip().split(",", 1)[1]
++        arg_match = FUNCTION_MULTIPLE_ARGS_PATTERN.match(rest)
++        if not arg_match:
++            break
++        first_arg_call = arg_match.group("firstargcall")
++        _validate_arg(first_arg_call, valid_args, line_no)
++        rest = arg_match.group("restargcalls")
++
++
+ def _split_markdown_lines(markdown):
+     """Yield lines of a markdown document line-by-line keeping track of fencing.
+ 
+diff --git a/lib/galaxy/managers/markdown_util.py b/lib/galaxy/managers/markdown_util.py
+index 2f926b34c8df..bd5fbdd42ccd 100644
+--- a/lib/galaxy/managers/markdown_util.py
++++ b/lib/galaxy/managers/markdown_util.py
+@@ -19,6 +19,7 @@
+ import re
+ import shutil
+ import tempfile
++from datetime import datetime
+ from re import Match
+ from typing import (
+     Any,
+@@ -58,6 +59,7 @@
+ from galaxy.util.resources import resource_string
+ from galaxy.util.sanitize_html import sanitize_html
+ from .markdown_parse import (
++    EMBED_DIRECTIVE_REGEX,
+     GALAXY_MARKDOWN_FUNCTION_CALL_LINE,
+     validate_galaxy_markdown,
+ )
+@@ -118,7 +120,19 @@ def _remap(container, line):
+             line = line.replace(id_match.group(), f"{id_match.group(1)}={decoded_id}")
+         return (line, False)
+ 
++    def _remap_embed_container(match):
++        object_id: Optional[str] = None
++
++        whole_match = match.group()
++        if id_match := re.search(ENCODED_ID_PATTERN, whole_match):
++            object_id = id_match.group(2)
++            decoded_id = trans.security.decode_id(object_id)
++            whole_match = whole_match.replace(id_match.group(), f"{id_match.group(1)}={decoded_id}")
++
++        return whole_match
++
+     internal_markdown = _remap_galaxy_markdown_calls(_remap, external_galaxy_markdown)
++    internal_markdown = _remap_galaxy_markdown_embedded_containers(_remap_embed_container, internal_markdown)
+     internal_markdown = process_invocation_ids(trans.security.decode_id, internal_markdown)
+     return internal_markdown
+ 
+@@ -278,8 +292,84 @@ def _remap_container(container, line):
+                 line, *_ = self._encode_line(trans, line)
+                 return self.handle_error(container, line, str(e))
+ 
+-        export_markdown = _remap_galaxy_markdown_calls(_remap_container, internal_galaxy_markdown)
+-        return export_markdown
++        def _remap_embed_container(match):
++            container = match.group("container")
++            object_id: Optional[int] = None
++            encoded_id: Optional[str] = None
++
++            if id_match := re.search(UNENCODED_ID_PATTERN, match.group()):
++                object_id = int(id_match.group(2))
++                encoded_id = trans.security.encode_id(object_id)
++            if container == "history_dataset_type":
++                _check_object(object_id, match.group(0))
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                return hda.extension or "data"
++            elif container == "history_dataset_name":
++                _check_object(object_id, match.group(0))
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                return hda.name or ""
++            elif container == "workflow_license":
++                _check_object(object_id, match.group(0))
++                stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
++                return _workflow_license_as_simple_markdown(stored_workflow)
++            elif container == "invocation_time":
++                _check_object(object_id, match.group(0))
++                invocation = workflow_manager.get_invocation(trans, object_id)
++                return _database_time_to_str(invocation.create_time)
++            elif container == "generate_time":
++                return now().isoformat()
++            elif container == "generate_galaxy_version":
++                version = trans.app.config.version_major
++                return version
++            elif container == "instance_access_link":
++                url = trans.app.config.instance_access_url
++                return _link_to_markdown(url)
++            elif container == "instance_resources_link":
++                url = trans.app.config.instance_resource_url
++                return _link_to_markdown(url)
++            elif container == "instance_help_link":
++                url = trans.app.config.helpsite_url
++                return _link_to_markdown(url)
++            elif container == "instance_support_link":
++                url = trans.app.config.support_url
++                return _link_to_markdown(url)
++            elif container == "instance_citation_link":
++                url = trans.app.config.citation_url
++                return _link_to_markdown(url)
++            elif container == "instance_terms_link":
++                url = trans.app.config.terms_url
++                return _link_to_markdown(url)
++            elif container == "instance_organization_link":
++                title = trans.app.config.organization_name
++                url = trans.app.config.organization_url
++                return _link_to_markdown(url, title)
++            elif container == "history_dataset_as_image":
++                _check_object(object_id, match.group(0))
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                return f"![{hda.name}](gxdatasetasimage://{encoded_id})"
++            else:
++                raise MalformedContents(f"Unknown embedded Galaxy Markdown directive encountered [{container}].")
++
++        export_markdown_raw_embed = _remap_galaxy_markdown_calls(_remap_container, internal_galaxy_markdown)
++
++        def _remap_embed_container_ids(match):
++            object_id: Optional[str] = None
++
++            whole_match = match.group()
++            if id_match := re.search(UNENCODED_ID_PATTERN, whole_match):
++                object_id = id_match.group(2)
++                encoded_id = trans.security.encode_id(object_id)
++                whole_match = whole_match.replace(id_match.group(), f"{id_match.group(1)}={encoded_id}")
++
++            return whole_match
++
++        export_markdown = _remap_galaxy_markdown_embedded_containers(
++            _remap_embed_container_ids, export_markdown_raw_embed
++        )
++        export_markdown_embed_expanded = _remap_galaxy_markdown_embedded_containers(
++            _remap_embed_container, export_markdown_raw_embed
++        )
++        return export_markdown, export_markdown_embed_expanded
+ 
+     def _encode_line(self, trans, line):
+         object_type = None
+@@ -524,8 +614,8 @@ def handle_instance_organization_link(self, line, title, url):
+         pass
+ 
+     def handle_invocation_time(self, line, invocation):
+-        self.ensure_rendering_data_for("invocations", invocation)["create_time"] = invocation.create_time.strftime(
+-            "%Y-%m-%d, %H:%M:%S"
++        self.ensure_rendering_data_for("invocations", invocation)["create_time"] = _database_time_to_str(
++            invocation.create_time
+         )
+ 
+     def handle_invocation_inputs(self, line, invocation):
+@@ -572,9 +662,9 @@ def ready_galaxy_markdown_for_export(trans, internal_galaxy_markdown):
+     # Walk Galaxy directives inside the Galaxy Markdown and collect dict-ified data
+     # needed to render this efficiently.
+     directive_handler = ReadyForExportMarkdownDirectiveHandler(trans, extra_rendering_data)
+-    export_markdown = directive_handler.walk(trans, internal_galaxy_markdown)
++    export_markdown, export_markdown_embed_expanded = directive_handler.walk(trans, internal_galaxy_markdown)
+     export_markdown = process_invocation_ids(lambda value: trans.security.encode_id(int(value)), export_markdown)
+-    return export_markdown, extra_rendering_data
++    return export_markdown, export_markdown_embed_expanded, extra_rendering_data
+ 
+ 
+ class ToBasicMarkdownDirectiveHandler(GalaxyInternalMarkdownDirectiveHandler):
+@@ -674,15 +764,7 @@ def handle_workflow_display(self, line, stored_workflow, workflow_version: Optio
+         return (markdown, True)
+ 
+     def handle_workflow_license(self, line, stored_workflow):
+-        # workflow_manager = self.trans.app.workflow_manager
+-        license_manager = LicensesManager()
+-        markdown = "*No license specified.*"
+-        if license_id := stored_workflow.latest_workflow.license:
+-            try:
+-                license_metadata = license_manager.get_license_by_id(license_id)
+-                markdown = f"[{license_metadata.name}]({license_metadata.url})"
+-            except ObjectNotFound:
+-                markdown = f"Unknown license ({license_id})"
++        markdown = _workflow_license_as_simple_markdown(stored_workflow)
+         return (f"\n\n{markdown}\n\n", True)
+ 
+     def handle_workflow_image(self, line, stored_workflow, workflow_version: Optional[int]):
+@@ -792,15 +874,11 @@ def handle_instance_organization_link(self, line, title, url):
+         return self._handle_link(url, title)
+ 
+     def _handle_link(self, url, title=None):
+-        if not url:
+-            content = "*Not configured, please contact Galaxy admin*"
+-            return (content, True)
+-        elif not title:
+-            title = url
+-        return (f"[{title}]({url})", True)
++        content = _link_to_markdown(url, title)
++        return (content, True)
+ 
+     def handle_invocation_time(self, line, invocation):
+-        content = literal_via_fence(invocation.create_time.strftime("%Y-%m-%d, %H:%M:%S"))
++        content = literal_via_fence(_database_time_to_str(invocation.create_time))
+         return (content, True)
+ 
+     def handle_invocation_inputs(self, line, invocation):
+@@ -834,7 +912,7 @@ def to_basic_markdown(trans, internal_galaxy_markdown: str) -> str:
+     """Replace Galaxy Markdown extensions with plain Markdown for PDF/HTML export."""
+     directive_handler = ToBasicMarkdownDirectiveHandler(trans)
+     resolved_invocations_markdown = resolve_invocation_markdown(trans, internal_galaxy_markdown)
+-    plain_markdown = directive_handler.walk(trans, resolved_invocations_markdown)
++    _, plain_markdown = directive_handler.walk(trans, resolved_invocations_markdown)
+     return plain_markdown
+ 
+ 
+@@ -1167,6 +1245,36 @@ def find_non_empty_group(match):
+     return galaxy_markdown
+ 
+ 
++def _workflow_license_as_simple_markdown(stored_workflow):
++    license_manager = LicensesManager()
++    markdown = "*No license specified.*"
++    if license_id := stored_workflow.latest_workflow.license:
++        try:
++            license_metadata = license_manager.get_license_by_id(license_id)
++            markdown = f"[{license_metadata.name}]({license_metadata.url})"
++        except ObjectNotFound:
++            markdown = f"Unknown license ({license_id})"
++    return markdown
++
++
++def _check_object(object_id: Optional[int], line: str) -> None:
++    if object_id is None:
++        raise MalformedContents(f"Missing object identifier [{line}].")
++
++
++def _database_time_to_str(database_time: datetime) -> str:
++    return database_time.strftime("%Y-%m-%d, %H:%M:%S")
++
++
++def _link_to_markdown(url: Optional[str], title: Optional[str] = None):
++    if not url:
++        content = "*Link not configured, please contact Galaxy admin*"
++        return content
++    elif not title:
++        title = url
++    return f"[{title}]({url})"
++
++
+ def _remap_galaxy_markdown_containers(func, markdown):
+     new_markdown = markdown
+ 
+@@ -1193,6 +1301,28 @@ def _remap_galaxy_markdown_containers(func, markdown):
+     return new_markdown
+ 
+ 
++def _remap_galaxy_markdown_embedded_containers(func, markdown):
++    new_markdown = markdown
++
++    searching_from = 0
++    while True:
++        from_markdown = new_markdown[searching_from:]
++        match = re.search(EMBED_DIRECTIVE_REGEX, from_markdown)
++        if match is not None:
++            replacement = func(match)
++            start_pos = match.start()
++            end_pos = match.end()
++
++            start_pos = start_pos + searching_from
++            end_pos = end_pos + searching_from
++            new_markdown = new_markdown[:start_pos] + replacement + new_markdown[end_pos:]
++            searching_from = start_pos + len(replacement)
++        else:
++            break
++
++    return new_markdown
++
++
+ def _parse_directive_argument_value(arg_name: str, line: str) -> Optional[str]:
+     arg_pattern = re.compile(rf"{arg_name}=\s*{ARG_VAL_CAPTURED_REGEX}\s*")
+     match = re.search(arg_pattern, line)
+diff --git a/lib/galaxy/managers/pages.py b/lib/galaxy/managers/pages.py
+index 97d81c109fc0..88eb96853284 100644
+--- a/lib/galaxy/managers/pages.py
++++ b/lib/galaxy/managers/pages.py
+@@ -374,8 +374,9 @@ def rewrite_content_for_export(self, trans, as_dict):
+             content = unicodify(processor.output(), "utf-8")
+             as_dict["content"] = content
+         elif content_format == PageContentFormat.markdown.value:
+-            content, extra_attributes = ready_galaxy_markdown_for_export(trans, content)
+-            as_dict["content"] = content
++            content, content_embed_expanded, extra_attributes = ready_galaxy_markdown_for_export(trans, content)
++            as_dict["content"] = content_embed_expanded
++            as_dict["content_editor"] = content
+             as_dict.update(extra_attributes)
+         else:
+             raise exceptions.RequestParameterInvalidException(
+diff --git a/lib/galaxy/schema/schema.py b/lib/galaxy/schema/schema.py
+index 6791febf38ce..062c519e5c51 100644
+--- a/lib/galaxy/schema/schema.py
++++ b/lib/galaxy/schema/schema.py
+@@ -3815,6 +3815,12 @@ class PageContentFormat(str, Enum):
+ ContentField: Optional[str] = Field(
+     default="",
+     title="Content",
++    description="Text contents of the last page revision with embedded directives expanded (type dependent on content_format).",
++)
++
++ContentEditorField: Optional[str] = Field(
++    default="",
++    title="Content for Editor",
+     description="Raw text contents of the last page revision (type dependent on content_format).",
+ )
+ 
+@@ -4030,6 +4036,7 @@ class PageDetails(PageSummary):
+     annotation: Optional[str] = AnnotationField
+     content_format: PageContentFormat = ContentFormatField
+     content: Optional[str] = ContentField
++    content_editor: Optional[str] = ContentEditorField
+     generate_version: Optional[str] = GenerateVersionField
+     generate_time: Optional[str] = GenerateTimeField
+     model_config = ConfigDict(extra="allow")
+diff --git a/lib/galaxy/workflow/reports/generators/__init__.py b/lib/galaxy/workflow/reports/generators/__init__.py
+index 52824e0ff656..ddc025712741 100644
+--- a/lib/galaxy/workflow/reports/generators/__init__.py
++++ b/lib/galaxy/workflow/reports/generators/__init__.py
+@@ -43,12 +43,14 @@ def generate_report_json(self, trans, invocation: WorkflowInvocation, runtime_re
+         internal_markdown = self._generate_internal_markdown(
+             trans, invocation, runtime_report_config_json=runtime_report_config_json
+         )
+-        export_markdown, extra_rendering_data = ready_galaxy_markdown_for_export(trans, internal_markdown)
++        export_markdown, export_markdown_embed_expanded, extra_rendering_data = ready_galaxy_markdown_for_export(
++            trans, internal_markdown
++        )
+         # Invocations can only be run on history, and user must exist, so this should always work
+         username = invocation.history and invocation.history.user and invocation.history.user.username
+         rval = {
+             "render_format": "markdown",  # Presumably the frontend could render things other ways.
+-            "markdown": export_markdown,
++            "markdown": export_markdown_embed_expanded,
+             "invocation_markdown": export_markdown,
+             "model_class": "Report",
+             "id": trans.app.security.encode_id(invocation.workflow_id),
+diff --git a/test/unit/app/managers/test_markdown_export.py b/test/unit/app/managers/test_markdown_export.py
+index 0b346b8a1d6c..e1c7288cd481 100644
+--- a/test/unit/app/managers/test_markdown_export.py
++++ b/test/unit/app/managers/test_markdown_export.py
+@@ -339,7 +339,7 @@ def test_ready_dataset_display(self):
+ ```
+ """
+         with self._expect_get_hda(hda):
+-            export_markdown, extra_data = self._ready_export(example)
++            _, export_markdown, extra_data = self._ready_export(example)
+         assert "history_datasets" in extra_data
+         assert len(extra_data["history_datasets"]) == 1
+ 
+@@ -357,7 +357,7 @@ def test_ready_export_two_datasets(self):
+ ```
+ """
+         self.app.hda_manager.get_accessible.side_effect = [hda, hda2]
+-        export_markdown, extra_data = self._ready_export(example)
++        _, export_markdown, extra_data = self._ready_export(example)
+         assert "history_datasets" in extra_data
+         assert len(extra_data["history_datasets"]) == 2
+ 
+@@ -384,7 +384,7 @@ def test_export_dataset_collection_paired(self):
+             mock.patch.object(HDCASerializer, "url_for", return_value="http://google.com"),
+             mock.patch.object(HDCASerializer, "serialize_to_view", return_value=mock_hdca_view),
+         ):
+-            export, extra_data = self._ready_export(example)
++            _, export, extra_data = self._ready_export(example)
+         assert "history_dataset_collections" in extra_data
+         assert len(extra_data.get("history_dataset_collections")) == 1
+ 
+@@ -394,7 +394,7 @@ def test_galaxy_version(self):
+ generate_galaxy_version()
+ ```
+ """
+-        result, extra_data = self._ready_export(example)
++        _, result, extra_data = self._ready_export(example)
+         assert "generate_version" in extra_data
+         assert extra_data["generate_version"] == "19.09"
+ 
+@@ -404,7 +404,7 @@ def test_generate_time(self):
+ generate_time()
+ ```
+ """
+-        result, extra_data = self._ready_export(example)
++        _, result, extra_data = self._ready_export(example)
+         assert "generate_time" in extra_data
+ 
+     def test_get_invocation_time(self):
+@@ -415,12 +415,95 @@ def test_get_invocation_time(self):
+ invocation_time(invocation_id=1)
+ ```
+ """
+-        result, extra_data = self._ready_export(example)
++        _, result, extra_data = self._ready_export(example)
+         assert "invocations" in extra_data
+         assert "create_time" in extra_data["invocations"]["be8be0fd2ce547f6"]
+         assert extra_data["invocations"]["be8be0fd2ce547f6"]["create_time"] == invocation.create_time.strftime(
+             "%Y-%m-%d, %H:%M:%S"
+         )
+ 
+-    def _ready_export(self, example):
++    def test_export_replaces_embedded_history_dataset_type(self):
++        hda = self._new_hda()
++        hda.extension = "fasta"
++        hda2 = self._new_hda()
++        hda2.extension = "fastqsanger"
++        hda2.id = 2
++        example = """
++I ran a cool analysis with two inputs of types ${galaxy history_dataset_type(history_dataset_id=1)} and ${galaxy history_dataset_type(history_dataset_id=2)}.
++"""
++        self.app.hda_manager.get_accessible.side_effect = [hda, hda2]
++        _, export_markdown, _ = self._ready_export(example)
++        assert (
++            export_markdown
++            == """
++I ran a cool analysis with two inputs of types fasta and fastqsanger.
++"""
++        )
++
++    def test_export_replaces_embedded_history_dataset_name(self):
++        hda = self._new_hda()
++        hda.name = "foo bar"
++        hda2 = self._new_hda()
++        hda2.name = "cow dog"
++        hda2.id = 2
++        example = """
++I ran a cool analysis with two inputs of types ${galaxy history_dataset_name(history_dataset_id=1)} and ${galaxy history_dataset_name(history_dataset_id=2)}.
++"""
++        self.app.hda_manager.get_accessible.side_effect = [hda, hda2]
++        _, export_markdown, _ = self._ready_export(example)
++        assert (
++            export_markdown
++            == """
++I ran a cool analysis with two inputs of types foo bar and cow dog.
++"""
++        )
++
++    def test_export_replaces_embedded_generate_time(self):
++        example = """
++I ran a cool analysis at ${galaxy generate_time()}.
++"""
++        _, export_markdown, _ = self._ready_export(example)
++        assert export_markdown.startswith(
++            """
++I ran a cool analysis at 2"""
++        )
++
++    def test_export_replaces_embedded_invocation_time(self):
++        invocation = self._new_invocation()
++        self.app.workflow_manager.get_invocation.side_effect = [invocation]
++        example = """
++I ran a cool analysis at ${galaxy invocation_time(invocation_id=1)}.
++"""
++        _, export_markdown, _ = self._ready_export(example)
++        assert export_markdown.startswith(
++            """
++I ran a cool analysis at 2"""
++        )
++
++    def test_export_replaces_embedded_galaxy_version(self):
++        example = """
++I ran a cool analysis with Galaxy ${galaxy generate_galaxy_version()}.
++"""
++        _, export_markdown, _ = self._ready_export(example)
++        assert (
++            export_markdown
++            == """
++I ran a cool analysis with Galaxy 19.09.
++"""
++        )
++
++    def test_export_replaces_embedded_access_link(self):
++        self.trans.app.config.instance_access_url = "http://mycoolgalaxy.org"
++        example = """
++I ran a cool analysis at ${galaxy instance_access_link()}.
++"""
++        _, export_markdown, _ = self._ready_export(example)
++        assert (
++            export_markdown
++            == """
++I ran a cool analysis at [http://mycoolgalaxy.org](http://mycoolgalaxy.org).
++"""
++        )
++
++    def _ready_export(self, example: str):
+         return ready_galaxy_markdown_for_export(self.trans, example)
+diff --git a/test/unit/app/test_markdown_validate.py b/test/unit/app/test_markdown_validate.py
+index b8dcae19ad86..f8d1b7384733 100644
+--- a/test/unit/app/test_markdown_validate.py
++++ b/test/unit/app/test_markdown_validate.py
+@@ -304,3 +304,45 @@ def test_markdown_validation():
+ ```
+ """
+     )
++
++
++def test_markdown_validation_embed():
++    assert_markdown_valid(
++        """
++| moo | cow |
++| 1 | 2 |
++"""
++    )
++    assert_markdown_valid(
++        """
++| moo | cow |
++| 1 | ${galaxy generate_galaxy_version()} |
++"""
++    )
++    assert_markdown_valid(
++        """
++| moo | cow |
++| 1 | ${galaxy history_dataset_name(input=foobar)} |
++"""
++    )
++    assert_markdown_invalid(
++        """
++| moo | cow |
++| 1 | ${galaxy history_dataset_name(foo=bar)} |
++""",
++        at_line=2,
++    )
++    assert_markdown_invalid(
++        """
++| moo | cow |
++| 1 | ${galaxy generate_galaxy_version(moo=cow)} |
++""",
++        at_line=2,
++    )
++    assert_markdown_invalid(
++        """
++| moo | cow |
++| 1 | ${galaxy invalid()} |
++""",
++        at_line=2,
++    )

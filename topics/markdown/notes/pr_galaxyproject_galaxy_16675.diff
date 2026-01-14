@@ -1,0 +1,842 @@
+diff --git a/client/src/components/Markdown/Elements/InstanceUrl.vue b/client/src/components/Markdown/Elements/InstanceUrl.vue
+new file mode 100644
+index 000000000000..a7f52d957354
+--- /dev/null
++++ b/client/src/components/Markdown/Elements/InstanceUrl.vue
+@@ -0,0 +1,31 @@
++<script setup lang="ts">
++import { computed } from "vue";
++
++import ExternalLink from "@/components/ExternalLink.vue";
++import LoadingSpan from "@/components/LoadingSpan.vue";
++
++interface InstanceUrlProps {
++    href?: string;
++    title?: string;
++    loading: boolean;
++}
++
++const props = withDefaults(defineProps<InstanceUrlProps>(), {
++    href: null,
++    title: null,
++});
++
++const effectiveTitle = computed(() => {
++    return props.title ? props.title : props.href;
++});
++</script>
++
++<template>
++    <p>
++        <LoadingSpan v-if="props.loading" message="Loading instance configuration"> </LoadingSpan>
++        <ExternalLink v-else-if="props.href" :href="props.href">
++            {{ effectiveTitle }}
++        </ExternalLink>
++        <i v-else> Configuration value unset, please contact Galaxy admin. </i>
++    </p>
++</template>
+diff --git a/client/src/components/Markdown/MarkdownContainer.test.js b/client/src/components/Markdown/MarkdownContainer.test.js
+index 484e92c97e94..a40f1d810176 100644
+--- a/client/src/components/Markdown/MarkdownContainer.test.js
++++ b/client/src/components/Markdown/MarkdownContainer.test.js
+@@ -11,6 +11,13 @@ import MountTarget from "./MarkdownContainer.vue";
+ jest.mock("utils/redirect");
+ withPrefix.mockImplementation((url) => url);
+ 
++jest.mock("@/composables/config", () => ({
++    useConfig: jest.fn(() => ({
++        config: {},
++        isConfigLoaded: true,
++    })),
++}));
++
+ const localVue = getLocalVue();
+ const axiosMock = new MockAdapter(axios);
+ 
+diff --git a/client/src/components/Markdown/MarkdownContainer.vue b/client/src/components/Markdown/MarkdownContainer.vue
+index b544ae3d71e2..f73b37934f12 100644
+--- a/client/src/components/Markdown/MarkdownContainer.vue
++++ b/client/src/components/Markdown/MarkdownContainer.vue
+@@ -1,6 +1,8 @@
+ <script setup>
+ import { computed, ref } from "vue";
+ 
++import { useConfig } from "@/composables/config";
++
+ import HistoryDatasetAsImage from "./Elements/HistoryDatasetAsImage.vue";
+ import HistoryDatasetCollectionDisplay from "./Elements/HistoryDatasetCollection/CollectionDisplay.vue";
+ import HistoryDatasetDetails from "./Elements/HistoryDatasetDetails.vue";
+@@ -8,6 +10,7 @@ import HistoryDatasetDisplay from "./Elements/HistoryDatasetDisplay.vue";
+ import HistoryDatasetIndex from "./Elements/HistoryDatasetIndex.vue";
+ import HistoryDatasetLink from "./Elements/HistoryDatasetLink.vue";
+ import HistoryLink from "./Elements/HistoryLink.vue";
++import InstanceUrl from "./Elements/InstanceUrl.vue";
+ import InvocationTime from "./Elements/InvocationTime.vue";
+ import JobMetrics from "./Elements/JobMetrics.vue";
+ import JobParameters from "./Elements/JobParameters.vue";
+@@ -17,6 +20,8 @@ import WorkflowDisplay from "./Elements/Workflow/WorkflowDisplay.vue";
+ import WorkflowImage from "./Elements/Workflow/WorkflowImage.vue";
+ import WorkflowLicense from "./Elements/Workflow/WorkflowLicense.vue";
+ 
++const { config, isConfigLoaded } = useConfig();
++
+ const toggle = ref(false);
+ const props = defineProps({
+     name: {
+@@ -83,6 +88,39 @@ const isVisible = computed(() => !isCollapsible.value || toggle.value);
+             <div v-else-if="name == 'workflow_license'" class="workflow-license">
+                 <WorkflowLicense :license-id="workflows[args.workflow_id]['license']" />
+             </div>
++            <InstanceUrl
++                v-else-if="name == 'instance_citation_link'"
++                :href="config.citation_url"
++                :loading="!isConfigLoaded">
++            </InstanceUrl>
++            <InstanceUrl v-else-if="name == 'instance_terms_link'" :href="config.terms_url" :loading="!isConfigLoaded">
++            </InstanceUrl>
++            <InstanceUrl
++                v-else-if="name == 'instance_support_link'"
++                :href="config.support_url"
++                :loading="!isConfigLoaded">
++            </InstanceUrl>
++            <InstanceUrl
++                v-else-if="name == 'instance_help_link'"
++                :href="config.helpsite_url"
++                :loading="!isConfigLoaded">
++            </InstanceUrl>
++            <InstanceUrl
++                v-else-if="name == 'instance_resources_link'"
++                :href="config.instance_resource_url"
++                :loading="!isConfigLoaded">
++            </InstanceUrl>
++            <InstanceUrl
++                v-else-if="name == 'instance_access_link'"
++                :href="config.instance_access_url"
++                :loading="!isConfigLoaded">
++            </InstanceUrl>
++            <InstanceUrl
++                v-else-if="name == 'instance_organization_link'"
++                :href="config.ga4gh_service_organization_url"
++                :title="config.ga4gh_service_organization_name"
++                :loading="!isConfigLoaded">
++            </InstanceUrl>
+             <HistoryLink v-else-if="name == 'history_link'" :args="args" :histories="histories" />
+             <HistoryDatasetAsImage v-else-if="name == 'history_dataset_as_image'" :args="args" />
+             <HistoryDatasetLink v-else-if="name == 'history_dataset_link'" :args="args" />
+diff --git a/client/src/components/Markdown/MarkdownToolBox.vue b/client/src/components/Markdown/MarkdownToolBox.vue
+index 7f114bc3c251..cad2605a50f5 100644
+--- a/client/src/components/Markdown/MarkdownToolBox.vue
++++ b/client/src/components/Markdown/MarkdownToolBox.vue
+@@ -19,6 +19,7 @@
+                     :expanded="true"
+                     @onClick="onClick" />
+                 <ToolSection v-else :category="workflowSection" :expanded="true" @onClick="onClick" />
++                <ToolSection :category="linksSection" :expanded="false" @onClick="onClick" />
+                 <ToolSection :category="otherSection" :expanded="true" @onClick="onClick" />
+                 <ToolSection
+                     v-if="hasVisualizations"
+@@ -250,6 +251,48 @@ export default {
+                     },
+                 ],
+             },
++            linksSection: {
++                title: "Galaxy Instance Links",
++                name: "links",
++                elems: [
++                    {
++                        id: "instance_access_link",
++                        name: "Access",
++                        description: "(link used to access this Galaxy)",
++                    },
++                    {
++                        id: "instance_resources_link",
++                        name: "Resources",
++                        description: "(link for more information about this Galaxy)",
++                    },
++                    {
++                        id: "instance_help_link",
++                        name: "Help",
++                        description: "(link for finding help content for this Galaxy)",
++                    },
++                    {
++                        id: "instance_support_link",
++                        name: "Support",
++                        description: "(link for support for this Galaxy)",
++                    },
++                    {
++                        id: "instance_citation_link",
++                        name: "Citation",
++                        description: "(link describing how to cite this Galaxy instance)",
++                    },
++                    {
++                        id: "instance_terms_link",
++                        name: "Terms and Conditions",
++                        description: "(link describing terms and conditions for using this Galaxy instance)",
++                    },
++                    {
++                        id: "instance_organization_link",
++                        name: "Organization",
++                        description: "(link describing organization that runs this Galaxy instance)",
++                    },
++                ],
++            },
++
+             visualizationSection: {
+                 title: "Visualizations",
+                 name: "visualizations",
+diff --git a/client/src/components/PageDisplay/PageDisplay.vue b/client/src/components/PageDisplay/PageDisplay.vue
+index 4f9c34ac8627..d3fb11855692 100644
+--- a/client/src/components/PageDisplay/PageDisplay.vue
++++ b/client/src/components/PageDisplay/PageDisplay.vue
+@@ -12,7 +12,7 @@
+                     @onEdit="onEdit" />
+                 <PageHtml v-else :page="page" />
+             </div>
+-            <b-alert v-else variant="info" show>Unsupported page format.</b-alert>
++            <LoadingSpan v-else message="Loading Galaxy configuration" />
+         </template>
+     </PublishedItem>
+ </template>
+@@ -27,10 +27,12 @@ import { urlData } from "@/utils/url";
+ 
+ import PageHtml from "./PageHtml.vue";
+ import PublishedItem from "@/components/Common/PublishedItem.vue";
++import LoadingSpan from "@/components/LoadingSpan.vue";
+ import Markdown from "@/components/Markdown/Markdown.vue";
+ 
+ export default {
+     components: {
++        LoadingSpan,
+         Markdown,
+         PageHtml,
+         PublishedItem,
+diff --git a/doc/source/admin/galaxy_options.rst b/doc/source/admin/galaxy_options.rst
+index 010844a4fa18..44db78d7dd32 100644
+--- a/doc/source/admin/galaxy_options.rst
++++ b/doc/source/admin/galaxy_options.rst
+@@ -1650,13 +1650,26 @@
+ ~~~~~~~~~~~~~~~~~~~~~~~~~
+ 
+ :Description:
+-    URL of the support resource for the galaxy instance.  Used in
+-    activation emails.
++    URL of the support resource for the galaxy instance.  Used outside
++    of web contexts such as in activation emails and in Galaxy
++    markdown report generation.
+     Example value 'https://galaxyproject.org/'
+ :Default: ``None``
+ :Type: str
+ 
+ 
++~~~~~~~~~~~~~~~~~~~~~~~
++``instance_access_url``
++~~~~~~~~~~~~~~~~~~~~~~~
++
++:Description:
++    URL used to access this Galaxy server. Used outside of web
++    contexts such as in Galaxy markdown report generation.
++    Example value 'https://usegalaxy.org'
++:Default: ``None``
++:Type: str
++
++
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+ ``email_domain_blocklist_file``
+ ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+@@ -4036,35 +4049,35 @@
+ :Type: str
+ 
+ 
+-~~~~~~~~~~~~~~~~~~~~
+-``ga4gh_service_id``
+-~~~~~~~~~~~~~~~~~~~~
++~~~~~~~~~~~~~~~~~~~~~
++``organization_name``
++~~~~~~~~~~~~~~~~~~~~~
+ 
+ :Description:
+-    Service ID for GA4GH services (exposed via the service-info
+-    endpoint for the Galaxy DRS API). If unset, one will be generated
+-    using the URL the target API requests are made against.
++    The name of the organization that operates this Galaxy instance.
++    Serves as the default for the GA4GH service organization name and
++    can be exposed through Galaxy markdown for reports and such. For
++    instance, "Not Evil Corporation".
++    For GA4GH APIs, this is exposed via the service-info endpoint for
++    the Galaxy DRS API. If unset, one will be generated using
++    ga4gh_service_id (but only in the context of GA4GH APIs).
+     For more information on GA4GH service definitions - check out
+     https://github.com/ga4gh-discovery/ga4gh-service-registry and
+     https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
+-    This value should likely reflect your service's URL. For instance
+-    for usegalaxy.org this value should be org.usegalaxy. Particular
+-    Galaxy implementations will treat this value as a prefix and
+-    append the service type to this ID. For instance for the DRS
+-    service "id" (available via the DRS API) for the above
+-    configuration value would be org.usegalaxy.drs.
+ :Default: ``None``
+ :Type: str
+ 
+ 
+-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-``ga4gh_service_organization_name``
+-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++~~~~~~~~~~~~~~~~~~~~
++``organization_url``
++~~~~~~~~~~~~~~~~~~~~
+ 
+ :Description:
+-    Service name for host organization (exposed via the service-info
+-    endpoint for the Galaxy DRS API). If unset, one will be generated
+-    using ga4gh_service_id.
++    The URL of the organization that operates this Galaxy instance.
++    Serves as the default for the GA4GH service organization name and
++    can be exposed through Galaxy markdown for reports and such. For
++    instance, "notevilcorp.com".
++    For GA4GH APIs, this is exposed via the service-info endpoint.
+     For more information on GA4GH service definitions - check out
+     https://github.com/ga4gh-discovery/ga4gh-service-registry and
+     https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
+@@ -4072,18 +4085,23 @@
+ :Type: str
+ 
+ 
+-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+-``ga4gh_service_organization_url``
+-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
++~~~~~~~~~~~~~~~~~~~~
++``ga4gh_service_id``
++~~~~~~~~~~~~~~~~~~~~
+ 
+ :Description:
+-    Organization URL for host organization (exposed via the
+-    service-info endpoint for the Galaxy DRS API). If unset, one will
+-    be generated using the URL the target API requests are made
+-    against.
++    Service ID for GA4GH services (exposed via the service-info
++    endpoint for the Galaxy DRS API). If unset, one will be generated
++    using the URL the target API requests are made against.
+     For more information on GA4GH service definitions - check out
+     https://github.com/ga4gh-discovery/ga4gh-service-registry and
+     https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
++    This value should likely reflect your service's URL. For instance
++    for usegalaxy.org this value should be org.usegalaxy. Particular
++    Galaxy implementations will treat this value as a prefix and
++    append the service type to this ID. For instance for the DRS
++    service "id" (available via the DRS API) for the above
++    configuration value would be org.usegalaxy.drs.
+ :Default: ``None``
+ :Type: str
+ 
+diff --git a/lib/galaxy/config/__init__.py b/lib/galaxy/config/__init__.py
+index a04bc52f01c7..ac3f3a73ffc5 100644
+--- a/lib/galaxy/config/__init__.py
++++ b/lib/galaxy/config/__init__.py
+@@ -637,6 +637,8 @@ class GalaxyAppConfiguration(BaseAppConfiguration, CommonConfigurationMixin):
+         "fetch_url_whitelist": "fetch_url_allowlist",
+         "containers_resolvers_config_file": "container_resolvers_config_file",
+         "activation_email": "email_from",
++        "ga4gh_service_organization_name": "organization_name",
++        "ga4gh_service_organization_url": "organization_url",
+     }
+ 
+     deprecated_options = list(renamed_options.keys()) + [
+diff --git a/lib/galaxy/config/config_manage.py b/lib/galaxy/config/config_manage.py
+index ef21f95b3339..5f91bc0d386c 100644
+--- a/lib/galaxy/config/config_manage.py
++++ b/lib/galaxy/config/config_manage.py
+@@ -203,6 +203,8 @@ def lint(self, args, app_desc, key, value) -> None:
+     "legacy_eager_objectstore_initialization": _DeprecatedAndDroppedAction(),
+     "enable_openid": _DeprecatedAndDroppedAction(),
+     "openid_consumer_cache_path": _DeprecatedAndDroppedAction(),
++    "ga4gh_service_organization_name": _RenameAction("organization_name"),
++    "ga4gh_service_organization_url": _RenameAction("organization_url"),
+ }
+ 
+ 
+diff --git a/lib/galaxy/config/sample/galaxy.yml.sample b/lib/galaxy/config/sample/galaxy.yml.sample
+index 3f4d369e9981..a181d693c415 100644
+--- a/lib/galaxy/config/sample/galaxy.yml.sample
++++ b/lib/galaxy/config/sample/galaxy.yml.sample
+@@ -1116,11 +1116,17 @@ galaxy:
+   # message, before the 'Your Galaxy Team' signature.
+   #custom_activation_email_message: null
+ 
+-  # URL of the support resource for the galaxy instance.  Used in
+-  # activation emails.
++  # URL of the support resource for the galaxy instance.  Used outside
++  # of web contexts such as in activation emails and in Galaxy markdown
++  # report generation.
+   # Example value 'https://galaxyproject.org/'
+   #instance_resource_url: null
+ 
++  # URL used to access this Galaxy server. Used outside of web contexts
++  # such as in Galaxy markdown report generation.
++  # Example value 'https://usegalaxy.org'
++  #instance_access_url: null
++
+   # E-mail domains blocklist is used for filtering out users that are
+   # using disposable email addresses at registration.  If their
+   # address's base domain matches any domain on the list, they are
+@@ -2187,6 +2193,28 @@ galaxy:
+   # production server.
+   #bootstrap_admin_api_key: null
+ 
++  # The name of the organization that operates this Galaxy instance.
++  # Serves as the default for the GA4GH service organization name and
++  # can be exposed through Galaxy markdown for reports and such. For
++  # instance, "Not Evil Corporation".
++  # For GA4GH APIs, this is exposed via the service-info endpoint for
++  # the Galaxy DRS API. If unset, one will be generated using
++  # ga4gh_service_id (but only in the context of GA4GH APIs).
++  # For more information on GA4GH service definitions - check out
++  # https://github.com/ga4gh-discovery/ga4gh-service-registry and
++  # https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
++  #organization_name: null
++
++  # The URL of the organization that operates this Galaxy instance.
++  # Serves as the default for the GA4GH service organization name and
++  # can be exposed through Galaxy markdown for reports and such. For
++  # instance, "notevilcorp.com".
++  # For GA4GH APIs, this is exposed via the service-info endpoint.
++  # For more information on GA4GH service definitions - check out
++  # https://github.com/ga4gh-discovery/ga4gh-service-registry and
++  # https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
++  #organization_url: null
++
+   # Service ID for GA4GH services (exposed via the service-info endpoint
+   # for the Galaxy DRS API). If unset, one will be generated using the
+   # URL the target API requests are made against.
+@@ -2201,22 +2229,6 @@ galaxy:
+   # be org.usegalaxy.drs.
+   #ga4gh_service_id: null
+ 
+-  # Service name for host organization (exposed via the service-info
+-  # endpoint for the Galaxy DRS API). If unset, one will be generated
+-  # using ga4gh_service_id.
+-  # For more information on GA4GH service definitions - check out
+-  # https://github.com/ga4gh-discovery/ga4gh-service-registry and
+-  # https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
+-  #ga4gh_service_organization_name: null
+-
+-  # Organization URL for host organization (exposed via the service-info
+-  # endpoint for the Galaxy DRS API). If unset, one will be generated
+-  # using the URL the target API requests are made against.
+-  # For more information on GA4GH service definitions - check out
+-  # https://github.com/ga4gh-discovery/ga4gh-service-registry and
+-  # https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
+-  #ga4gh_service_organization_url: null
+-
+   # Service environment (exposed via the service-info endpoint for the
+   # Galaxy DRS API) for implemented GA4GH services.
+   # Suggested values are prod, test, dev, staging.
+diff --git a/lib/galaxy/config/sample/tool_shed.yml.sample b/lib/galaxy/config/sample/tool_shed.yml.sample
+index 3b04d57f94a7..af9726e851ba 100644
+--- a/lib/galaxy/config/sample/tool_shed.yml.sample
++++ b/lib/galaxy/config/sample/tool_shed.yml.sample
+@@ -15,6 +15,10 @@ tool_shed:
+   # installation directory.
+   #hgweb_config_dir: null
+ 
++  # Allow pushing directly to mercurial repositories directly and
++  # without authentication.
++  #config_hg_for_dev: null
++
+   # Where Tool Shed repositories are stored.
+   #file_path: database/community_files
+ 
+@@ -188,6 +192,50 @@ tool_shed:
+   # Address to join mailing list
+   #mailing_join_addr: galaxy-announce-join@bx.psu.edu
+ 
++  # Service ID for GA4GH services.
++  # If unset, one will be generated using the URL the target API
++  # requests are made against.
++  # For more information on GA4GH service definitions - check out
++  # https://github.com/ga4gh-discovery/ga4gh-service-registry and
++  # https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
++  # This value should likely reflect your service's URL. For instance
++  # for usegalaxy.org this value should be org.usegalaxy. Particular
++  # Galaxy implementations will treat this value as a prefix and append
++  # the service type to this ID. For instance for the DRS service "id"
++  # (available via the DRS API) for the above configuration value would
++  # be org.usegalaxy.drs.
++  #ga4gh_service_id: null
++
++  # The name of the organization that operates this Galaxy instance.
++  # Serves as the default for the GA4GH service organization name and
++  # can be exposed through Galaxy markdown for reports and such. For
++  # instance, "Not Evil Corporation".
++  # For GA4GH APIs, this is exposed via the service-info endpoint for
++  # the Galaxy DRS API. If unset, one will be generated using
++  # ga4gh_service_id (but only in the context of GA4GH APIs).
++  # For more information on GA4GH service definitions - check out
++  # https://github.com/ga4gh-discovery/ga4gh-service-registry and
++  # https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
++  #organization_name: null
++
++  # The URL of the organization that operates this Galaxy instance.
++  # Serves as the default for the GA4GH service organization name and
++  # can be exposed through Galaxy markdown for reports and such. For
++  # instance, "notevilcorp.com".
++  # For GA4GH APIs, this is exposed via the service-info endpoint.
++  # For more information on GA4GH service definitions - check out
++  # https://github.com/ga4gh-discovery/ga4gh-service-registry and
++  # https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
++  #organization_url: null
++
++  # Service environment (exposed via the service-info endpoint for the
++  # Galaxy DRS API) for implemented GA4GH services.
++  # Suggested values are prod, test, dev, staging.
++  # For more information on GA4GH service definitions - check out
++  # https://github.com/ga4gh-discovery/ga4gh-service-registry and
++  # https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
++  #ga4gh_service_environment: null
++
+   # Write thread status periodically to 'heartbeat.log' (careful, uses
+   # disk  space rapidly!)
+   #use_heartbeat: true
+diff --git a/lib/galaxy/config/schemas/config_schema.yml b/lib/galaxy/config/schemas/config_schema.yml
+index e2f2c7320acf..649dec68c1d5 100644
+--- a/lib/galaxy/config/schemas/config_schema.yml
++++ b/lib/galaxy/config/schemas/config_schema.yml
+@@ -1180,11 +1180,20 @@ mapping:
+         type: str
+         required: false
+         desc: |
+-          URL of the support resource for the galaxy instance.  Used in activation
+-          emails.
++          URL of the support resource for the galaxy instance.  Used outside of web contexts
++          such as in activation emails and in Galaxy markdown report generation.
+ 
+           Example value 'https://galaxyproject.org/'
+ 
++      instance_access_url:
++        type: str
++        required: false
++        desc: |
++          URL used to access this Galaxy server. Used outside of web contexts
++          such as in Galaxy markdown report generation.
++
++          Example value 'https://usegalaxy.org'
++
+       email_domain_blocklist_file:
+         type: str
+         required: false
+@@ -2931,45 +2940,53 @@ mapping:
+           a real admin user account via API.
+           You should probably not set this on a production server.
+ 
+-      ga4gh_service_id:
++      organization_name:
+         type: str
+         required: false
+         desc: |
+-          Service ID for GA4GH services (exposed via the service-info endpoint for the Galaxy DRS API).
+-          If unset, one will be generated using the URL the target API requests are made against.
++          The name of the organization that operates this Galaxy instance. Serves as the
++          default for the GA4GH service organization name and can be exposed through Galaxy
++          markdown for reports and such. For instance, "Not Evil Corporation".
++
++          For GA4GH APIs, this is exposed via the service-info endpoint for the Galaxy DRS API.
++          If unset, one will be generated using ga4gh_service_id (but only in the context
++          of GA4GH APIs).
+ 
+           For more information on GA4GH service definitions - check out
+           https://github.com/ga4gh-discovery/ga4gh-service-registry
+           and https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
+ 
+-          This value should likely reflect your service's URL. For instance for usegalaxy.org
+-          this value should be org.usegalaxy. Particular Galaxy implementations will treat this
+-          value as a prefix and append the service type to this ID. For instance for the DRS
+-          service "id" (available via the DRS API) for the above configuration value would be
+-          org.usegalaxy.drs.
+-
+-      ga4gh_service_organization_name:
++      organization_url:
+         type: str
+         required: false
+         desc: |
+-          Service name for host organization (exposed via the service-info endpoint for the Galaxy DRS API).
+-          If unset, one will be generated using ga4gh_service_id.
++          The URL of the organization that operates this Galaxy instance. Serves as the
++          default for the GA4GH service organization name and can be exposed through Galaxy
++          markdown for reports and such. For instance, "notevilcorp.com".
++
++          For GA4GH APIs, this is exposed via the service-info endpoint.
+ 
+           For more information on GA4GH service definitions - check out
+           https://github.com/ga4gh-discovery/ga4gh-service-registry
+           and https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
+ 
+-      ga4gh_service_organization_url:
++      ga4gh_service_id:
+         type: str
+-        required: False
++        required: false
+         desc: |
+-          Organization URL for host organization (exposed via the service-info endpoint for the Galaxy DRS API).
++          Service ID for GA4GH services (exposed via the service-info endpoint for the Galaxy DRS API).
+           If unset, one will be generated using the URL the target API requests are made against.
+ 
+           For more information on GA4GH service definitions - check out
+           https://github.com/ga4gh-discovery/ga4gh-service-registry
+           and https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
+ 
++          This value should likely reflect your service's URL. For instance for usegalaxy.org
++          this value should be org.usegalaxy. Particular Galaxy implementations will treat this
++          value as a prefix and append the service type to this ID. For instance for the DRS
++          service "id" (available via the DRS API) for the above configuration value would be
++          org.usegalaxy.drs.
++
+       ga4gh_service_environment:
+         type: str
+         required: False
+diff --git a/lib/galaxy/config/schemas/tool_shed_config_schema.yml b/lib/galaxy/config/schemas/tool_shed_config_schema.yml
+index 8e52afa04d9b..780d35afe05f 100644
+--- a/lib/galaxy/config/schemas/tool_shed_config_schema.yml
++++ b/lib/galaxy/config/schemas/tool_shed_config_schema.yml
+@@ -353,7 +353,8 @@ mapping:
+         type: str
+         required: false
+         desc: |
+-          Service ID for GA4GH services (exposed via the service-info endpoint for the Galaxy DRS API).
++          Service ID for GA4GH services.
++
+           If unset, one will be generated using the URL the target API requests are made against.
+ 
+           For more information on GA4GH service definitions - check out
+@@ -366,23 +367,31 @@ mapping:
+           service "id" (available via the DRS API) for the above configuration value would be
+           org.usegalaxy.drs.
+ 
+-      ga4gh_service_organization_name:
++      organization_name:
+         type: str
+         required: false
+         desc: |
+-          Service name for host organization (exposed via the service-info endpoint for the Galaxy DRS API).
+-          If unset, one will be generated using ga4gh_service_id.
++          The name of the organization that operates this Galaxy instance. Serves as the
++          default for the GA4GH service organization name and can be exposed through Galaxy
++          markdown for reports and such. For instance, "Not Evil Corporation".
++
++          For GA4GH APIs, this is exposed via the service-info endpoint for the Galaxy DRS API.
++          If unset, one will be generated using ga4gh_service_id (but only in the context
++          of GA4GH APIs).
+ 
+           For more information on GA4GH service definitions - check out
+           https://github.com/ga4gh-discovery/ga4gh-service-registry
+           and https://editor.swagger.io/?url=https://raw.githubusercontent.com/ga4gh-discovery/ga4gh-service-registry/develop/service-registry.yaml
+ 
+-      ga4gh_service_organization_url:
++      organization_url:
+         type: str
+-        required: False
++        required: false
+         desc: |
+-          Organization URL for host organization (exposed via the service-info endpoint for the Galaxy DRS API).
+-          If unset, one will be generated using the URL the target API requests are made against.
++          The URL of the organization that operates this Galaxy instance. Serves as the
++          default for the GA4GH service organization name and can be exposed through Galaxy
++          markdown for reports and such. For instance, "notevilcorp.com".
++
++          For GA4GH APIs, this is exposed via the service-info endpoint.
+ 
+           For more information on GA4GH service definitions - check out
+           https://github.com/ga4gh-discovery/ga4gh-service-registry
+diff --git a/lib/galaxy/managers/configuration.py b/lib/galaxy/managers/configuration.py
+index 2f5f4b8700f5..c3ea10c0b4d6 100644
+--- a/lib/galaxy/managers/configuration.py
++++ b/lib/galaxy/managers/configuration.py
+@@ -213,6 +213,10 @@ def _config_is_truthy(item, key, **context):
+             "tool_training_recommendations_link": _use_config,
+             "tool_training_recommendations_api_url": _use_config,
+             "enable_notification_system": _use_config,
++            "instance_resource_url": _use_config,
++            "instance_access_url": _use_config,
++            "organization_name": _use_config,
++            "organization_url": _use_config,
+         }
+ 
+ 
+diff --git a/lib/galaxy/managers/markdown_parse.py b/lib/galaxy/managers/markdown_parse.py
+index c93827a3ad14..7ca808dd904c 100644
+--- a/lib/galaxy/managers/markdown_parse.py
++++ b/lib/galaxy/managers/markdown_parse.py
+@@ -46,6 +46,13 @@ class DynamicArguments:
+     "tool_stdout": ["step", "job_id"],
+     "generate_galaxy_version": [],
+     "generate_time": [],
++    "instance_access_link": [],
++    "instance_resources_link": [],
++    "instance_help_link": [],
++    "instance_support_link": [],
++    "instance_citation_link": [],
++    "instance_terms_link": [],
++    "instance_organization_link": [],
+     "visualization": DYNAMIC_ARGUMENTS,
+     # Invocation Flavored Markdown
+     "invocation_time": ["invocation_id"],
+diff --git a/lib/galaxy/managers/markdown_util.py b/lib/galaxy/managers/markdown_util.py
+index 934276b33aa6..e81158d961a6 100644
+--- a/lib/galaxy/managers/markdown_util.py
++++ b/lib/galaxy/managers/markdown_util.py
+@@ -183,6 +183,28 @@ def _remap(container, line):
+                 rval = self.handle_generate_galaxy_version(line, version)
+             elif container == "generate_time":
+                 rval = self.handle_generate_time(line, now())
++            elif container == "instance_access_link":
++                url = trans.app.config.instance_access_url
++                rval = self.handle_instance_access_link(line, url)
++            elif container == "instance_resources_link":
++                url = trans.app.config.instance_resource_url
++                rval = self.handle_instance_resources_link(line, url)
++            elif container == "instance_help_link":
++                url = trans.app.config.helpsite_url
++                rval = self.handle_instance_help_link(line, url)
++            elif container == "instance_support_link":
++                url = trans.app.config.support_url
++                rval = self.handle_instance_support_link(line, url)
++            elif container == "instance_citation_link":
++                url = trans.app.config.citation_url
++                rval = self.handle_instance_citation_link(line, url)
++            elif container == "instance_terms_link":
++                url = trans.app.config.terms_url
++                rval = self.handle_instance_terms_link(line, url)
++            elif container == "instance_organization_link":
++                title = trans.app.config.organization_name
++                url = trans.app.config.organization_url
++                rval = self.handle_instance_organization_link(line, title, url)
+             elif container == "invocation_time":
+                 invocation = workflow_manager.get_invocation(trans, object_id)
+                 rval = self.handle_invocation_time(line, invocation)
+@@ -287,6 +309,34 @@ def handle_generate_galaxy_version(self, line, galaxy_version):
+     def handle_generate_time(self, line, date):
+         pass
+ 
++    @abc.abstractmethod
++    def handle_instance_access_link(self, line, url):
++        pass
++
++    @abc.abstractmethod
++    def handle_instance_resources_link(self, line, url):
++        pass
++
++    @abc.abstractmethod
++    def handle_instance_help_link(self, line, url):
++        pass
++
++    @abc.abstractmethod
++    def handle_instance_support_link(self, line, url):
++        pass
++
++    @abc.abstractmethod
++    def handle_instance_citation_link(self, line, url):
++        pass
++
++    @abc.abstractmethod
++    def handle_instance_terms_link(self, line, url):
++        pass
++
++    @abc.abstractmethod
++    def handle_instance_organization_link(self, line, title, url):
++        pass
++
+     @abc.abstractmethod
+     def handle_invocation_time(self, line, date):
+         pass
+@@ -371,6 +421,27 @@ def handle_generate_galaxy_version(self, line, generate_version):
+     def handle_generate_time(self, line, generate_time):
+         pass
+ 
++    def handle_instance_access_link(self, line, url):
++        pass
++
++    def handle_instance_resources_link(self, line, url):
++        pass
++
++    def handle_instance_help_link(self, line, url):
++        pass
++
++    def handle_instance_support_link(self, line, url):
++        pass
++
++    def handle_instance_citation_link(self, line, url):
++        pass
++
++    def handle_instance_terms_link(self, line, url):
++        pass
++
++    def handle_instance_organization_link(self, line, title, url):
++        pass
++
+     def handle_invocation_time(self, line, invocation):
+         self.ensure_rendering_data_for("invocations", invocation)["create_time"] = invocation.create_time.strftime(
+             "%Y-%m-%d, %H:%M:%S"
+@@ -596,6 +667,35 @@ def handle_generate_time(self, line, generate_time):
+         content = literal_via_fence(generate_time.isoformat())
+         return (content, True)
+ 
++    def handle_instance_access_link(self, line, url):
++        return self._handle_link(url)
++
++    def handle_instance_resources_link(self, line, url):
++        return self._handle_link(url)
++
++    def handle_instance_help_link(self, line, url):
++        return self._handle_link(url)
++
++    def handle_instance_support_link(self, line, url):
++        return self._handle_link(url)
++
++    def handle_instance_citation_link(self, line, url):
++        return self._handle_link(url)
++
++    def handle_instance_terms_link(self, line, url):
++        return self._handle_link(url)
++
++    def handle_instance_organization_link(self, line, title, url):
++        return self._handle_link(url, title)
++
++    def _handle_link(self, url, title=None):
++        if not url:
++            content = "*Not configured, please contact Galaxy admin*"
++            return (content, True)
++        elif not title:
++            title = url
++        return (f"[{title}]({url})", True)
++
+     def handle_invocation_time(self, line, invocation):
+         content = literal_via_fence(invocation.create_time.strftime("%Y-%m-%d, %H:%M:%S"))
+         return (content, True)
+diff --git a/lib/galaxy/webapps/galaxy/api/drs.py b/lib/galaxy/webapps/galaxy/api/drs.py
+index 70ec82384960..b5960ee49f4f 100644
+--- a/lib/galaxy/webapps/galaxy/api/drs.py
++++ b/lib/galaxy/webapps/galaxy/api/drs.py
+@@ -51,8 +51,8 @@ def service_info(self, request: Request) -> Service:
+         default_organization_id = ".".join(reversed(hostname.split(".")))
+         config = self.config
+         organization_id = config.ga4gh_service_id or default_organization_id
+-        organization_name = config.ga4gh_service_organization_name or organization_id
+-        organization_url = config.ga4gh_service_organization_url or f"{components.scheme}://{components.netloc}"
++        organization_name = config.organization_name or organization_id
++        organization_url = config.organization_url or f"{components.scheme}://{components.netloc}"
+ 
+         organization = ServiceOrganization(
+             url=organization_url,
+diff --git a/lib/tool_shed/managers/trs.py b/lib/tool_shed/managers/trs.py
+index c36488bdb361..fbd1880b60b1 100644
+--- a/lib/tool_shed/managers/trs.py
++++ b/lib/tool_shed/managers/trs.py
+@@ -44,8 +44,8 @@ def service_info(app: ToolShedApp, request_url: URL):
+     default_organization_id = ".".join(reversed(hostname.split(".")))
+     config = app.config
+     organization_id = cast(str, config.ga4gh_service_id or default_organization_id)
+-    organization_name = cast(str, config.ga4gh_service_organization_name or organization_id)
+-    organization_url = cast(str, config.ga4gh_service_organization_url or f"{components.scheme}://{components.netloc}")
++    organization_name = cast(str, config.organization_name or organization_id)
++    organization_url = cast(str, config.organization_url or f"{components.scheme}://{components.netloc}")
+ 
+     organization = Organization(
+         url=organization_url,

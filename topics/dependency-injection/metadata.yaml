@@ -52,6 +52,27 @@ related_code_paths:
 contributors:
   - jmchilton
 
+# Agentic operations
+agentic_operations:
+  - name: refactor-to-di
+    prompt: "Refactor a Galaxy component to use dependency injection instead of the app god object"
+    type: claude-slash-command
+  - name: review-di
+    prompt: |
+      Perform a Python code review on the provided code. Accept input in any of following forms:
+      1. A working directory path (analyze git diff in that directory)
+      2. A Git commit reference (analyze changes in that commit)
+      3. A list of Python file paths (analyze those files)
+      4. A planning document (analyze the Python files in the plan)    
+
+      Review the code and ensure it follows best practices for dependency injection in Galaxy, including:
+      1. Avoid using FastAPI style injection - preferring Galaxy-style DI injection using Lagom and typing based injection.
+      2. Ensure dependencies in the service and manager layers are properly defined and injected via constructors and not via ``app`` access
+         where it makes sense.
+      3. Avoid creation of properties on ``app`` if possible.
+
+    type: claude-slash-command
+
 # Claude context
 claude:
   priority: high  # How important for dev questions

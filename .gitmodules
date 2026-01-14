@@ -1,0 +1,3 @@
+[submodule "review/galaxy-plugins"]
+	path = review/galaxy-plugins
+	url = https://github.com/galaxyproject/claude-galaxy-plugins

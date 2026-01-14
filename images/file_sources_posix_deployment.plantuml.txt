@@ -1,0 +1,58 @@
+@startuml
+!include plantuml_options.txt
+
+node "Galaxy Server" {
+    component [ConfiguredFileSources] as cfs
+
+    package "Stock POSIX Plugins" {
+        component [FTP Directory\ngxftp://] as ftp
+        component [Library Import\ngximport://] as lib
+        component [User Import\ngxuserimport://] as user_import
+    }
+}
+
+database "Filesystem" {
+    folder "${user.ftp_dir}" as ftp_dir {
+        file "uploaded.fastq"
+        file "data.csv"
+    }
+
+    folder "${config.library_import_dir}" as lib_dir {
+        file "reference.fa"
+        file "annotations.gff"
+    }
+
+    folder "${config.user_library_import_dir}" as user_lib_base {
+        folder "${user.username}" as user_lib_dir {
+            file "my_data.txt"
+        }
+    }
+}
+
+cfs --> ftp
+cfs --> lib
+cfs --> user_import
+
+ftp --> ftp_dir : read-only\nper-user path
+lib --> lib_dir : read-only\nadmin access
+user_import --> user_lib_dir : writable\nper-user path
+
+note bottom of ftp
+  Template: root=${user.ftp_dir}
+  writable: false
+  delete_on_realize: true (move)
+end note
+
+note bottom of lib
+  Template: root=${config.library_import_dir}
+  writable: false
+  requires_roles: admin
+end note
+
+note bottom of user_import
+  Template: root=${config.user_library_import_dir}/${user.username}
+  writable: true
+  Atomic writes via .part files
+end note
+
+@enduml

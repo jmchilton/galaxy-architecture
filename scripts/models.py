@@ -2,7 +2,7 @@
 
 from enum import Enum
 from pathlib import Path
-from typing import Annotated, Literal, Optional
+from typing import Annotated, Literal, Optional, Union
 
 from pydantic import (
     BaseModel,
@@ -41,6 +41,51 @@ class SphinxMetadata(BaseModel):
     subsection: Annotated[Optional[str], Field(None, description="Subsection within the section")]
 
 
+class CodePathReference(BaseModel):
+    """Detailed code path reference with contextual note."""
+    path: Annotated[str, Field(description="Galaxy code path (relative)")]
+    note: Annotated[str, Field(description="How this code path relates to the topic")]
+
+
+class PullRequestReference(BaseModel):
+    """Pull request reference with contextual note."""
+    pull_request: Annotated[str, Field(description="GitHub PR URL or number")]
+    note: Annotated[str, Field(description="How this PR relates to the topic")]
+
+
+class AgenticOperationType(str, Enum):
+    """Type of agentic operation artifact."""
+    SLASH_COMMAND = "claude-slash-command"
+    SKILL = "claude-skill"
+
+
+class AgenticOperation(BaseModel):
+    """Agentic operation that can be generated from topic content.
+
+    Represents a development action (e.g., implement-migration, refactor-for-di)
+    that can be turned into a Claude slash command or skill with embedded
+    architectural context from the topic.
+    """
+    name: Annotated[str, Field(description="Operation identifier (kebab-case, e.g., 'implement-di-refactor')")]
+    prompt: Annotated[str, Field(description="Development action to perform (e.g., 'Refactor component to use DI')")]
+    type: Annotated[AgenticOperationType, Field(description="Type of artifact to generate")]
+
+    @field_validator('name')
+    @classmethod
+    def validate_name_format(cls, v: str) -> str:
+        """Validate operation name is kebab-case."""
+        if not v:
+            raise ValueError("Operation name cannot be empty")
+        if not v.islower():
+            raise ValueError(f"Operation name must be lowercase: {v}")
+        if ' ' in v:
+            raise ValueError(f"Operation name cannot contain spaces (use hyphens): {v}")
+        if v.startswith('-') or v.endswith('-'):
+            raise ValueError(f"Operation name cannot start or end with hyphen: {v}")
+        if '--' in v:
+            raise ValueError(f"Operation name cannot contain consecutive hyphens: {v}")
+        return v
+
 
 class TopicMetadata(BaseModel):
     """Complete topic metadata from metadata.yaml.
@@ -68,8 +113,18 @@ class TopicMetadata(BaseModel):
         Field(default_factory=list, description="Related topic IDs for cross-referencing")
     ]
     related_code_paths: Annotated[
-        list[str],
-        Field(default_factory=list, description="Galaxy code paths relevant to this topic")
+        list[Union[str, CodePathReference]],
+        Field(default_factory=list, description="Galaxy code paths relevant to this topic (string or {path, note})")
+    ]
+    related_pull_requests: Annotated[
+        list[Union[str, PullRequestReference]],
+        Field(default_factory=list, description="GitHub PRs relevant to this topic (string or {pull_request, note})")
+    ]
+
+    # Agentic operations
+    agentic_operations: Annotated[
+        list[AgenticOperation],
+        Field(default_factory=list, description="Development operations that can be generated from this topic")
     ]
 
     @field_validator('topic_id')
@@ -99,11 +154,33 @@ class TopicMetadata(BaseModel):
 
     @field_validator('related_code_paths')
     @classmethod
-    def validate_code_paths(cls, v: list[str]) -> list[str]:
+    def validate_code_paths(cls, v: list[Union[str, CodePathReference]]) -> list[Union[str, CodePathReference]]:
         """Validate code path format."""
-        for path in v:
+        for item in v:
+            path = item if isinstance(item, str) else item.path
             if path.startswith('/'):
                 raise ValueError(f"Code path should be relative: {path}")
+        return v
+
+    @field_validator('related_pull_requests')
+    @classmethod
+    def validate_pull_requests(cls, v: list[Union[str, PullRequestReference]]) -> list[Union[str, PullRequestReference]]:
+        """Validate pull request format."""
+        for item in v:
+            pr = item if isinstance(item, str) else item.pull_request
+            # Basic validation - could be a number like "12345" or URL like "https://github.com/..."
+            if not pr:
+                raise ValueError("Pull request cannot be empty")
+        return v
+
+    @field_validator('agentic_operations')
+    @classmethod
+    def validate_unique_operation_names(cls, v: list[AgenticOperation]) -> list[AgenticOperation]:
+        """Ensure operation names are unique within topic."""
+        names = [op.name for op in v]
+        duplicates = [n for n in names if names.count(n) > 1]
+        if duplicates:
+            raise ValueError(f"Duplicate operation names found: {set(duplicates)}")
         return v
 
 
@@ -112,9 +189,15 @@ class TopicMetadata(BaseModel):
 # ============================================================================
 
 class ContentBlockType(str, Enum):
-    """Type of content block."""
+    """Type of content block.
+
+    - PROSE: Markdown content rendered in docs only (not slides)
+    - SLIDE: Content rendered in both slides and docs
+    - AGENT_CONTEXT: Content only available for agent command generation (not rendered anywhere)
+    """
     PROSE = "prose"
     SLIDE = "slide"
+    AGENT_CONTEXT = "agent-context"
 
 
 class DocRenderConfig(BaseModel):
@@ -135,9 +218,13 @@ class SlideRenderConfig(BaseModel):
     Controls how content appears in slide presentation format.
     """
     render: Annotated[bool, Field(True, description="Whether to include in slides")]
-    layout: Annotated[
+    class_: Annotated[
         Optional[str],
-        Field(None, description="Slide layout class (e.g., 'left', 'reduce90', 'enlarge150')")
+        Field(None, description="CSS classes to apply to slides (e.g., 'center', 'reduce90', 'enlarge150')")
+    ]
+    layout_name: Annotated[
+        Optional[str],
+        Field(None, description="Named layout to reference (e.g., 'left-aligned')")
     ]
 
 
@@ -175,10 +262,10 @@ class ContentBlock(BaseModel):
         Field("\n\n", description="Separator when combining fragments")
     ]
 
-    # Convenience field: layout class for slides (shorthand for slides.layout)
+    # Convenience field: CSS classes for slides (shorthand for slides.class_)
     class_: Annotated[
         Optional[str],
-        Field(None, alias='class', description="Layout class for slides (shorthand for slides.layout)")
+        Field(None, alias='class', description="CSS classes for slides (shorthand for slides.class_)")
     ]
 
     # Rendering configuration with smart defaults
@@ -194,9 +281,9 @@ class ContentBlock(BaseModel):
     @model_validator(mode='after')
     def apply_smart_defaults(self):
         """Apply smart defaults based on content type."""
-        # Propagate convenience field 'class_' to slides.layout
-        if self.class_ and not self.slides.layout:
-            self.slides.layout = self.class_
+        # Propagate convenience field 'class_' to slides.class_
+        if self.class_ and not self.slides.class_:
+            self.slides.class_ = self.class_
 
         if self.type == ContentBlockType.PROSE:
             # Prose: render in docs by default, NOT in slides
@@ -211,6 +298,11 @@ class ContentBlock(BaseModel):
                 self.doc.render = True
             if self.slides.render is True:  # Using default
                 self.slides.render = True
+
+        elif self.type == ContentBlockType.AGENT_CONTEXT:
+            # Agent context: NOT rendered in docs or slides, only for agent commands
+            self.doc.render = False
+            self.slides.render = False
 
         return self
 
@@ -346,9 +438,16 @@ class TopicContent(BaseModel):
     @field_validator('root')
     @classmethod
     def validate_at_least_one_slide(cls, v: list[ContentBlock]) -> list[ContentBlock]:
-        """Ensure there's at least one slide for training materials."""
+        """Ensure there's at least one slide for training materials.
+
+        Topics with only agent-context blocks (no renderable content) are allowed
+        to have no slides - they exist purely for agent command generation.
+        """
         has_slide = any(block.type == ContentBlockType.SLIDE for block in v)
-        if not has_slide:
+        has_renderable = any(block.type in (ContentBlockType.SLIDE, ContentBlockType.PROSE) for block in v)
+
+        # If topic has renderable content (slides or prose), require at least one slide
+        if has_renderable and not has_slide:
             raise ValueError("Content must include at least one slide block")
         return v
 

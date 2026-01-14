@@ -1,0 +1,44 @@
+@startuml
+!include plantuml_options.txt
+
+start
+
+:YAML Template Config;
+note right
+    bucket: "{{ variables.bucket }}"
+    key: "{{ secrets.access_key }}"
+end note
+
+:Apply Syntactic Sugar;
+note right: Inline includes, shorthand notation
+
+:Build Jinja2 Context;
+
+fork
+    :variables;
+    note right: User form input
+fork again
+    :secrets;
+    note right: From Vault
+fork again
+    :user;
+    note right: username, email, roles
+fork again
+    :environ;
+    note right: Environment vars
+end fork
+
+:Jinja2 Expansion;
+note right
+    bucket: "my-data-bucket"
+    key: "AKIA..."
+end note
+
+:Pydantic Validation;
+note right: FileSourceConfiguration
+
+:Resolved Config;
+
+stop
+
+@enduml

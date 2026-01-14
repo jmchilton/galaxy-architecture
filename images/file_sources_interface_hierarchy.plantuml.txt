@@ -1,0 +1,75 @@
+@startuml
+!include plantuml_options.txt
+
+title FilesSource Interface Hierarchy
+
+package "galaxy.files.sources" {
+
+    interface SingleFileSource <<Protocol>> {
+        +realize_to(source_path, native_path)
+        +write_from(target_path, native_path)
+        +score_url_match(url): int
+    }
+
+    interface SupportsBrowsing <<Protocol>> {
+        +list(path, recursive, user_context, opts)
+    }
+
+    interface FilesSource <<Protocol>> {
+        id: str
+        label: str
+        doc: str
+        scheme: str
+        writable: bool
+        --
+        "Combines SingleFileSource"
+        "and SupportsBrowsing"
+    }
+
+    abstract class BaseFilesSource {
+        plugin_type: str
+        --
+        +_serialize_entry()
+        +_resolve_template()
+        #_list() {abstract}
+        #_realize_to() {abstract}
+        #_write_from() {abstract}
+    }
+
+    class PyFilesystem2FilesSource {
+        +_open_fs(): FS
+        --
+        Server-side pagination
+        via filterdir(page=...)
+    }
+
+    class FsspecFilesSource {
+        +_open_fs(): AbstractFileSystem
+        --
+        40+ backends
+        10x code reduction
+    }
+
+}
+
+SingleFileSource <|.. FilesSource
+SupportsBrowsing <|.. FilesSource
+FilesSource <|.. BaseFilesSource
+BaseFilesSource <|-- PyFilesystem2FilesSource
+BaseFilesSource <|-- FsspecFilesSource
+
+note left of SingleFileSource
+    Operates on single file/URI
+    at a time, no browsing
+end note
+
+note right of FilesSource
+    Combined protocol for
+    all file source operations
+end note
+
+note bottom of FsspecFilesSource
+    Preferred for new plugins
+end note
+
+@enduml

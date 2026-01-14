@@ -31,6 +31,9 @@ Experimental POC to prove that maintaining architecture content as structured ma
 - **scripts/generate_schema_docs.py** - Auto-generates docs/SCHEMA.md from models
 - **outputs/training-slides/build.py** - Generates GTN-compatible slides
 - **outputs/sphinx-docs/build.py** - Generates Sphinx markdown with URL conversion
+- **docs/SLIDE_GUIDE.md** - GTN slide syntax, formatting, speaker notes (MUST READ before writing slides)
+- **docs/DIAGRAM_GUIDE.md** - PlantUML/Mermaid usage guide (MUST READ before creating diagrams)
+- **images/MERMAID.md** - Mermaid diagram support documentation (PlantUML vs Mermaid usage guide)
 
 ## Common Tasks
 
@@ -81,6 +84,17 @@ make validate-sync
 make build
 ```
 
+### Build diagrams
+```bash
+# Build all PlantUML and Mermaid diagrams
+make images
+
+# Watch for diagram source changes
+make watch-images
+```
+
+See **images/MERMAID.md** for details on PlantUML vs Mermaid diagram types and usage.
+
 ## Content Model
 
 Each topic is defined by three files:
@@ -91,8 +105,7 @@ Each topic is defined by three files:
    - Related topics and code paths
 
 2. **content.yaml** - Ordered sequence of content blocks
-   - Each block: type (prose/slide), id, heading, content source
-   - Smart defaults: prose renders in docs only; slides render everywhere
+   - Each block: type, id, heading, content source
    - Content from inline, single file, or multiple fragments
 
 3. **fragments/** - Actual content (optional for granular organization)
@@ -100,6 +113,20 @@ Each topic is defined by three files:
    - Can use single fragment per block or multiple fragments per block
 
 All content validated with Pydantic v2 models before build.
+
+### Content Block Types
+
+| Type | Slides | Sphinx Docs | Agent Commands | Use Case |
+|------|--------|-------------|----------------|----------|
+| `slide` | ✅ | ✅ | ✅ | Training slides, also rendered in docs |
+| `prose` | ❌ | ✅ | ✅ | Extended docs content, not for slides |
+| `agent-context` | ❌ | ❌ | ✅ | Context only for agent command generation |
+
+**slide** - Primary content type. Rendered in training slides AND Sphinx docs. Use for core architectural explanations.
+
+**prose** - Extended documentation. Rendered in Sphinx docs only. Use for detailed explanations too verbose for slides.
+
+**agent-context** - Agent-only context. NOT rendered anywhere. Use for guidance, examples, anti-patterns, and tips specifically for AI agents generating code or performing reviews. This content enriches generated agentic operations without cluttering human-facing docs.
 
 ## Build Artifacts
 
@@ -130,6 +157,42 @@ Documentation is automatically built and published to GitHub Pages on every push
 ## Implementation Status
 
 See PLAN.md for detailed phases.
+
+## Slash Commands
+
+### /research-topic <topic-id>
+Research a topic using its metadata to prepare for content generation.
+- Loads metadata.yaml, creates `notes/` directory
+- For each `related_code_paths`: examines code, writes summary to `notes/path_<path>.md`
+- For each `related_pull_requests`: fetches PR via gh CLI, writes summary + diff to `notes/pr_<org>_<repo>_<num>.md`
+- Supports string and object formats for paths/PRs
+
+### /research-find-code-paths <topic-id>
+Extract relevant code paths from PR diffs and add to metadata.
+- Reads `.diff` files from `notes/`
+- Identifies 8-12 architecturally significant paths (managers, APIs, core components)
+- Verifies paths exist in `~/workspace/galaxy`
+- Appends to `related_code_paths` in metadata.yaml
+- Requires: run `/research-topic` first
+
+### /plan-a-topic <topic-id>
+Generate structured slide plan by analyzing research notes.
+1. Validates prerequisites (metadata.yaml, notes/ with path_*.md and pr_*.md)
+2. Spawns two parallel agents:
+   - **Code-based plan**: slides from architecture/implementation → `plan/code_based_plan.md`
+   - **PR-based plan**: slides from evolution/history → `plan/pr_based_plan.md`
+3. Merges into 3 flow options (Architecture-First, Evolution-First, Hybrid) → `plan/merged_plan.md`
+4. Prompts user for flow choice, duration, audience level
+5. Creates `plan/final_plan.md` with chosen flow and next steps
+- Requires: run `/research-topic` first
+
+## Required Reading
+
+**Before writing content** (slides, prose, fragments):
+- Read **docs/SLIDE_GUIDE.md** - GTN slide syntax, formatting rules, speaker notes
+
+**Before creating diagrams/images**:
+- Read **docs/DIAGRAM_GUIDE.md** - PlantUML vs Mermaid usage, file naming, build process
 
 ## When helping with this repo
 

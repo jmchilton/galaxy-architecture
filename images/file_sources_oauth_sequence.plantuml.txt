@@ -1,0 +1,52 @@
+@startuml
+!include plantuml_options.txt
+
+participant "User" as user
+participant "Galaxy UI" as ui
+participant "Galaxy API" as api
+participant "OAuth Provider\n(Dropbox)" as provider
+participant "Vault" as vault
+
+user -> ui : Click "Connect Dropbox"
+activate ui
+
+ui -> api : Request auth URL
+activate api
+api --> ui : Auth URL + state
+deactivate api
+
+ui -> provider : Redirect to authorize
+deactivate ui
+activate provider
+
+user -> provider : Grant permissions
+provider --> ui : Redirect with code
+deactivate provider
+activate ui
+
+ui -> api : Callback with code
+activate api
+
+api -> provider : Exchange code for tokens
+activate provider
+provider --> api : access_token + refresh_token
+deactivate provider
+
+api -> api : Generate UUID for instance
+api -> vault : Store tokens (UUID key)
+activate vault
+vault --> api : OK
+deactivate vault
+
+api --> ui : Instance created
+deactivate api
+
+ui --> user : Success
+deactivate ui
+
+note right of vault
+    Tokens encrypted at rest
+    Refresh tokens for auto-renewal
+end note
+
+@enduml

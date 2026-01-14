@@ -268,9 +268,7 @@ Handy command-line utility for Galaxy administrators.
 
 Ephemeris generally talks to the Galaxy API and is a pure Python project, gxadmin talks directly to the Galaxy database and relevant files.
 
-## Total Perspective Vortex
-
-[galaxyproject/total-perspective-vortex **](https://github.com/galaxyproject/total-perspective-vortex)
+[galaxyproject/**total-perspective-vortex** ](https://github.com/galaxyproject/total-perspective-vortex)
 
 ![TPV Logo](https://raw.githubusercontent.com/galaxyproject/total-perspective-vortex/main/docs/images/tpv-logo-wide.png)
 

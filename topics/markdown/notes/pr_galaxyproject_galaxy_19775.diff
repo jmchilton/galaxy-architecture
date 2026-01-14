@@ -1,0 +1,936 @@
+diff --git a/client/src/components/Markdown/Editor/CellAction.vue b/client/src/components/Markdown/Editor/CellAction.vue
+index 40f9d9b6992c..4519801719c9 100644
+--- a/client/src/components/Markdown/Editor/CellAction.vue
++++ b/client/src/components/Markdown/Editor/CellAction.vue
+@@ -13,7 +13,7 @@
+                     <small class="my-1 mx-3 text-info">{{ title }}</small>
+                 </span>
+                 <CellOption
+-                    v-if="name !== 'markdown'"
++                    v-if="['galaxy', 'visualization'].includes(name)"
+                     title="Attach Data"
+                     description="Select data for this cell"
+                     :icon="faPaperclip"
+diff --git a/client/src/components/Markdown/Editor/CellAdd.vue b/client/src/components/Markdown/Editor/CellAdd.vue
+index fedf3341a458..20c72c128c81 100644
+--- a/client/src/components/Markdown/Editor/CellAdd.vue
++++ b/client/src/components/Markdown/Editor/CellAdd.vue
+@@ -30,8 +30,9 @@
+ <script setup lang="ts">
+ import { faPlus } from "@fortawesome/free-solid-svg-icons";
+ import { BAlert } from "bootstrap-vue";
+-import { computed, ref } from "vue";
++import { computed, onMounted, type Ref, ref } from "vue";
+ 
++import { getVisualizations } from "./services";
+ import cellTemplates from "./templates.yml";
+ import type { CellType, TemplateEntry } from "./types";
+ 
+@@ -46,9 +47,11 @@ defineEmits<{
+ 
+ const buttonRef = ref();
+ const query = ref("");
++const visualizations: Ref<Array<TemplateEntry>> = ref([]);
+ 
+ const allTemplates = computed(() => {
+     const result = { ...(cellTemplates as Record<string, Array<TemplateEntry>>) };
++    result["Visualization"] = visualizations.value;
+     return result;
+ });
+ 
+@@ -67,6 +70,10 @@ const filteredTemplates = computed(() => {
+     });
+     return filteredCategories;
+ });
++
++onMounted(async () => {
++    visualizations.value = await getVisualizations();
++});
+ </script>
+ 
+ <style>
+diff --git a/client/src/components/Markdown/Editor/CellCode.vue b/client/src/components/Markdown/Editor/CellCode.vue
+index dfbc8c379105..75d8f1b749b4 100644
+--- a/client/src/components/Markdown/Editor/CellCode.vue
++++ b/client/src/components/Markdown/Editor/CellCode.vue
+@@ -14,6 +14,10 @@ const props = defineProps({
+         type: String,
+         default: "github_light_default",
+     },
++    maxLines: {
++        type: Number,
++        default: 99999,
++    },
+     mode: {
+         type: String,
+         default: "json",
+@@ -44,7 +48,7 @@ async function buildEditor() {
+     aceEditor = ace.edit(editor.value, {
+         highlightActiveLine: false,
+         highlightGutterLine: false,
+-        maxLines: 30,
++        maxLines: props.maxLines,
+         minLines: 1,
+         mode: modePath,
+         showPrintMargin: false,
+diff --git a/client/src/components/Markdown/Editor/CellWrapper.vue b/client/src/components/Markdown/Editor/CellWrapper.vue
+index f3da0e9d5b56..1e52d80962ad 100644
+--- a/client/src/components/Markdown/Editor/CellWrapper.vue
++++ b/client/src/components/Markdown/Editor/CellWrapper.vue
+@@ -36,6 +36,13 @@
+                     :labels="labels"
+                     @cancel="$emit('configure')"
+                     @change="handleConfigure($event)" />
++                <ConfigureVisualization
++                    v-else-if="name === 'visualization' && configure"
++                    :name="name"
++                    :content="content"
++                    :labels="labels"
++                    @cancel="$emit('configure')"
++                    @change="handleConfigure($event)" />
+                 <CellCode
+                     :key="name"
+                     class="mt-1"
+@@ -60,6 +67,7 @@ import type { WorkflowLabel } from "./types";
+ import CellAction from "./CellAction.vue";
+ import CellButton from "./CellButton.vue";
+ import ConfigureGalaxy from "./Configurations/ConfigureGalaxy.vue";
++import ConfigureVisualization from "./Configurations/ConfigureVisualization.vue";
+ import SectionWrapper from "@/components/Markdown/Sections/SectionWrapper.vue";
+ 
+ const CellCode = () => import("./CellCode.vue");
+diff --git a/client/src/components/Markdown/Editor/Configurations/ConfigureVisualization.vue b/client/src/components/Markdown/Editor/Configurations/ConfigureVisualization.vue
+new file mode 100644
+index 000000000000..552571a9aac6
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/Configurations/ConfigureVisualization.vue
+@@ -0,0 +1,84 @@
++<template>
++    <b-alert v-if="errorMessage" variant="warning" show>{{ errorMessage }}</b-alert>
++    <MarkdownSelector v-else-if="labels !== undefined" argument-name="Dataset" :labels="labels" @onOk="onLabel" />
++    <DataDialog
++        v-else-if="currentHistoryId !== null"
++        :history="currentHistoryId"
++        format="id"
++        @onOk="onData"
++        @onCancel="$emit('cancel')" />
++    <b-alert v-else v-localize variant="info" show> No history available to choose from. </b-alert>
++</template>
++
++<script setup lang="ts">
++import { storeToRefs } from "pinia";
++import { type Ref, ref, watch } from "vue";
++
++import type { DatasetLabel, WorkflowLabel } from "@/components/Markdown/Editor/types";
++import { stringify } from "@/components/Markdown/Utilities/stringify";
++import { useHistoryStore } from "@/stores/historyStore";
++
++import DataDialog from "@/components/DataDialog/DataDialog.vue";
++import MarkdownSelector from "@/components/Markdown/MarkdownSelector.vue";
++
++const { currentHistoryId } = storeToRefs(useHistoryStore());
++
++const props = defineProps<{
++    content: string;
++    labels?: Array<WorkflowLabel>;
++}>();
++
++const emit = defineEmits<{
++    (e: "cancel"): void;
++    (e: "change", content: string): void;
++}>();
++
++interface contentType {
++    dataset_id?: string;
++    dataset_label?: DatasetLabel;
++    dataset_url?: string;
++}
++
++const contentObject: Ref<contentType | undefined> = ref();
++const errorMessage = ref("");
++
++function onData(datasetId: any) {
++    if (contentObject.value) {
++        contentObject.value.dataset_id = datasetId;
++        contentObject.value.dataset_label = undefined;
++        contentObject.value.dataset_url = undefined;
++        emit("change", stringify(contentObject.value));
++    }
++}
++
++function onLabel(selectedLabel: any) {
++    if (selectedLabel !== undefined) {
++        const labelType = selectedLabel.type;
++        const label = selectedLabel.label;
++        if (contentObject.value && label && labelType) {
++            contentObject.value.dataset_label = {
++                invocation_id: "",
++                [labelType]: label,
++            };
++            contentObject.value.dataset_id = undefined;
++            contentObject.value.dataset_url = undefined;
++            emit("change", stringify(contentObject.value));
++        }
++    }
++}
++
++function parseContent() {
++    try {
++        contentObject.value = JSON.parse(props.content);
++        errorMessage.value = "";
++    } catch (e) {
++        errorMessage.value = `Failed to parse: ${e}`;
++    }
++}
++
++watch(
++    () => props.content,
++    () => parseContent(),
++    { immediate: true }
++);
++</script>
+diff --git a/client/src/components/Markdown/Editor/services.ts b/client/src/components/Markdown/Editor/services.ts
+new file mode 100644
+index 000000000000..63ac22a1ee85
+--- /dev/null
++++ b/client/src/components/Markdown/Editor/services.ts
+@@ -0,0 +1,31 @@
++import axios from "axios";
++
++import { getAppRoot } from "@/onload";
++import { rethrowSimple } from "@/utils/simple-error";
++
++import type { TemplateEntry } from "./types";
++
++export interface VisualizationType {
++    description: string;
++    html: string;
++    logo?: string;
++    name: string;
++}
++
++export async function getVisualizations(): Promise<Array<TemplateEntry>> {
++    try {
++        const { data } = await axios.get(`${getAppRoot()}api/plugins?embeddable=True`);
++        return data.map((v: VisualizationType) => ({
++            title: v.html,
++            description: v.description || "",
++            logo: v.logo ? `${getAppRoot()}${v.logo}` : undefined,
++            cell: {
++                name: "visualization",
++                configure: true,
++                content: `{ "visualization_name": "${v.name}", "visualization_title": "${v.html}" }`,
++            },
++        }));
++    } catch (e) {
++        rethrowSimple("Failed to load Visualizations.");
++    }
++}
+diff --git a/client/src/components/Markdown/Editor/templates.yml b/client/src/components/Markdown/Editor/templates.yml
+index dd40e6ba4b6e..e54ab6e5f5a1 100644
+--- a/client/src/components/Markdown/Editor/templates.yml
++++ b/client/src/components/Markdown/Editor/templates.yml
+@@ -194,3 +194,68 @@ Galaxy:
+     cell:
+       name: "galaxy"
+       content: "generate_galaxy_version()"
++
++Vega:
++  - title: "Bar Diagram"
++    description: "Basic bar diagram"
++    cell:
++      name: "vega"
++      content: |
++        {
++          "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
++          "description": "A simple bar chart with embedded data.",
++          "data": {"values": [
++            { "a": "A", "b": 1 },
++            { "a": "B", "b": 2 },
++            { "a": "C", "b": 3 }
++          ]},
++          "mark": "bar",
++          "encoding": {
++            "x": {"field": "a", "type": "nominal", "axis": {"labelAngle": 0}},
++            "y": {"field": "b", "type": "quantitative"}
++          }
++        }
++  - title: "Line Chart"
++    description: "Basic line chart"
++    cell:
++      name: "vega"
++      content: |
++        {
++          "$schema": "https://vega.github.io/schema/vega-lite/v5.json",
++          "description": "A simple line chart with embedded data.",
++          "data": {"values": [
++            { "a": "A", "b": 1 },
++            { "a": "B", "b": 2 },
++            { "a": "C", "b": 3 }
++          ]},
++          "mark": "line",
++          "encoding": {
++            "x": {"field": "a", "type": "nominal", "axis": {"labelAngle": 0}},
++            "y": {"field": "b", "type": "quantitative"}
++          }
++        }
++
++Vitessce:
++  - title: "Hello World"
++    description: "A simple vitessce example"
++    cell:
++      name: "vitessce"
++      content: |
++        {
++          "version": "1.0.16",
++          "name": "Example configuration",
++          "description": "",
++          "datasets": [],
++          "initStrategy": "auto",
++          "coordinationSpace": {},
++          "layout": [{
++            "component": "description",
++            "props": {
++                "description": "Hello, world!"
++            },
++            "x": 0,
++            "y": 0,
++            "w": 6,
++            "h": 6
++          }]
++        }
+diff --git a/client/src/components/Markdown/MarkdownEditor.vue b/client/src/components/Markdown/MarkdownEditor.vue
+index 55c66553a3e5..e97135805de3 100644
+--- a/client/src/components/Markdown/MarkdownEditor.vue
++++ b/client/src/components/Markdown/MarkdownEditor.vue
+@@ -8,7 +8,6 @@
+                     </div>
+                     <div>
+                         <b-form-radio-group
+-                            v-if="!labels || labels.length === 0"
+                             v-model="editor"
+                             v-b-tooltip.hover.bottom
+                             button-variant="outline-primary"
+diff --git a/client/src/components/Markdown/Sections/MarkdownVega.vue b/client/src/components/Markdown/Sections/MarkdownVega.vue
+new file mode 100644
+index 000000000000..1c49699cdbf5
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/MarkdownVega.vue
+@@ -0,0 +1,42 @@
++<script setup lang="ts">
++import { ref, watch } from "vue";
++
++const VegaWrapper = () => import("@/components/Common/VegaWrapper.vue");
++
++const props = defineProps<{
++    content: string;
++}>();
++
++const errorMessage = ref("");
++const spec = ref({});
++
++function render() {
++    try {
++        errorMessage.value = "";
++        spec.value = {
++            ...JSON.parse(props.content),
++            width: "container",
++        };
++    } catch (e: any) {
++        errorMessage.value = String(e);
++        spec.value = {};
++    }
++}
++
++watch(
++    () => props.content,
++    () => {
++        render();
++    },
++    { immediate: true }
++);
++</script>
++
++<template>
++    <div>
++        <b-alert v-if="errorMessage" class="p-2" variant="danger" show>
++            {{ errorMessage }}
++        </b-alert>
++        <VegaWrapper :spec="spec" />
++    </div>
++</template>
+diff --git a/client/src/components/Markdown/Sections/MarkdownVisualization.vue b/client/src/components/Markdown/Sections/MarkdownVisualization.vue
+new file mode 100644
+index 000000000000..7140da68ea93
+--- /dev/null
++++ b/client/src/components/Markdown/Sections/MarkdownVisualization.vue
+@@ -0,0 +1,128 @@
++<script setup lang="ts">
++import { BAlert } from "bootstrap-vue";
++import { computed, type Ref, ref, watch } from "vue";
++
++import type { DatasetLabel, Invocation } from "@/components/Markdown/Editor/types";
++import { stringify } from "@/components/Markdown/Utilities/stringify";
++import { useInvocationStore } from "@/stores/invocationStore";
++
++import { parseInput, parseOutput } from "../Utilities/parseInvocation";
++
++import LoadingSpan from "@/components/LoadingSpan.vue";
++import VisualizationWrapper from "@/components/Visualizations/VisualizationWrapper.vue";
++
++const props = defineProps<{
++    attribute?: string;
++    content: string;
++    name?: string;
++}>();
++
++const emit = defineEmits(["change"]);
++
++const errorMessage = ref("");
++const visualizationConfig = ref();
++const visualizationKey = ref(0);
++const visualizationName = ref();
++const visualizationTitle = ref("");
++const datasetLabel: Ref<DatasetLabel | undefined> = ref();
++
++const { getInvocationById, getInvocationLoadError, isLoadingInvocation } = useInvocationStore();
++
++const currentContent = ref(props.content);
++
++const invocation = computed(() => invocationId.value && getInvocationById(invocationId.value));
++const invocationId = computed(() => datasetLabel.value?.invocation_id || "");
++const invocationLoading = computed(() => isLoadingInvocation(invocationId.value));
++const invocationLoadError = computed(() => getInvocationLoadError(invocationId.value));
++
++function onChange(incomingData: Record<string, any>) {
++    const newContent = {
++        visualization_name: visualizationName.value,
++        visualization_title: incomingData.visualization_title,
++        dataset_label: datasetLabel.value,
++        ...incomingData.visualization_config,
++    };
++    currentContent.value = stringify(newContent);
++    emit("change", currentContent.value);
++}
++
++function processContent() {
++    try {
++        errorMessage.value = "";
++        const parsedContent = { ...JSON.parse(props.content) };
++
++        datasetLabel.value = parsedContent.dataset_label;
++
++        if (props.attribute) {
++            visualizationConfig.value = {};
++            visualizationConfig.value[props.attribute] = parsedContent;
++        } else {
++            visualizationConfig.value = {
++                dataset_id: parsedContent.dataset_id,
++                dataset_url: parsedContent.dataset_url,
++                settings: parsedContent.settings,
++                tracks: parsedContent.tracks,
++            };
++            visualizationTitle.value = parsedContent.visualization_title || "";
++        }
++        visualizationName.value = props.name || parsedContent.visualization_name;
++        if (!visualizationName.value) {
++            throw new Error("Please add a 'visualization_name` to the dictionary.");
++        }
++        processInvocation();
++        if (currentContent.value !== props.content) {
++            currentContent.value = props.content;
++            visualizationKey.value++;
++        }
++    } catch (e) {
++        errorMessage.value = String(e);
++    }
++}
++
++function processInvocation() {
++    if (invocation.value) {
++        const inputId = parseInput(invocation.value as Invocation, datasetLabel.value?.input);
++        const outputId = parseOutput(invocation.value as Invocation, datasetLabel.value?.output);
++        const datasetId = inputId || outputId;
++        visualizationConfig.value.dataset_id = datasetId;
++    }
++}
++
++watch(
++    () => props.content,
++    () => processContent(),
++    { immediate: true }
++);
++
++watch(
++    () => invocation.value,
++    () => processInvocation()
++);
++</script>
++
++<template>
++    <div class="markdown-visualization">
++        <BAlert v-if="errorMessage" v-localize class="m-0" variant="danger" show>
++            {{ errorMessage }}
++        </BAlert>
++        <BAlert v-else-if="invocationLoadError" v-localize class="m-0" variant="danger" show>
++            {{ invocationLoadError }}
++        </BAlert>
++        <LoadingSpan v-else-if="invocationLoading" />
++        <VisualizationWrapper
++            v-else-if="visualizationConfig"
++            :key="visualizationKey"
++            class="markdown-visualization"
++            :config="visualizationConfig"
++            :name="visualizationName"
++            :title="visualizationTitle"
++            @change="onChange" />
++    </div>
++</template>
++
++<style>
++.markdown-visualization {
++    min-height: 400px;
++    max-height: 400px;
++}
++</style>
+diff --git a/client/src/components/Markdown/Sections/SectionWrapper.vue b/client/src/components/Markdown/Sections/SectionWrapper.vue
+index 9f864996a225..11afb04beb0f 100644
+--- a/client/src/components/Markdown/Sections/SectionWrapper.vue
++++ b/client/src/components/Markdown/Sections/SectionWrapper.vue
+@@ -1,14 +1,23 @@
+ <template>
+     <MarkdownDefault v-if="name === 'markdown'" :content="content" />
+     <MarkdownGalaxy v-else-if="name === 'galaxy'" :content="content" :labels="labels" />
++    <MarkdownVega v-else-if="name === 'vega'" :content="content" />
++    <MarkdownVisualization v-else-if="name === 'visualization'" :content="content" @change="$emit('change', $event)" />
++    <MarkdownVisualization
++        v-else-if="name === 'vitessce'"
++        attribute="dataset_content"
++        name="vitessce"
++        :content="content" />
+     <b-alert v-else variant="danger" show> This cell type `{{ name }}` is not available. </b-alert>
+ </template>
+ 
+ <script setup lang="ts">
+ import type { WorkflowLabel } from "@/components/Markdown/Editor/types";
+ 
+-import MarkdownDefault from "../Sections/MarkdownDefault.vue";
+-import MarkdownGalaxy from "../Sections/MarkdownGalaxy.vue";
++import MarkdownDefault from "./MarkdownDefault.vue";
++import MarkdownGalaxy from "./MarkdownGalaxy.vue";
++import MarkdownVega from "./MarkdownVega.vue";
++import MarkdownVisualization from "./MarkdownVisualization.vue";
+ 
+ defineProps<{
+     content: string;
+diff --git a/client/src/components/Markdown/Utilities/stringify.ts b/client/src/components/Markdown/Utilities/stringify.ts
+new file mode 100644
+index 000000000000..09f96dfb5607
+--- /dev/null
++++ b/client/src/components/Markdown/Utilities/stringify.ts
+@@ -0,0 +1,15 @@
++export function stringify<T extends Record<string, any>>(contentObject: T): string {
++    function deepSortObject(obj: any): any {
++        if (typeof obj !== "object" || obj === null || Array.isArray(obj)) {
++            return obj;
++        }
++        return Object.keys(obj)
++            .sort()
++            .reduce((acc, key) => {
++                acc[key] = deepSortObject(obj[key]);
++                return acc;
++            }, {} as Record<string, any>);
++    }
++    const sortedObject = deepSortObject(contentObject);
++    return JSON.stringify(sortedObject, null, 4);
++}
+diff --git a/client/src/components/PageDisplay/PageDisplay.vue b/client/src/components/PageDisplay/PageDisplay.vue
+index bfe855434724..011ccbc32cc2 100644
+--- a/client/src/components/PageDisplay/PageDisplay.vue
++++ b/client/src/components/PageDisplay/PageDisplay.vue
+@@ -22,7 +22,6 @@ import { storeToRefs } from "pinia";
+ 
+ import { useConfig } from "@/composables/config";
+ import { useUserStore } from "@/stores/userStore";
+-import { withPrefix } from "@/utils/redirect";
+ import { urlData } from "@/utils/url";
+ 
+ import PageHtml from "./PageHtml.vue";
+@@ -64,9 +63,6 @@ export default {
+         exportUrl() {
+             return `${this.dataUrl}.pdf`;
+         },
+-        editUrl() {
+-            return `/pages/editor?id=${this.pageId}`;
+-        },
+     },
+     created() {
+         urlData({ url: this.dataUrl }).then((data) => {
+@@ -75,7 +71,7 @@ export default {
+     },
+     methods: {
+         onEdit() {
+-            window.location = withPrefix(this.editUrl);
++            this.$router.push(`/pages/editor?id=${this.pageId}`);
+         },
+         stsUrl(config) {
+             return `${this.dataUrl}/prepare_download`;
+diff --git a/client/src/components/Visualizations/VisualizationWrapper.vue b/client/src/components/Visualizations/VisualizationWrapper.vue
+new file mode 100644
+index 000000000000..419467e5fc57
+--- /dev/null
++++ b/client/src/components/Visualizations/VisualizationWrapper.vue
+@@ -0,0 +1,107 @@
++<script setup lang="ts">
++import axios from "axios";
++import { debounce } from "lodash";
++import { onMounted, ref } from "vue";
++
++import { getAppRoot } from "@/onload/loadConfig";
++
++const DELAY = 300;
++
++const props = defineProps<{
++    config: Object;
++    name: String;
++    title: String;
++}>();
++
++const emit = defineEmits(["change"]);
++
++const emitChange = debounce((newValue: string) => {
++    emit("change", newValue);
++}, DELAY);
++
++const errorMessage = ref("");
++const iframeRef = ref<HTMLIFrameElement | null>(null);
++
++async function render() {
++    if (!props.name) {
++        errorMessage.value = "Visualization name is required!";
++    } else {
++        try {
++            const { data: plugin } = await axios.get(`${getAppRoot()}api/plugins/${props.name}`);
++            const pluginPath = `${getAppRoot()}static/plugins/visualizations/${props.name}/static/`;
++            const dataIncoming = {
++                root: window.location.origin + getAppRoot(),
++                visualization_config: props.config,
++                visualization_plugin: plugin,
++                visualization_title: props.title,
++            };
++
++            const iframe = iframeRef.value;
++            if (iframe) {
++                // Verify document existence
++                const iframeDocument = iframe.contentDocument;
++                if (!iframeDocument) {
++                    errorMessage.value = "Failed to access iframe document.";
++                    return;
++                }
++
++                // Create the container for the plugin
++                const container = iframeDocument.createElement("div");
++                container.id = "app";
++                container.setAttribute("data-incoming", JSON.stringify(dataIncoming));
++                iframeDocument.body.appendChild(container);
++
++                // Inject the script tag for the plugin
++                if (plugin?.entry_point?.attr?.src) {
++                    const script = iframeDocument.createElement("script");
++                    script.type = "module";
++                    script.src = `${pluginPath}${plugin.entry_point.attr.src}`;
++                    iframeDocument.body.appendChild(script);
++                } else {
++                    const error = iframeDocument.createElement("div");
++                    error.innerHTML = `Unable to locate plugin module for: ${props.name}.`;
++                    iframeDocument.body.appendChild(error);
++                }
++
++                // Add a CSS link to the iframe document
++                if (plugin?.entry_point?.attr?.css) {
++                    const link = iframeDocument.createElement("link");
++                    link.rel = "stylesheet";
++                    link.href = `${pluginPath}${plugin.entry_point.attr.css}`;
++                    iframeDocument.head.appendChild(link);
++                }
++
++                // Add event listener
++                iframe.contentWindow?.addEventListener("message", (event) => {
++                    if (event.data.from === "galaxy-visualization") {
++                        emitChange(event.data);
++                    }
++                });
++
++                // Reset error message
++                errorMessage.value = "";
++            } else {
++                errorMessage.value = "Frame has been invalidated.";
++            }
++        } catch (e) {
++            errorMessage.value = `Visualization '${props.name}' not available: ${e}.`;
++        }
++    }
++}
++
++onMounted(() => render());
++</script>
++
++<template>
++    <div v-if="errorMessage">
++        <b-alert v-if="errorMessage" variant="danger" show>{{ errorMessage }}</b-alert>
++    </div>
++    <iframe v-else ref="iframeRef" title="visualization" class="visualization-wrapper"></iframe>
++</template>
++
++<style>
++.visualization-wrapper {
++    border: none;
++    width: 100%;
++}
++</style>
+diff --git a/config/plugins/visualizations/fits_graph_viewer/config/fits_graph_viewer.xml b/config/plugins/visualizations/fits_graph_viewer/config/fits_graph_viewer.xml
+index a8c455130dfe..66bf782ddee5 100644
+--- a/config/plugins/visualizations/fits_graph_viewer/config/fits_graph_viewer.xml
++++ b/config/plugins/visualizations/fits_graph_viewer/config/fits_graph_viewer.xml
+@@ -1,6 +1,6 @@
+ <?xml version="1.0" encoding="UTF-8"?>
+ <!DOCTYPE visualization SYSTEM "../../visualization.dtd">
+-<visualization name="FITS Graph viewer">
++<visualization name="FITS Graph viewer" embeddable="true">
+     <description>Basic plugin for fits file table visualization</description>
+     <data_sources>
+         <data_source>
+diff --git a/config/plugins/visualizations/fits_graph_viewer/src/index.js b/config/plugins/visualizations/fits_graph_viewer/src/index.js
+index 87bf33349263..0d74ab128b4e 100644
+--- a/config/plugins/visualizations/fits_graph_viewer/src/index.js
++++ b/config/plugins/visualizations/fits_graph_viewer/src/index.js
+@@ -1,13 +1,8 @@
+-import {init} from 'astrovisjs/dist/astrovis/astrovis';
++import { init } from "astrovisjs/dist/astrovis/astrovis";
+ 
+-document.addEventListener('DOMContentLoaded', () => {
++const incoming = document.getElementById("app").getAttribute("data-incoming") || "{}";
++const { root, visualization_config } = JSON.parse(incoming);
++const dataset_id = visualization_config.dataset_id;
++const file_url = root + "datasets/" + dataset_id + "/display"
+ 
+-    const {root, visualization_config} = JSON.parse(
+-        document.getElementById("app")
+-            .getAttribute("data-incoming") || "{}");
+-
+-    const dataset_id = visualization_config.dataset_id;
+-    const file_url = root + "datasets/" + dataset_id + "/display"
+-
+-    init('app', file_url);
+-});
+\ No newline at end of file
++init('app', file_url);
+diff --git a/config/plugins/visualizations/h5web/config/h5web.xml b/config/plugins/visualizations/h5web/config/h5web.xml
+index a06faaabe49c..92ff19ea0318 100644
+--- a/config/plugins/visualizations/h5web/config/h5web.xml
++++ b/config/plugins/visualizations/h5web/config/h5web.xml
+@@ -12,7 +12,7 @@
+         <param type="dataset" var_name_in_template="hda" required="true">dataset_id</param>
+     </params>
+     <requirements>
+-        <requirement type="npm" version="0.5.0" package="@galaxyproject/h5web"/>
++        <requirement type="npm" version="0.5.1" package="@galaxyproject/h5web"/>
+     </requirements>
+     <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+ </visualization>
+diff --git a/config/plugins/visualizations/heatmap/config/heatmap.xml b/config/plugins/visualizations/heatmap/config/heatmap.xml
+index c1a95a5c4781..4d602a50fe4f 100644
+--- a/config/plugins/visualizations/heatmap/config/heatmap.xml
++++ b/config/plugins/visualizations/heatmap/config/heatmap.xml
+@@ -3,7 +3,7 @@
+ <visualization name="Heatmap" embeddable="true">
+     <description>Renders a heatmap from matrix data provided in 3-column format (x, y, observation).</description>
+     <requirements>
+-        <requirement type="npm" version="0.0.13" package="@galaxyproject/heatmap"/>
++        <requirement type="npm" version="0.0.14" package="@galaxyproject/heatmap"/>
+     </requirements>
+     <data_sources>
+         <data_source>
+diff --git a/config/plugins/visualizations/tiffviewer/src/script.js b/config/plugins/visualizations/tiffviewer/src/script.js
+index f97bf19d255a..01dfd7ff4a10 100644
+--- a/config/plugins/visualizations/tiffviewer/src/script.js
++++ b/config/plugins/visualizations/tiffviewer/src/script.js
+@@ -12,7 +12,7 @@ const { root, visualization_config } = JSON.parse(document.getElementById("app")
+ 
+ const datasetId = visualization_config.dataset_id;
+ 
+-const url = window.location.origin + root + "api/datasets/" + datasetId + "/display";
++const url = root + "api/datasets/" + datasetId + "/display";
+ 
+ const rootElement = createRoot(document.getElementById("app"));
+ rootElement.render(
+diff --git a/config/plugins/visualizations/vitessce/config/vitessce.xml b/config/plugins/visualizations/vitessce/config/vitessce.xml
+index c0244bcd8d49..d184993b7cf3 100644
+--- a/config/plugins/visualizations/vitessce/config/vitessce.xml
++++ b/config/plugins/visualizations/vitessce/config/vitessce.xml
+@@ -13,7 +13,7 @@
+         <param type="dataset" var_name_in_template="hda" required="true">dataset_id</param>
+     </params>
+     <requirements>
+-        <requirement type="npm" version="0.0.0" package="@galaxyproject/vitessce"/>
++        <requirement type="npm" version="0.0.1" package="@galaxyproject/vitessce"/>
+     </requirements>
+     <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+ </visualization>
+diff --git a/config/plugins/visualizations/vizarr/config/vizarr.xml b/config/plugins/visualizations/vizarr/config/vizarr.xml
+index 5c4196460108..b213605eeaf8 100644
+--- a/config/plugins/visualizations/vizarr/config/vizarr.xml
++++ b/config/plugins/visualizations/vizarr/config/vizarr.xml
+@@ -3,7 +3,7 @@
+ <visualization name="Vizarr Viewer" embeddable="true">
+     <description>Basic visualization for Zarr-based images like OME-Zarr</description>
+     <requirements>
+-        <requirement type="npm" version="0.1.6" package="@galaxyproject/vizarr"/>
++        <requirement type="npm" version="0.1.7" package="@galaxyproject/vizarr"/>
+     </requirements>
+     <entry_point entry_point_type="script" src="dist/index.js" css="dist/index.css" />
+     <data_sources>
+diff --git a/lib/galaxy/managers/markdown_util.py b/lib/galaxy/managers/markdown_util.py
+index f24daa4c0d39..179deae8fec4 100644
+--- a/lib/galaxy/managers/markdown_util.py
++++ b/lib/galaxy/managers/markdown_util.py
+@@ -66,6 +66,7 @@
+ 
+ log = logging.getLogger(__name__)
+ 
++# Matches galaxy block attributes
+ ARG_VAL_CAPTURED_REGEX = r"""(?:([\w_\-\|]+)|\"([^\"]+)\"|\'([^\']+)\')"""
+ OUTPUT_LABEL_PATTERN = re.compile(rf"output=\s*{ARG_VAL_CAPTURED_REGEX}\s*")
+ INPUT_LABEL_PATTERN = re.compile(rf"input=\s*{ARG_VAL_CAPTURED_REGEX}\s*")
+@@ -73,13 +74,37 @@
+ STEP_LABEL_PATTERN = re.compile(rf"step=\s*{ARG_VAL_CAPTURED_REGEX}\s*")
+ PATH_LABEL_PATTERN = re.compile(rf"path=\s*{ARG_VAL_CAPTURED_REGEX}\s*")
+ 
++# Matches encoded and unencoded ids in galaxy blocks
+ UNENCODED_ID_PATTERN = re.compile(
+     r"(history_id|workflow_id|history_dataset_id|history_dataset_collection_id|job_id|implicit_collection_jobs_id|invocation_id)=([\d]+)"
+ )
+ ENCODED_ID_PATTERN = re.compile(
+     r"(history_id|workflow_id|history_dataset_id|history_dataset_collection_id|job_id|implicit_collection_jobs_id|invocation_id)=([a-z0-9]+)"
+ )
+-GALAXY_FENCED_BLOCK = re.compile(r"^```\s*galaxy\s*(.*?)^```", re.MULTILINE ^ re.DOTALL)
++
++# Matches blocks of various types
++GALAXY_FENCED_BLOCK = re.compile(r"^```\s*galaxy\s*(.*?)^```", re.MULTILINE | re.DOTALL)
++VISUALIZATION_FENCED_BLOCK = re.compile(r"^```\s*visualization+\n\s*(.*?)^```", re.MULTILINE | re.DOTALL)
++
++# Match invocation ids in json blocks
++INVOCATION_ID_JSON_PATTERN = re.compile(r'("invocation_id"\s*:\s*)"([^"]*)"')
++
++
++def process_invocation_ids(f, workflow_markdown: str) -> str:
++    """Finds all invocation ids in JSONs inside visualization blocks and applies f to them."""
++
++    def replace_invocation_id(match):
++        """Replaces only the invocation_id value while preserving the JSON structure."""
++        original_id = match.group(2)
++        new_id = f(original_id)
++        return f'{match.group(1)}"{new_id}"'
++
++    def process_block(block_match):
++        """Processes a matched block and replaces invocation_id inside it."""
++        block_content = block_match.group(0)
++        return re.sub(INVOCATION_ID_JSON_PATTERN, replace_invocation_id, block_content)
++
++    return re.sub(VISUALIZATION_FENCED_BLOCK, process_block, workflow_markdown)
+ 
+ 
+ def ready_galaxy_markdown_for_import(trans, external_galaxy_markdown):
+@@ -96,6 +121,7 @@ def _remap(container, line):
+         return (line, False)
+ 
+     internal_markdown = _remap_galaxy_markdown_calls(_remap, external_galaxy_markdown)
++    internal_markdown = process_invocation_ids(trans.security.decode_id, internal_markdown)
+     return internal_markdown
+ 
+ 
+@@ -534,10 +560,12 @@ def ready_galaxy_markdown_for_export(trans, internal_galaxy_markdown):
+         "generate_time": now().isoformat(),
+         "generate_version": trans.app.config.version_major,
+     }
++
+     # Walk Galaxy directives inside the Galaxy Markdown and collect dict-ified data
+     # needed to render this efficiently.
+     directive_handler = ReadyForExportMarkdownDirectiveHandler(trans, extra_rendering_data)
+     export_markdown = directive_handler.walk(trans, internal_galaxy_markdown)
++    export_markdown = process_invocation_ids(lambda value: trans.security.encode_id(int(value)), export_markdown)
+     return export_markdown, extra_rendering_data
+ 
+ 
+@@ -925,6 +953,7 @@ def _remap(container, line):
+         return (line, False)
+ 
+     galaxy_markdown = _remap_galaxy_markdown_calls(_remap, workflow_markdown)
++    galaxy_markdown = process_invocation_ids(lambda _: invocation.id, galaxy_markdown)
+     return galaxy_markdown
+ 
+ 
+diff --git a/test/unit/workflows/test_workflow_markdown.py b/test/unit/workflows/test_workflow_markdown.py
+index 108ee6435925..584955f33af7 100644
+--- a/test/unit/workflows/test_workflow_markdown.py
++++ b/test/unit/workflows/test_workflow_markdown.py
+@@ -101,6 +101,59 @@ def test_output_reference_mapping():
+     assert "```galaxy\nhistory_dataset_as_image(history_dataset_id=563)\n```" in galaxy_markdown
+ 
+ 
++def test_populating_invocation_json():
++    workflow_markdown_0 = """
++```visualization
++{
++    "invocation_id": "",
++    "other_key": "other_value"
++}
++```
++"""
++
++    workflow_markdown_1 = """
++```visualization
++{
++    "nested_structure": {
++        "invocation_id": ""
++    }
++}
++```
++"""
++
++    workflow_markdown_2 = """
++```visualization
++{
++    "nested_structure": {
++        "invocation_id": "REPLACE"
++    }
++}
++```
++"""
++
++    workflow_markdown_3 = """
++{
++    "invocation_id": ""
++}
++"""
++    galaxy_markdown = populate_markdown(workflow_markdown_0)
++    assert (
++        '\n```visualization\n{\n    "invocation_id": "44",\n    "other_key": "other_value"\n}\n```\n' in galaxy_markdown
++    )
++    galaxy_markdown = populate_markdown(workflow_markdown_1)
++    assert (
++        '\n```visualization\n{\n    "nested_structure": {\n        "invocation_id": "44"\n    }\n}\n```\n'
++        in galaxy_markdown
++    )
++    galaxy_markdown = populate_markdown(workflow_markdown_2)
++    assert (
++        '\n```visualization\n{\n    "nested_structure": {\n        "invocation_id": "44"\n    }\n}\n```\n'
++        in galaxy_markdown
++    )
++    galaxy_markdown = populate_markdown(workflow_markdown_3)
++    assert '\n{\n    "invocation_id": ""\n}\n' in galaxy_markdown
++
++
+ def populate_markdown(workflow_markdown):
+     # Add invocation ids to internal Galaxy markdown
+     trans = MockTrans()

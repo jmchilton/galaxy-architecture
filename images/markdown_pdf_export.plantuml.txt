@@ -1,0 +1,52 @@
+@startuml
+!include plantuml_options.txt
+
+title PDF Export Pipeline
+
+participant "Internal\nGalaxy Markdown" as input
+participant "ToBasicMarkdown\nHandler" as handler
+participant "markdown\nlibrary" as mdlib
+participant "sanitizer" as sanitize
+participant "WeasyPrint" as weasy
+participant "PDF" as output
+
+input -> handler : Galaxy markdown
+activate handler
+note right of handler
+  Fully expands directives:
+  - Tables from datasets
+  - Base64 images
+  - Formatted text
+end note
+handler --> mdlib : basic markdown
+deactivate handler
+
+activate mdlib
+note right of mdlib
+  Standard markdown
+  to HTML conversion
+end note
+mdlib --> sanitize : raw HTML
+deactivate mdlib
+
+activate sanitize
+note right of sanitize
+  Security layer:
+  - Remove scripts
+  - Whitelist tags
+  - Prevent XSS
+end note
+sanitize --> weasy : safe HTML
+deactivate sanitize
+
+activate weasy
+note right of weasy
+  HTML to PDF:
+  - Apply CSS
+  - Render layout
+  - Generate file
+end note
+weasy --> output : PDF bytes
+deactivate weasy
+
+@enduml

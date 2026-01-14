@@ -1,0 +1,32 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '14px' }}}%%
+flowchart TD
+    START([New Test?]) --> Q1{Needs running<br/>Galaxy server?}
+
+    Q1 -->|No| UNIT[Unit Test]
+    UNIT --> Q_LANG{Python or<br/>Client?}
+    Q_LANG -->|Python| PY_UNIT[["test/unit/<br/>(pytest)"]]
+    Q_LANG -->|Client/ES6| ES6_UNIT[["client/src/<br/>(Vitest)"]]
+
+    Q1 -->|Yes| FUNC[Functional Test]
+    FUNC --> Q2{Needs web<br/>browser?}
+
+    Q2 -->|No| Q3{Needs custom<br/>Galaxy config?}
+
+    Q3 -->|No| Q4{Tool or workflow<br/>only?}
+    Q4 -->|Tools| FRAMEWORK[["test/functional/tools/<br/>(Framework)"]]
+    Q4 -->|Workflows| WF_FRAMEWORK[["lib/galaxy_test/workflow/<br/>(Workflow Framework)"]]
+    Q4 -->|Neither| API[["lib/galaxy_test/api/<br/>(API Test)"]]
+
+    Q3 -->|Yes| INTEGRATION[["test/integration/<br/>(Integration)"]]
+
+    Q2 -->|Yes| Q5{Needs custom<br/>Galaxy config?}
+    Q5 -->|No| SELENIUM[["lib/galaxy_test/selenium/<br/>(Selenium/Playwright)"]]
+    Q5 -->|Yes| SELENIUM_INT[["test/integration_selenium/<br/>(Selenium Integration)"]]
+
+    classDef question fill:#e1f5fe,stroke:#01579b
+    classDef testtype fill:#c8e6c9,stroke:#2e7d32
+    classDef location fill:#fff9c4,stroke:#f57f17
+
+    class Q1,Q2,Q3,Q4,Q5,Q_LANG question
+    class UNIT,FUNC testtype
+    class PY_UNIT,ES6_UNIT,FRAMEWORK,WF_FRAMEWORK,API,INTEGRATION,SELENIUM,SELENIUM_INT location

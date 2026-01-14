@@ -1,0 +1,96 @@
+@startuml
+!include plantuml_options.txt
+
+start
+
+:User requests file source access;
+
+partition "Context Collection" {
+    :Extract FileSourcesUserContext;
+    note right
+      - email, username
+      - roles (set)
+      - groups (set)
+      - is_admin
+      - vault access
+    end note
+}
+
+partition "Plugin Filtering" {
+    if (requires_roles configured?) then (yes)
+        if (is_admin?) then (yes)
+            :Bypass;
+        else (no)
+            :Parse role expression;
+            note right
+              Boolean logic:
+              "admin" (single)
+              "not restricted" (negation)
+              "data_access AND verified"
+              "researcher OR collaborator"
+            end note
+
+            if (User has required roles?) then (yes)
+                :Role check passed;
+            else (no)
+                :Access denied (403);
+                stop
+            endif
+        endif
+    else (no)
+        :No role restriction;
+    endif
+
+    if (requires_groups configured?) then (yes)
+        if (is_admin?) then (yes)
+            :Bypass;
+        else (no)
+            :Parse group expression;
+
+            if (User in required groups?) then (yes)
+                :Group check passed;
+            else (no)
+                :Access denied (403);
+                stop
+            endif
+        endif
+    else (no)
+        :No group restriction;
+    endif
+}
+
+partition "Operation Authorization" {
+    :Plugin accessible to user;
+
+    if (Write operation requested?) then (yes)
+        if (writable: true?) then (yes)
+            :Write authorized;
+        else (no)
+            :Write denied (403);
+            stop
+        endif
+    else (no)
+        :Read operation;
+    endif
+}
+
+partition "Credential Resolution" {
+    :Resolve template variables;
+    note right
+      ${user.username}
+      ${user.email}
+      ${secrets.api_key}
+    end note
+
+    :Inject credentials from Vault;
+    note right
+      User vault (personal)
+      App vault (shared)
+    end note
+}
+
+:Access granted with resolved config;
+
+stop
+
+@enduml

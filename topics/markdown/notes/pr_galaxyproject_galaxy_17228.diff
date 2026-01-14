@@ -1,0 +1,528 @@
+diff --git a/client/src/components/Markdown/DirectiveHelp.vue b/client/src/components/Markdown/DirectiveHelp.vue
+new file mode 100644
+index 000000000000..7d988d66f5d2
+--- /dev/null
++++ b/client/src/components/Markdown/DirectiveHelp.vue
+@@ -0,0 +1,23 @@
++<script setup lang="ts">
++import { computed } from "vue";
++
++import { directiveEntry } from "./directives";
++
++interface DirectiveHelpProps {
++    directive: string;
++    mode: "page" | "report";
++}
++
++const props = defineProps<DirectiveHelpProps>();
++
++const entry = computed(() => directiveEntry(props.directive, props.mode));
++</script>
++
++<template>
++    <span>
++        <dt>
++            <tt>{{ directive }}</tt>
++        </dt>
++        <dd>{{ entry.help }}</dd>
++    </span>
++</template>
+diff --git a/client/src/components/Markdown/DirectiveHelpSection.vue b/client/src/components/Markdown/DirectiveHelpSection.vue
+new file mode 100644
+index 000000000000..e538cb6690e7
+--- /dev/null
++++ b/client/src/components/Markdown/DirectiveHelpSection.vue
+@@ -0,0 +1,17 @@
++<script setup lang="ts">
++import DirectiveHelp from "./DirectiveHelp.vue";
++
++interface DirectiveHelpSectionProps {
++    directives: string[];
++    mode: "page" | "report";
++}
++
++defineProps<DirectiveHelpSectionProps>();
++</script>
++
++<template>
++    <dl>
++        <DirectiveHelp v-for="directive in directives" :key="directive" :directive="directive" :mode="mode">
++        </DirectiveHelp>
++    </dl>
++</template>
+diff --git a/client/src/components/Markdown/MarkdownEditor.vue b/client/src/components/Markdown/MarkdownEditor.vue
+index c5ea6279e966..7ffa96365c61 100644
+--- a/client/src/components/Markdown/MarkdownEditor.vue
++++ b/client/src/components/Markdown/MarkdownEditor.vue
+@@ -33,7 +33,7 @@
+                 </div>
+             </div>
+         </div>
+-        <MarkdownHelp ref="help" />
++        <MarkdownHelpModal ref="help" :mode="mode" />
+     </div>
+ </template>
+ 
+@@ -46,7 +46,7 @@ import FlexPanel from "components/Panels/FlexPanel";
+ import _ from "underscore";
+ import Vue from "vue";
+ 
+-import MarkdownHelp from "./MarkdownHelp";
++import MarkdownHelpModal from "./MarkdownHelpModal";
+ import MarkdownToolBox from "./MarkdownToolBox";
+ 
+ Vue.use(BootstrapVue);
+@@ -60,7 +60,7 @@ export default {
+         MarkdownToolBox,
+         FlexPanel,
+         FontAwesomeIcon,
+-        MarkdownHelp,
++        MarkdownHelpModal,
+     },
+     props: {
+         markdownText: {
+@@ -79,6 +79,10 @@ export default {
+             type: String,
+             default: null,
+         },
++        mode: {
++            type: String,
++            default: "report",
++        },
+     },
+     data() {
+         return {
+diff --git a/client/src/components/Markdown/MarkdownHelp.vue b/client/src/components/Markdown/MarkdownHelp.vue
+index 04962fe28d21..a74edd971892 100644
+--- a/client/src/components/Markdown/MarkdownHelp.vue
++++ b/client/src/components/Markdown/MarkdownHelp.vue
+@@ -1,100 +1,151 @@
+-<script setup>
+-import { datasetCommandsHtml, markdownGeneralHelpHtml } from "components/Markdown/help";
+-import { ref } from "vue";
++<script setup lang="ts">
++import { computed } from "vue";
+ 
+-const modal = ref(null);
++import DirectiveHelpSection from "./DirectiveHelpSection.vue";
+ 
+-function showMarkdownHelp() {
+-    modal.value.show();
++interface MarkdownHelpProps {
++    mode: "report" | "page";
+ }
+ 
+-defineExpose({
+-    showMarkdownHelp,
+-});
++const props = defineProps<MarkdownHelpProps>();
++
++const page = computed(() => props.mode == "page");
+ </script>
+ 
+ <template>
+-    <b-modal ref="modal" hide-footer>
+-        <template v-slot:modal-title>
+-            <h2 class="mb-0">Markdown Help</h2>
+-        </template>
+-        <div>
+-            <h3>Overview</h3>
+-            <p>
+-                This Markdown document will be used to generate your Galaxy Page. This document should be Markdown with
+-                embedded commands for extracting and displaying Galaxy objects and their metadata.
+-            </p>
+-
+-            <p v-html="markdownGeneralHelpHtml"></p>
+-
+-            <h3>History Contents Commands</h3>
+-
+-            <p>
+-                These commands reference a dataset. For instance, the following examples would display the dataset
+-                collection corresponding to a Galaxy dataset collection ID and display a single dataset as an image
+-                corresponding to a Galaxy dataset ID.
+-            </p>
+-
+-            <pre>
++    <div>
++        <h3>Overview</h3>
++        <p>
++            <span v-if="page"> This Markdown document will be used to generate your Galaxy Page. </span>
++            <span v-else> This Markdown document will be used to generate your workflow invocation report. </span>
++            This document should be Markdown with embedded commands for extracting and displaying Galaxy objects and/or
++            their metadata.
++        </p>
++
++        <p>
++            For an overview of standard Markdown visit the
++            <a href="https://commonmark.org/help/tutorial/">commonmark.org tutorial</a>.
++        </p>
++
++        <p>
++            The Galaxy extensions to Markdown are represented as code blocks, these blocks start with the line
++            <tt>```galaxy</tt> and end with the line <tt>```</tt> and have a command with arguments between these lines.
++            <span v-if="page">
++                These arguments reference your Galaxy objects such as datasets, jobs, and workflows.
++            </span>
++            <span v-else>
++                These arguments reference parts of your workflow such as steps, inputs, and outputs by label in the
++                middle.
++            </span>
++        </p>
++
++        <h3>History Contents Commands</h3>
++
++        <p>
++            These commands reference a dataset or dataset collection. For instance, the following examples would display
++            the dataset collection metadata and would embed a dataset into the document as an image.
++
++            <span v-if="page">
++                These elements are referenced by object IDs used by the Galaxy API. The Markdown editor will let you
++                pick objects graphically but they will be embedded into the Markdown with these IDs.
++            </span>
++
++            <span v-else>
++                These elements are referenced by input or output labels for the workflow. If a dataset or collection
++                you'd like to reference is not available for selection in the Markdown editor, be sure to assign a label
++                to the object in the workflow editor first.
++            </span>
++        </p>
++
++        <pre v-if="page">
+ ```galaxy
+ history_dataset_collection_display(history_dataset_collection_id=33b43b4e7093c91f)
+ ```
+ </pre
+-            >
++        >
++        <pre v-else>
++```galaxy
++history_dataset_collection_display(output=mapped_bams)
++```
++</pre
++        >
+ 
+-            <pre>
++        <pre v-if="page">
+ ```galaxy
+ history_dataset_as_image(history_dataset_id=33b43b4e7093c91f)
+ ```
+ </pre
+-            >
+-
+-            <p v-html="datasetCommandsHtml"></p>
+-
+-            <h3>Workflow Commands</h3>
+-
+-            <p>
+-                These commands reference a workflow (currently only one). The following example would display a
+-                representation of the workflow in the resulting Galaxy Page:
+-            </p>
+-
+-            <pre>
++        >
++        <pre v-else>
++```galaxy
++history_dataset_as_image(output=normalized_result_plot)
++```
++</pre
++        >
++
++        <DirectiveHelpSection
++            :mode="mode"
++            :directives="[
++                'history_dataset_display',
++                'history_dataset_collection_display',
++                'history_dataset_as_image',
++                'history_dataset_as_table',
++                'history_dataset_peek',
++                'history_dataset_info',
++            ]" />
++
++        <h3>Workflow Commands</h3>
++
++        <p v-if="page">
++            These commands reference a workflow by an object ID. The following example would display a representation of
++            the workflow in the resulting Galaxy Page:
++        </p>
++        <p v-else>These commands reference the current workflow and do not require an input for the most part.</p>
++
++        <pre v-if="page">
+ ```galaxy
+ workflow_display(workflow_id=33b43b4e7093c91f>)
+ ```
+ </pre
+-            >
+-
+-            <dl>
+-                <dt><tt>workflow_display</tt></dt>
+-                <dd>Embed a description of the workflow itself in the resulting document.</dd>
+-            </dl>
+-
+-            <h3>Job Commands</h3>
+-
+-            <p>
+-                These commands reference a Galaxy job.For instance, the following example would show the job parameters
+-                the job ID 33b43b4e7093c91f:
+-            </p>
+-
+-            <pre>
++        >
++        <pre v-else>
++```galaxy
++workflow_display()
++```
++            </pre
++        >
++
++        <DirectiveHelpSection
++            :mode="mode"
++            :directives="['workflow_license', 'workflow_display', 'workflow_image', 'invocation_time']" />
++
++        <h3>Job Commands</h3>
++
++        <p v-if="page">
++            These commands reference a Galaxy job. For instance, the following example would show the job parameters the
++            job ID <tt>33b43b4e7093c91f</tt>.
++        </p>
++        <p v-else>
++            These commands reference a Galaxy job or collection of jobs associated with a labeled step in the workflow.
++            For instance, the following example would show the job parameters for the step with the label
++            <tt>mapping</tt>.
++        </p>
++
++        <pre v-if="page">
+ ```galaxy
+ job_parameters(job_id=33b43b4e7093c91f)
+ ```
+ </pre
+-            >
+-
+-            <dt><tt>tool_stderr</tt></dt>
+-            <dd>Embed the tool standard error stream for this job in the resulting document.</dd>
+-            <dt><tt>tool_stdout</tt></dt>
+-            <dd>Embed the tool standard output stream for this job in the resulting document.</dd>
+-            <dt><tt>job_metrics</tt></dt>
+-            <dd>
+-                Embed the job metrics for this job in the resulting document (if Galaxy is configured and you have
+-                permission).
+-            </dd>
+-            <dt><tt>job_parameters</tt></dt>
+-            <dd>Embed the tool parameters for this job in the resulting document.</dd>
+-        </div>
+-    </b-modal>
++        >
++        <pre v-else>
++```galaxy
++job_parameters(step=mapping)
++```
++            </pre
++        >
++
++        <DirectiveHelpSection
++            :mode="mode"
++            :directives="['tool_stderr', 'tool_stdout', 'job_metrics', 'job_parameters']" />
++    </div>
+ </template>
+diff --git a/client/src/components/Markdown/MarkdownHelpModal.vue b/client/src/components/Markdown/MarkdownHelpModal.vue
+new file mode 100644
+index 000000000000..b4e605262c2a
+--- /dev/null
++++ b/client/src/components/Markdown/MarkdownHelpModal.vue
+@@ -0,0 +1,37 @@
++<script setup lang="ts">
++import { computed, ref } from "vue";
++
++import MarkdownHelp from "./MarkdownHelp.vue";
++
++interface MarkdownHelpModalProps {
++    mode: "report" | "page";
++}
++
++const props = defineProps<MarkdownHelpModalProps>();
++
++const show = ref(false);
++const title = computed(() => {
++    if (props.mode == "page") {
++        return "Markdown Help for Pages";
++    } else {
++        return "Markdown Help for Invocation Reports";
++    }
++});
++
++function showMarkdownHelp() {
++    show.value = true;
++}
++
++defineExpose({
++    showMarkdownHelp,
++});
++</script>
++
++<template>
++    <b-modal v-model="show" hide-footer>
++        <template v-slot:modal-title>
++            <h2 class="mb-0">{{ title }}</h2>
++        </template>
++        <MarkdownHelp :mode="mode" />
++    </b-modal>
++</template>
+diff --git a/client/src/components/Markdown/directives.yml b/client/src/components/Markdown/directives.yml
+index 51ae5ebeed0c..480942adca64 100644
+--- a/client/src/components/Markdown/directives.yml
++++ b/client/src/components/Markdown/directives.yml
+@@ -29,6 +29,10 @@ history_dataset_embedded:
+   side_panel_name: Embedded Dataset
+ history_dataset_as_table:
+   side_panel_name: Embedded Dataset as table
++  help: |
++    Embed a dataset in the resulting document as a table. This only works for datasets with tabular
++    datatypes. This command works a lot like "history_dataset_embedded" but provides specialized options
++    for controlling the way tabular data is displayed in the resulting document.
+ history_dataset_type:
+   side_panel_name: Dataset Type
+ history_dataset_link:
+@@ -37,8 +41,16 @@ history_dataset_name:
+   side_panel_name: Name of Dataset
+ history_dataset_peek:
+   side_panel_name: Peek into Dataset
++  help: |
++    Display a dataset metadata's "peek" field in the resulting document - this is datatype dependent
++    metadata but usually this is a few lines from the start of a file.
++
+ history_dataset_info:
+   side_panel_name: Dataset Details
++  help: |
++    Display a dataset metadata's "info" field in the resulting document. This info field is
++    usually based on the output of the tool run and sometimes contains useful metadata about a
++    dataset.
+ 
+ history_link:
+   side_panel_name: Link to Import
+@@ -54,6 +66,11 @@ invocation_time:
+     page: Time a Workflow
+ 
+   side_panel_description: was invoked
++  help:
++    report: |
++      Display this workflow run's invocation time in the resulting document.
++    page: |
++      Display a workflow run's invocation time in the resulting document.
+ 
+ invocation_inputs:
+   side_panel_name: Invocation Inputs
+@@ -63,15 +80,30 @@ invocation_outputs:
+ 
+ workflow_license:
+   side_panel_name: Workflow License
++  help:
++    report: |
++      Display this workflow's license in the resulting document.
++    page: |
++      Display a workflow's license in the resulting document.
+ 
+ workflow_image:
+   side_panel_name: Workflow (as image)
++  help:
++    report: |
++      Embed a rough image this workflow in the resulting document.
++    page: |
++      Embed a rough image a workflow in the resulting document.
+ 
+ workflow_display:
+   side_panel_name:
+     report: Current Workflow
+     page: Display a Workflow
+   side_panel_description: containing all steps
++  help:
++    report: |
++      Embed a text description of this workflow's steps in the resulting document.
++    page: |
++      Embed a text description of a workflow's steps in the resulting document.
+ 
+ generate_galaxy_version:
+   side_panel_name: Galaxy Version
+@@ -97,15 +129,24 @@ generate_time:
+ job_metrics:
+   side_panel_name: Job Metrics
+   side_panel_description: as table
++  help: |
++    Embed the job metrics for this job in the resulting document (if Galaxy is configured and you have
++    permission).
+ 
+ job_parameters:
+   side_panel_name: Job Parameters
+   side_panel_description: as table
++  help: |
++    Embed the tool parameters for a job in the resulting document.
+ 
+ tool_stdout:
+   side_panel_name: Tool Output
+   side_panel_description: of job run
++  help: |
++    Embed the tool standard output stream for a job in the resulting document.
+ 
+ tool_stderr:
+   side_panel_name: Tool Error
+   side_panel_description: of job run
++  help: |
++    Embed the tool standard error stream for a job in the resulting document.
+diff --git a/client/src/components/Markdown/help.js b/client/src/components/Markdown/help.js
+deleted file mode 100644
+index a3172c133a86..000000000000
+--- a/client/src/components/Markdown/help.js
++++ /dev/null
+@@ -1,26 +0,0 @@
+-export const markdownGeneralHelpHtml = `
+-<p>
+-    For an overview of standard Markdown visit the
+-    <a href="https://commonmark.org/help/tutorial/">commonmark.org tutorial</a>.
+-</p>
+-
+-<p>
+-    The Galaxy extensions to Markdown are represented as code blocks, these blocks start
+-    with the line <tt>\`\`\`galaxy</tt> and end with the line <tt>\`\`\`</tt> and have a
+-    command with arguments that reference parts of the workflow in the middle.
+-</p>`;
+-
+-export const datasetCommandsHtml = `
+-<dt><tt>history_dataset_display</tt></dt>
+-<dd>Embed a dataset description in the resulting document.</dd>
+-<dt><tt>history_dataset_collection_display</tt></dt>
+-<dd>Embed a dataset collection description in the resulting document.</dd>
+-<dt><tt>history_dataset_as_image</tt></dt>
+-<dd>Embed a dataset as an image in the resulting document - the dataset should be an image datatype.</dd>
+-<dt><tt>history_dataset_peek</tt></dt>
+-<dd>Embed Galaxy's metadata attribute 'peek' into the resulting document - this is datatype dependent metadata but usually this is a few lines from the start of a file.</dd>
+-<dt><tt>history_dataset_info</tt></dt>
+-<dd>Embed Galaxy's metadata attribute 'info' into the resulting document - this is datatype dependent metadata but usually this is the program output that generated the dataset.</dd>
+-</dl>
+-</div>
+-`;
+diff --git a/client/src/components/PageEditor/PageEditorMarkdown.vue b/client/src/components/PageEditor/PageEditorMarkdown.vue
+index 7ef80fe89225..84c061f2cd20 100644
+--- a/client/src/components/PageEditor/PageEditorMarkdown.vue
++++ b/client/src/components/PageEditor/PageEditorMarkdown.vue
+@@ -1,5 +1,10 @@
+ <template>
+-    <MarkdownEditor :title="title" :markdown-text="markdownText" :markdown-config="contentData" @onUpdate="onUpdate">
++    <MarkdownEditor
++        :title="title"
++        :markdown-text="markdownText"
++        :markdown-config="contentData"
++        mode="page"
++        @onUpdate="onUpdate">
+         <template v-slot:buttons>
+             <b-button
+                 id="save-button"
+diff --git a/client/src/components/Workflow/Editor/Index.vue b/client/src/components/Workflow/Editor/Index.vue
+index 4347dd48b733..d568bafdfd95 100644
+--- a/client/src/components/Workflow/Editor/Index.vue
++++ b/client/src/components/Workflow/Editor/Index.vue
+@@ -146,6 +146,7 @@
+         v-else
+         :markdown-text="markdownText"
+         :markdown-config="markdownConfig"
++        mode="report"
+         :title="'Workflow Report: ' + name"
+         :steps="steps"
+         @onUpdate="onReportUpdate">

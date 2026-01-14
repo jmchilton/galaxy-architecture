@@ -1,0 +1,1870 @@
+diff --git a/client/galaxy/scripts/components/Markdown/Markdown.vue b/client/galaxy/scripts/components/Markdown/Markdown.vue
+index 4f05319126f3..4e620ccc0613 100644
+--- a/client/galaxy/scripts/components/Markdown/Markdown.vue
++++ b/client/galaxy/scripts/components/Markdown/Markdown.vue
+@@ -1,6 +1,9 @@
+ <template>
+     <div class="markdown-wrapper">
+         <div v-html="markdownRendered"></div>
++        <a :href="exportLink" class="markdown-export" v-if="effectiveExportLink">
++            <i class="fa fa-4x fa-download"></i>
++        </a>
+     </div>
+ </template>
+ 
+@@ -27,7 +30,7 @@ const default_fence = md.renderer.rules.fence;
+ const RENDER_FUNCTIONS = {
+     history_dataset_display: (action, args, content) => {
+         const history_dataset_id = args.history_dataset_id;
+-        return `<div class='embedded-item display dataset'>
++        return `<div class='embedded-item display dataset' data-item-url="${getAppRoot()}dataset/get_item_content_async?id=${history_dataset_id}">
+             <div class='title'>
+                 <div style="float: left">
+                 <a class="display_in_embed icon-button toggle-expand" title="Show Dataset content"></a>
+@@ -38,7 +41,6 @@ const RENDER_FUNCTIONS = {
+                 <a href="${getAppRoot()}dataset/imp?dataset_id=${history_dataset_id}" class="icon-button import" title="Import dataset"></a>
+                 </div>
+                 <a class="toggle-embed"><h4>Galaxy Dataset | <span class="render-name" history_dataset_id="${history_dataset_id}"></span</h4></a>
+-                <input type="hidden" name="ajax-item-content-url" value="${getAppRoot()}dataset/get_item_content_async?id=${history_dataset_id}">
+             </div>
+             <div class='summary-content'>
+             </div>
+@@ -48,6 +50,15 @@ const RENDER_FUNCTIONS = {
+             </div>
+         </div>`;
+     },
++    history_dataset_embedded: (action, args, content) => {
++        const history_dataset_id = args.history_dataset_id;
++        return `<div class='embedded-item display expanded' data-item-url="${getAppRoot()}dataset/get_item_content_async?id=${history_dataset_id}">
++            <div class='expanded-content'>
++                <div class='item-content'>
++                </div>
++            </div>
++        </div>`;
++    },
+     history_dataset_collection_display: (action, args, content) => {
+         const history_dataset_collection_id = args.history_dataset_collection_id;
+         return `<div class='dataset-collection' history_dataset_collection_id="${history_dataset_collection_id}"></div>`;
+@@ -145,6 +156,10 @@ export default {
+         readOnly: {
+             type: Boolean,
+             default: true
++        },
++        exportLink: {
++            type: String,
++            required: false
+         }
+     },
+     data() {
+@@ -156,6 +171,12 @@ export default {
+             jobs: {}
+         };
+     },
++    computed: {
++        effectiveExportLink() {
++            const Galaxy = getGalaxyInstance();
++            return Galaxy.config.enable_beta_markdown_export ? this.exportLink : null;
++        }
++    },
+     watch: {
+         markdownConfig: function(mConfig, oldVal) {
+             const markdown = mConfig.markdown;
+@@ -216,4 +237,14 @@ export default {
+ .toggle {
+     display: none;
+ }
++
++.markdown-export {
++    position: absolute;
++    bottom: 0;
++    right: 0;
++    z-index: 2000;
++    padding: 1rem;
++    color: gray;
++    opacity: 0.5;
++}
+ </style>
+diff --git a/client/galaxy/scripts/components/PageDisplay/PageDisplay.vue b/client/galaxy/scripts/components/PageDisplay/PageDisplay.vue
+index 8fdef2f9d9c1..f0772ffd1ab4 100644
+--- a/client/galaxy/scripts/components/PageDisplay/PageDisplay.vue
++++ b/client/galaxy/scripts/components/PageDisplay/PageDisplay.vue
+@@ -1,5 +1,5 @@
+ <template>
+-    <markdown :markdown-config="markdownConfig"> </markdown>
++    <markdown :markdown-config="markdownConfig" :exportLink="exportUrl"> </markdown>
+ </template>
+ 
+ <script>
+@@ -17,20 +17,26 @@ export default {
+             required: true
+         }
+     },
++    computed: {
++        dataUrl: function() {
++            return getAppRoot() + `api/pages/${this.pageId}`;
++        },
++        exportUrl: function() {
++            return this.dataUrl + ".pdf";
++        }
++    },
+     data() {
+         return {
+             markdownConfig: {}
+         };
+     },
+     created: function() {
+-        const pageId = this.pageId;
+-        const url = getAppRoot() + `api/pages/${pageId}`;
+-        this.ajaxCall(url);
++        this.ajaxCall();
+     },
+     methods: {
+-        ajaxCall: function(url) {
++        ajaxCall: function() {
+             axios
+-                .get(url)
++                .get(this.dataUrl)
+                 .then(response => {
+                     this.markdownConfig = { ...response.data, markdown: response.data.content };
+                 })
+diff --git a/client/galaxy/scripts/components/WorkflowInvocationState/WorkflowInvocationState.vue b/client/galaxy/scripts/components/WorkflowInvocationState/WorkflowInvocationState.vue
+index eee113fb63c9..59518229a3de 100644
+--- a/client/galaxy/scripts/components/WorkflowInvocationState/WorkflowInvocationState.vue
++++ b/client/galaxy/scripts/components/WorkflowInvocationState/WorkflowInvocationState.vue
+@@ -57,6 +57,7 @@
+             </div>
+             <span v-if="invocationSchedulingTerminal && jobStatesTerminal">
+                 <a v-bind:href="invocationLink">View Invocation Report</a>
++                <a class="fa fa-print" v-bind:href="invocationPdfLink"></a>
+             </span>
+         </div>
+     </div>
+@@ -140,6 +141,9 @@ export default {
+         invocationLink: function() {
+             return getUrl(`workflows/invocations/report?id=${this.invocationId}`);
+         },
++        invocationPdfLink: function() {
++            return getUrl(`api/invocations/${this.invocationId}/report.pdf`);
++        },
+         invocationSchedulingTerminal: function() {
+             return (
+                 this.invocationState == "scheduled" ||
+diff --git a/client/galaxy/scripts/mvc/embedded-objects.js b/client/galaxy/scripts/mvc/embedded-objects.js
+index e89bbeb3e5fd..18455634ef35 100644
+--- a/client/galaxy/scripts/mvc/embedded-objects.js
++++ b/client/galaxy/scripts/mvc/embedded-objects.js
+@@ -15,7 +15,9 @@ export function render_embedded_items() {
+         // Show embedded item.
+         var show_embedded_item = function() {
+             var ajax_url = container.find("input[type=hidden]").val();
+-
++            if (!ajax_url) {
++                ajax_url = container.data("item-url");
++            }
+             // Only get item content if it's not already there.
+             var item_content = $.trim(container.find(".item-content").text());
+             if (!item_content) {
+@@ -57,7 +59,6 @@ export function render_embedded_items() {
+             show_embedded_item();
+             return false;
+         });
+-
+         // Setup toggle contract.
+         var toggle_contract = $(this).find(".toggle");
+         toggle_contract.click(function() {
+@@ -75,5 +76,8 @@ export function render_embedded_items() {
+             }
+             return false;
+         });
++        if ($(this).hasClass("expanded")) {
++            show_embedded_item();
++        }
+     });
+ }
+diff --git a/lib/galaxy/app.py b/lib/galaxy/app.py
+index 81f9f43ace65..ef0bc7ec2d35 100644
+--- a/lib/galaxy/app.py
++++ b/lib/galaxy/app.py
+@@ -15,10 +15,12 @@
+ from galaxy.containers import build_container_interfaces
+ from galaxy.managers.collections import DatasetCollectionManager
+ from galaxy.managers.folders import FolderManager
++from galaxy.managers.hdas import HDAManager
+ from galaxy.managers.histories import HistoryManager
+ from galaxy.managers.interactivetool import InteractiveToolManager
+ from galaxy.managers.libraries import LibraryManager
+ from galaxy.managers.tools import DynamicToolManager
++from galaxy.managers.workflows import WorkflowsManager
+ from galaxy.model.database_heartbeat import DatabaseHeartbeat
+ from galaxy.model.tags import GalaxyTagHandler
+ from galaxy.queue_worker import GalaxyQueueWorker
+@@ -100,6 +102,8 @@ def __init__(self, **kwargs):
+         self.tag_handler = GalaxyTagHandler(self.model.context)
+         self.dataset_collections_service = DatasetCollectionManager(self)
+         self.history_manager = HistoryManager(self)
++        self.hda_manager = HDAManager(self)
++        self.workflow_manager = WorkflowsManager(self)
+         self.dependency_resolvers_view = DependencyResolversView(self)
+         self.test_data_resolver = test_data.TestDataResolver(file_dirs=self.config.tool_test_data_directories)
+         self.library_folder_manager = FolderManager()
+diff --git a/lib/galaxy/config/__init__.py b/lib/galaxy/config/__init__.py
+index d731a7981e66..f621a96011f9 100644
+--- a/lib/galaxy/config/__init__.py
++++ b/lib/galaxy/config/__init__.py
+@@ -757,6 +757,9 @@ def parse_config_file_options(self, kwargs):
+             user_preferences_extra_conf_path=[self._in_config_dir('user_preferences_extra_conf.yml')],
+             workflow_resource_params_file=[self._in_config_dir('workflow_resource_params_conf.xml')],
+             workflow_schedulers_config_file=[self._in_config_dir('workflow_schedulers_conf.xml')],
++            markdown_export_css=[self._in_config_dir('markdown_export.css')],
++            markdown_export_css_pages=[self._in_config_dir('markdown_export_pages.css')],
++            markdown_export_css_invocation_reports=[self._in_config_dir('markdown_export_invocation_reports.css')],
+         )
+         listify_defaults = {
+             'tool_data_table_config_path': [
+diff --git a/lib/galaxy/datatypes/data.py b/lib/galaxy/datatypes/data.py
+index 5427d3871605..b2aa9c594411 100644
+--- a/lib/galaxy/datatypes/data.py
++++ b/lib/galaxy/datatypes/data.py
+@@ -46,6 +46,7 @@
+ 
+ DOWNLOAD_FILENAME_PATTERN_DATASET = "Galaxy${hid}-[${name}].${ext}"
+ DOWNLOAD_FILENAME_PATTERN_COLLECTION_ELEMENT = "Galaxy${hdca_hid}-[${hdca_name}__${element_identifier}].${ext}"
++DEFAULT_MAX_PEEK_SIZE = 1000000  # 1 MB
+ 
+ 
+ class DatatypeValidation(object):
+@@ -453,7 +454,7 @@ def display_data(self, trans, data, preview=False, filename=None, to_ext=None, *
+                 return open(data.file_name, 'rb')
+         if not os.path.exists(data.file_name):
+             raise webob.exc.HTTPNotFound("File Not Found (%s)." % data.file_name)
+-        max_peek_size = 1000000  # 1 MB
++        max_peek_size = DEFAULT_MAX_PEEK_SIZE  # 1 MB
+         if isinstance(data.datatype, datatypes.text.Html):
+             max_peek_size = 10000000  # 10 MB for html
+         preview = util.string_as_bool(preview)
+@@ -465,6 +466,31 @@ def display_data(self, trans, data, preview=False, filename=None, to_ext=None, *
+                                               truncated_data=open(data.file_name, 'rb').read(max_peek_size),
+                                               data=data)
+ 
++    def display_as_markdown(self, dataset_instance, markdown_format_helpers):
++        """Prepare for embedding dataset into a basic Markdown document.
++
++        This is a somewhat experimental interface and should not be implemented
++        on datatypes not tightly tied to a Galaxy version (e.g. datatypes in the
++        Tool Shed).
++
++        Speaking very losely - the datatype should should load a bounded amount
++        of data from the supplied dataset instance and prepare for embedding it
++        into Markdown. This should be relatively vanilla Markdown - the result of
++        this is bleached and it should not contain nested Galaxy Markdown
++        directives.
++
++        If the data cannot reasonably be displayed, just indicate this and do
++        not throw an exception.
++        """
++        if self.is_binary:
++            result = "*cannot display binary content*\n"
++        else:
++            contents = open(dataset_instance.file_name, "r").read(DEFAULT_MAX_PEEK_SIZE)
++            result = markdown_format_helpers.literal_via_fence(contents)
++            if len(contents) == DEFAULT_MAX_PEEK_SIZE:
++                result += markdown_format_helpers.indicate_data_truncated()
++        return result
++
+     def _yield_user_file_content(self, trans, from_dataset, filename):
+         """This method is responsible for sanitizing the HTML if needed."""
+         if trans.app.config.sanitize_all_html and trans.response.get_content_type() == "text/html":
+diff --git a/lib/galaxy/datatypes/tabular.py b/lib/galaxy/datatypes/tabular.py
+index 90c04a9713dc..f469a15c516c 100644
+--- a/lib/galaxy/datatypes/tabular.py
++++ b/lib/galaxy/datatypes/tabular.py
+@@ -121,6 +121,13 @@ def display_data(self, trans, dataset, preview=False, filename=None, to_ext=None
+                                        column_names=column_names,
+                                        column_types=column_types)
+ 
++    def display_as_markdown(self, dataset_instance, markdown_format_helpers):
++        contents = open(dataset_instance.file_name, "r").read(data.DEFAULT_MAX_PEEK_SIZE)
++        markdown = self.make_html_table(dataset_instance, peek=contents)
++        if len(contents) == data.DEFAULT_MAX_PEEK_SIZE:
++            markdown += markdown_format_helpers.indicate_data_truncated()
++        return markdown_format_helpers.pre_formatted_contents(markdown)
++
+     def make_html_table(self, dataset, **kwargs):
+         """Create HTML table, used for displaying peek"""
+         out = ['<table cellspacing="0" cellpadding="3">']
+@@ -184,12 +191,15 @@ def make_html_peek_rows(self, dataset, skipchars=None, **kwargs):
+             skipchars = []
+         out = []
+         try:
+-            if not dataset.peek:
+-                dataset.set_peek()
++            peek = kwargs.get("peek")
++            if peek is None:
++                if not dataset.peek:
++                    dataset.set_peek()
++                peek = dataset.peek
+             columns = dataset.metadata.columns
+             if columns is None:
+                 columns = dataset.metadata.spec.columns.no_value
+-            for line in dataset.peek.splitlines():
++            for line in peek.splitlines():
+                 if line.startswith(tuple(skipchars)):
+                     out.append('<tr><td colspan="100%%">%s</td></tr>' % escape(line))
+                 elif line:
+@@ -815,7 +825,7 @@ def __init__(self, **kwd):
+                              'PART_CONTIG', 'PART_OFFSET', 'PART_STRAND', 'FILT'
+                              ]
+ 
+-    def make_html_table(self, dataset, skipchars=None):
++    def make_html_table(self, dataset, skipchars=None, peek=None):
+         """Create HTML table, used for displaying peek"""
+         if skipchars is None:
+             skipchars = []
+@@ -830,7 +840,7 @@ def make_html_table(self, dataset, skipchars=None):
+                 for i in range(len(self.column_names), dataset.metadata.columns):
+                     out.append('<th>%s</th>' % str(i + 1))
+                 out.append('</tr>')
+-            out.append(self.make_html_peek_rows(dataset, skipchars=skipchars))
++            out.append(self.make_html_peek_rows(dataset, skipchars=skipchars, peek=peek))
+             out.append('</table>')
+             out = "".join(out)
+         except Exception as exc:
+diff --git a/lib/galaxy/dependencies/pipfiles/default/Pipfile b/lib/galaxy/dependencies/pipfiles/default/Pipfile
+index 3404330a6130..cd609e4b0f81 100644
+--- a/lib/galaxy/dependencies/pipfiles/default/Pipfile
++++ b/lib/galaxy/dependencies/pipfiles/default/Pipfile
+@@ -32,6 +32,9 @@ watchdog = "*"
+ numpy = "*"
+ bx-python = "*"
+ MarkupSafe = "*"
++Markdown = "*"
++# Optional requirement for markdown export.
++# Weasyprint = "==0.42"
+ PyYAML = "*"
+ SQLAlchemy = "*"
+ SQLAlchemy-Utils = "*"
+diff --git a/lib/galaxy/managers/configuration.py b/lib/galaxy/managers/configuration.py
+index 7c160a8cf8ca..b5ddd1e1ec19 100644
+--- a/lib/galaxy/managers/configuration.py
++++ b/lib/galaxy/managers/configuration.py
+@@ -73,6 +73,7 @@ def _required_attribute(item, key, **context):
+             'allow_user_dataset_purge'          : _defaults_to(False),  # schema default is True
+             'ga_code'                           : _required_attribute,
+             'enable_unique_workflow_defaults'   : _required_attribute,
++            'enable_beta_markdown_export'       : _required_attribute,
+             'has_user_tool_filters'             : _defaults_to(False),
+             # TODO: is there no 'correct' way to get an api url? controller='api', action='tools' is a hack
+             # at any rate: the following works with path_prefix but is still brittle
+diff --git a/lib/galaxy/managers/jobs.py b/lib/galaxy/managers/jobs.py
+index 152ad89ea1de..58b00721a33c 100644
+--- a/lib/galaxy/managers/jobs.py
++++ b/lib/galaxy/managers/jobs.py
+@@ -19,7 +19,8 @@
+ from galaxy.managers.lddas import LDDAManager
+ from galaxy.util import (
+     defaultdict,
+-    ExecutionTimer
++    ExecutionTimer,
++    listify,
+ )
+ 
+ log = logging.getLogger(__name__)
+@@ -460,3 +461,119 @@ def summarize_jobs_to_dict(sa_session, jobs_source):
+                 states[row[0]] = row[1]
+             rval["states"] = states
+     return rval
++
++
++def summarize_job_metrics(trans, job):
++    """Produce a dict-ified version of job metrics ready for tabular rendering.
++
++    Precondition: the caller has verified the job is accessible to the user
++    represented by the trans parameter.
++    """
++    if not trans.user_is_admin and not trans.app.config.expose_potentially_sensitive_job_metrics:
++        return []
++
++    def metric_to_dict(metric):
++        metric_name = metric.metric_name
++        metric_value = metric.metric_value
++        metric_plugin = metric.plugin
++        title, value = trans.app.job_metrics.format(metric_plugin, metric_name, metric_value)
++        return dict(
++            title=title,
++            value=value,
++            plugin=metric_plugin,
++            name=metric_name,
++            raw_value=str(metric_value),
++        )
++
++    metrics = [m for m in job.metrics if m.plugin != 'env' or trans.user_is_admin]
++    return list(map(metric_to_dict, metrics))
++
++
++def summarize_job_parameters(trans, job):
++    """Produce a dict-ified version of job parameters ready for tabular rendering.
++
++    Precondition: the caller has verified the job is accessible to the user
++    represented by the trans parameter.
++    """
++    def inputs_recursive(input_params, param_values, depth=1, upgrade_messages=None):
++        if upgrade_messages is None:
++            upgrade_messages = {}
++
++        rval = []
++
++        for input_index, input in enumerate(input_params.values()):
++            if input.name in param_values:
++                if input.type == "repeat":
++                    for i in range(len(param_values[input.name])):
++                        rval.extend(inputs_recursive(input.inputs, param_values[input.name][i], depth=depth + 1))
++                elif input.type == "section":
++                    # Get the value of the current Section parameter
++                    rval.append(dict(text=input.name, depth=depth))
++                    rval.extend(inputs_recursive(input.inputs, param_values[input.name], depth=depth + 1, upgrade_messages=upgrade_messages.get(input.name)))
++                elif input.type == "conditional":
++                    try:
++                        current_case = param_values[input.name]['__current_case__']
++                        is_valid = True
++                    except Exception:
++                        current_case = None
++                        is_valid = False
++                    if is_valid:
++                        rval.append(dict(text=input.test_param.label, depth=depth, value=input.cases[current_case].value))
++                        rval.extend(inputs_recursive(input.cases[current_case].inputs, param_values[input.name], depth=depth + 1, upgrade_messages=upgrade_messages.get(input.name)))
++                    else:
++                        rval.append(dict(text=input.name, depth=depth, notes="The previously used value is no longer valid.", error=True))
++                elif input.type == "upload_dataset":
++                    rval.append(dict(text=input.group_title(param_values), depth=depth, value="%s uploaded datasets" % len(param_values[input.name])))
++                elif input.type == "data":
++                    value = []
++                    for i, element in enumerate(listify(param_values[input.name])):
++                        if element.history_content_type == "dataset":
++                            hda = element
++                            encoded_id = trans.security.encode_id(hda.id)
++                            value.append({"src": "hda", "id": encoded_id, "hid": hda.hid, "name": hda.name})
++                        else:
++                            value.append({"hid": element.hid, "name": element.name})
++                    rval.append(dict(text=input.label, depth=depth, value=value))
++                elif input.visible:
++                    if hasattr(input, "label") and input.label:
++                        label = input.label
++                    else:
++                        # value for label not required, fallback to input name (same as tool panel)
++                        label = input.name
++                    rval.append(dict(text=label, depth=depth, value=input.value_to_display_text(param_values[input.name]), notes=upgrade_messages.get(input.name, '')))
++            else:
++                # Parameter does not have a stored value.
++                # Get parameter label.
++                if input.type == "conditional":
++                    label = input.test_param.label
++                elif input.type == "repeat":
++                    label = input.label()
++                else:
++                    label = input.label or input.name
++                rval.append(dict(text=label, depth=depth, notes="not used (parameter was added after this job was run)"))
++
++        return rval
++
++    # Load the tool
++    app = trans.app
++    toolbox = app.toolbox
++    tool = toolbox.get_tool(job.tool_id, job.tool_version)
++    assert tool is not None, 'Requested tool has not been loaded.'
++
++    params_objects = None
++    upgrade_messages = {}
++    has_parameter_errors = False
++
++    # Load parameter objects, if a parameter type has changed, it's possible for the value to no longer be valid
++    try:
++        params_objects = job.get_param_values(app, ignore_errors=False)
++    except Exception:
++        params_objects = job.get_param_values(app, ignore_errors=True)
++        # use different param_objects in the following line, since we want to display original values as much as possible
++        upgrade_messages = tool.check_and_update_param_values(job.get_param_values(app, ignore_errors=True),
++                                                              trans,
++                                                              update_values=False)
++        has_parameter_errors = True
++
++    parameters = inputs_recursive(tool.inputs, params_objects, depth=1, upgrade_messages=upgrade_messages)
++    return {"parameters": parameters, "has_parameter_errors": has_parameter_errors}
+diff --git a/lib/galaxy/managers/markdown_export_base.css b/lib/galaxy/managers/markdown_export_base.css
+new file mode 100644
+index 000000000000..7674c86dd92a
+--- /dev/null
++++ b/lib/galaxy/managers/markdown_export_base.css
+@@ -0,0 +1,10 @@
++p {
++}
++
++/**
++ *  Emulate dataset peek when generating tables.
++ */
++pre th {
++    color: white;
++    background: #25537b;
++}
+diff --git a/lib/galaxy/managers/markdown_parse.py b/lib/galaxy/managers/markdown_parse.py
+index 5b5ef31f03cf..1626078903ff 100644
+--- a/lib/galaxy/managers/markdown_parse.py
++++ b/lib/galaxy/managers/markdown_parse.py
+@@ -15,6 +15,7 @@
+ VALID_CONTAINER_END_PATTERN = re.compile(r"^```\s*$")
+ GALAXY_FLAVORED_MARKDOWN_CONTAINERS = [
+     "history_dataset_display",
++    "history_dataset_embedded",
+     "history_dataset_collection_display",
+     "history_dataset_as_image",
+     "history_dataset_peek",
+diff --git a/lib/galaxy/managers/markdown_util.py b/lib/galaxy/managers/markdown_util.py
+index e07ae2cbf490..111f053d033c 100644
+--- a/lib/galaxy/managers/markdown_util.py
++++ b/lib/galaxy/managers/markdown_util.py
+@@ -10,15 +10,33 @@
+ second idea is unimplemented, it is just an example of the general concept of
+ context specific processing.
+ """
++import abc
++import base64
++import codecs
+ import logging
++import os
+ import re
++import shutil
++import tempfile
++from collections import OrderedDict
++
++import markdown
++import pkg_resources
++import six
++try:
++    import weasyprint
++except Exception:
++    weasyprint = None
+ 
+ from galaxy.exceptions import MalformedContents, MalformedId
+-from galaxy.managers.collections import DatasetCollectionManager
+-from galaxy.managers.hdas import HDAManager
+ from galaxy.managers.hdcas import HDCASerializer
+-from galaxy.managers.jobs import JobManager
+-from galaxy.managers.workflows import WorkflowsManager
++from galaxy.managers.jobs import (
++    JobManager,
++    summarize_job_metrics,
++    summarize_job_parameters,
++)
++from galaxy.model.item_attrs import get_item_annotation_str
++from galaxy.util.sanitize_html import sanitize_html
+ from .markdown_parse import GALAXY_MARKDOWN_FUNCTION_CALL_LINE, validate_galaxy_markdown
+ 
+ log = logging.getLogger(__name__)
+@@ -58,6 +76,174 @@ def _remap(container, line):
+     return internal_markdown
+ 
+ 
++@six.add_metaclass(abc.ABCMeta)
++class GalaxyInternalMarkdownDirectiveHandler(object):
++
++    def walk(self, trans, internal_galaxy_markdown):
++        hda_manager = trans.app.hda_manager
++        workflow_manager = trans.app.workflow_manager
++        job_manager = JobManager(trans.app)
++        collection_manager = trans.app.dataset_collections_service
++
++        def _remap(container, line):
++            id_match = re.search(UNENCODED_ID_PATTERN, line)
++            object_id = None
++            encoded_id = None
++            if id_match:
++                object_id = int(id_match.group(2))
++                encoded_id = trans.security.encode_id(object_id)
++                line = line.replace(id_match.group(), "%s=%s" % (id_match.group(1), encoded_id))
++
++            if container == "history_dataset_display":
++                assert object_id is not None
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                rval = self.handle_dataset_display(line, hda)
++            elif container == "history_dataset_embedded":
++                assert object_id is not None
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                rval = self.handle_dataset_embedded(line, hda)
++            elif container == "history_dataset_as_image":
++                assert object_id is not None
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                rval = self.handle_dataset_as_image(line, hda)
++            elif container == "history_dataset_peek":
++                assert object_id is not None
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                rval = self.handle_dataset_peek(line, hda)
++            elif container == "history_dataset_info":
++                assert object_id is not None
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                rval = self.handle_dataset_info(line, hda)
++            elif container == "workflow_display":
++                stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
++                # TODO: should be workflow id...
++                rval = self.handle_workflow_display(line, stored_workflow)
++            elif container == "history_dataset_collection_display":
++                hdca = collection_manager.get_dataset_collection_instance(trans, "history", encoded_id)
++                rval = self.handle_dataset_collection_display(line, hdca)
++            elif container == "tool_stdout":
++                job = job_manager.get_accessible_job(trans, object_id)
++                rval = self.handle_tool_stdout(line, job)
++            elif container == "tool_stderr":
++                job = job_manager.get_accessible_job(trans, object_id)
++                rval = self.handle_tool_stdout(line, job)
++            elif container == "job_parameters":
++                job = job_manager.get_accessible_job(trans, object_id)
++                rval = self.handle_job_parameters(line, job)
++            elif container == "job_metrics":
++                job = job_manager.get_accessible_job(trans, object_id)
++                rval = self.handle_job_metrics(line, job)
++            else:
++                raise MalformedContents("Unknown Galaxy Markdown directive encountered [%s]" % container)
++            if rval is not None:
++                return rval
++            else:
++                return (line, False)
++
++        export_markdown = _remap_galaxy_markdown_calls(_remap, internal_galaxy_markdown)
++        return export_markdown
++
++    @abc.abstractmethod
++    def handle_dataset_display(self, line, hda):
++        pass
++
++    @abc.abstractmethod
++    def handle_dataset_as_image(self, line, hda):
++        pass
++
++    @abc.abstractmethod
++    def handle_dataset_peek(self, line, hda):
++        pass
++
++    @abc.abstractmethod
++    def handle_dataset_info(self, line, hda):
++        pass
++
++    @abc.abstractmethod
++    def handle_workflow_display(self, line, stored_workflow):
++        pass
++
++    @abc.abstractmethod
++    def handle_dataset_collection_display(self, line, hdca):
++        pass
++
++    @abc.abstractmethod
++    def handle_tool_stdout(self, line, job):
++        pass
++
++    @abc.abstractmethod
++    def handle_tool_stderr(self, line, job):
++        pass
++
++    @abc.abstractmethod
++    def handle_job_metrics(self, line, job):
++        pass
++
++    @abc.abstractmethod
++    def handle_job_parameters(self, line, job):
++        pass
++
++
++class ReadyForExportMarkdownDirectiveHandler(GalaxyInternalMarkdownDirectiveHandler):
++
++    def __init__(self, trans, extra_rendering_data={}):
++        self.trans = trans
++        self.extra_rendering_data = extra_rendering_data
++
++    def ensure_rendering_data_for(self, object_type, obj):
++        encoded_id = self.trans.security.encode_id(obj.id)
++        if object_type not in self.extra_rendering_data:
++            self.extra_rendering_data[object_type] = {}
++        object_type_data = self.extra_rendering_data[object_type]
++        if encoded_id not in object_type_data:
++            object_type_data[encoded_id] = {}
++        return object_type_data[encoded_id]
++
++    def extend_history_dataset_rendering_data(self, obj, key, val, default_val):
++        self.ensure_rendering_data_for("history_datasets", obj)[key] = val or default_val
++
++    def handle_dataset_display(self, line, hda):
++        self.extend_history_dataset_rendering_data(hda, "name", hda.name, "")
++
++    def handle_dataset_embedded(self, line, hda):
++        self.extend_history_dataset_rendering_data(hda, "name", hda.name, "")
++
++    def handle_dataset_peek(self, line, hda):
++        self.extend_history_dataset_rendering_data(hda, "peek", hda.peek, "*No Dataset Peek Available*")
++
++    def handle_dataset_info(self, line, hda):
++        self.extend_history_dataset_rendering_data(hda, "info", hda.info, "*No Dataset Info Available*")
++
++    def handle_workflow_display(self, line, stored_workflow):
++        self.ensure_rendering_data_for("workflows", stored_workflow)["name"] = stored_workflow.name
++
++    def handle_dataset_collection_display(self, line, hdca):
++        hdca_serializer = HDCASerializer(self.trans.app)
++        hdca_view = hdca_serializer.serialize_to_view(
++            hdca, user=self.trans.user, trans=self.trans, view="summary"
++        )
++        self.ensure_rendering_data_for("history_dataset_collections", hdca).update(hdca_view)
++
++    def handle_tool_stdout(self, line, job):
++        self.ensure_rendering_data_for("jobs", job)["tool_stdout"] = job.tool_stdout or "*No Standard Output Available*"
++
++    def handle_tool_stderr(self, line, job):
++        self.ensure_rendering_data_for("jobs", job)["tool_stderr"] = job.tool_stderr or "*No Standard Error Available*"
++
++    # Following three cases - the client side widgets have everything they need
++    # from the encoded ID. Don't implement a default on the base class though because
++    # it is good to force both Client and PDF/HTML export to deal with each new directive
++    # explicitly.
++    def handle_dataset_as_image(self, line, hda):
++        pass
++
++    def handle_job_metrics(self, line, job):
++        pass
++
++    def handle_job_parameters(self, line, job):
++        pass
++
++
+ def ready_galaxy_markdown_for_export(trans, internal_galaxy_markdown):
+     """Fill in details needed to render Galaxy flavored markdown.
+ 
+@@ -66,71 +252,220 @@ def ready_galaxy_markdown_for_export(trans, internal_galaxy_markdown):
+     external links. Return expanded markdown and extra data useful for rendering
+     custom container tags.
+     """
+-    hdas_manager = HDAManager(trans.app)
+-    workflows_manager = WorkflowsManager(trans.app)
+-    job_manager = JobManager(trans.app)
+-    collection_manager = DatasetCollectionManager(trans.app)
+-
+     extra_rendering_data = {}
++    # Walk Galaxy directives inside the Galaxy Markdown and collect dict-ified data
++    # needed to render this efficiently.
++    directive_handler = ReadyForExportMarkdownDirectiveHandler(trans, extra_rendering_data)
++    export_markdown = directive_handler.walk(trans, internal_galaxy_markdown)
++    return export_markdown, extra_rendering_data
+ 
+-    def _remap(container, line):
+-        id_match = re.search(UNENCODED_ID_PATTERN, line)
+-        object_id = None
+-        encoded_id = None
+-        if id_match:
+-            object_id = int(id_match.group(2))
+-            encoded_id = trans.security.encode_id(object_id)
+-            line = line.replace(id_match.group(), "%s=%s" % (id_match.group(1), encoded_id))
+-
+-        def ensure_rendering_data_for(object_type, encoded_id):
+-            if object_type not in extra_rendering_data:
+-                extra_rendering_data[object_type] = {}
+-            object_type_data = extra_rendering_data[object_type]
+-            if encoded_id not in object_type_data:
+-                object_type_data[encoded_id] = {}
+-            return object_type_data[encoded_id]
+-
+-        def extend_history_dataset_rendering_data(key, val, default_val):
+-            ensure_rendering_data_for("history_datasets", encoded_id)[key] = val or default_val
+-
+-        if container == "history_dataset_display":
+-            assert object_id is not None
+-            hda = hdas_manager.get_accessible(object_id, trans.user)
+-            if "history_datasets" not in extra_rendering_data:
+-                extra_rendering_data["history_datasets"] = {}
+-            extend_history_dataset_rendering_data("name", hda.name, "")
+-        elif container == "history_dataset_peek":
+-            assert object_id is not None
+-            hda = hdas_manager.get_accessible(object_id, trans.user)
+-            peek = hda.peek
+-            extend_history_dataset_rendering_data("peek", peek, "*No Dataset Peek Available*")
+-        elif container == "history_dataset_info":
+-            hda = hdas_manager.get_accessible(object_id, trans.user)
+-            info = hda.info
+-            extend_history_dataset_rendering_data("info", info, "*No Dataset Info Available*")
+-        elif container == "workflow_display":
+-            # TODO: should be workflow id...
+-            stored_workflow = workflows_manager.get_stored_accessible_workflow(trans, encoded_id)
+-            ensure_rendering_data_for("workflows", encoded_id)["name"] = stored_workflow.name
+-        elif container == "history_dataset_collection_display":
+-            hdca = collection_manager.get_dataset_collection_instance(trans, "history", encoded_id)
+-            hdca_serializer = HDCASerializer(trans.app)
+-            hdca_view = hdca_serializer.serialize_to_view(
+-                hdca, user=trans.user, trans=trans, view="summary"
+-            )
+-            if "history_dataset_collections" not in extra_rendering_data:
+-                extra_rendering_data["history_dataset_collections"] = {}
+-            ensure_rendering_data_for("history_dataset_collections", encoded_id).update(hdca_view)
+-        elif container == "tool_stdout":
+-            job = job_manager.get_accessible_job(trans, object_id)
+-            ensure_rendering_data_for("jobs", encoded_id)["tool_stdout"] = job.tool_stdout or "*No Standard Output Available*"
+-        elif container == "tool_stderr":
+-            job = job_manager.get_accessible_job(trans, object_id)
+-            ensure_rendering_data_for("jobs", encoded_id)["tool_stderr"] = job.tool_stderr or "*No Standard Error Available*"
+-        return (line, False)
+ 
+-    export_markdown = _remap_galaxy_markdown_calls(_remap, internal_galaxy_markdown)
+-    return export_markdown, extra_rendering_data
++class ToBasicMarkdownDirectiveHandler(GalaxyInternalMarkdownDirectiveHandler):
++
++    def __init__(self, trans, markdown_formatting_helpers):
++        self.trans = trans
++        self.markdown_formatting_helpers = markdown_formatting_helpers
++
++    def handle_dataset_display(self, line, hda):
++        name = hda.name or ""
++        markdown = '---\n'
++        markdown += "**Dataset:** %s\n\n" % name
++        markdown += self._display_dataset_content(hda)
++        markdown += '\n---\n'
++        return (markdown, True)
++
++    def handle_dataset_embedded(self, line, hda):
++        datatype = hda.datatype
++        markdown = ""
++        # subtly different than below since no Contents: prefix and new lines and such.
++        if datatype is None:
++            markdown += "*cannot display - cannot format unknown datatype*\n\n"
++        else:
++            markdown += datatype.display_as_markdown(hda, self.markdown_formatting_helpers)
++        return (markdown, True)
++
++    def _display_dataset_content(self, hda, header="Contents"):
++        datatype = hda.datatype
++        markdown = ""
++        if datatype is None:
++            markdown += "**%s:** *cannot display - cannot format unknown datatype*\n\n" % header
++        else:
++            markdown += "**%s:**\n" % header
++            markdown += datatype.display_as_markdown(hda, self.markdown_formatting_helpers)
++        return markdown
++
++    def handle_dataset_as_image(self, line, hda):
++        dataset = hda.dataset
++        name = hda.name or ''
++        with open(dataset.file_name, "rb") as f:
++            base64_image_data = base64.b64encode(f.read()).decode("utf-8")
++        rval = ("![%s](data:image/png;base64,%s)" % (name, base64_image_data), True)
++        return rval
++
++    def handle_dataset_peek(self, line, hda):
++        if hda.peek:
++            content = self.markdown_formatting_helpers.literal_via_fence(hda.peek)
++        else:
++            content = "*No Dataset Peek Available*"
++        return (content, True)
++
++    def handle_dataset_info(self, line, hda):
++        if hda.info:
++            content = self.markdown_formatting_helpers.literal_via_fence(hda.info)
++        else:
++            content = "*No Dataset Info Available*"
++        return (content, True)
++
++    def handle_workflow_display(self, line, stored_workflow):
++        # workflows/display.mako as markdown... meh...
++        markdown = '---\n'
++        markdown += "**Workflow:** %s\n\n" % stored_workflow.name
++        markdown += "**Steps:**\n\n"
++        markdown += "|Step|Annotation|\n"
++        markdown += "|----|----------|\n"
++        # Pass two should add tool information, labels, etc.. but
++        # it requires module_injector and such.
++        for order_index, step in enumerate(stored_workflow.latest_workflow.steps):
++            annotation = get_item_annotation_str(self.trans.sa_session, self.trans.user, step) or ''
++            markdown += "|%s|%s|\n" % (step.label or "Step %d" % (order_index + 1), annotation)
++        markdown += "\n---\n"
++        return (markdown, True)
++
++    def handle_dataset_collection_display(self, line, hdca):
++        name = hdca.name or ""
++        # put it in a list to hack around no nonlocal on Python 2.
++        markdown_wrapper = ["**Dataset Collection:** %s\n\n" % name]
++
++        def walk_elements(collection, element_prefix=""):
++            if ":" in collection.collection_type:
++                for element in collection.elements:
++                    walk_elements(element.child_collection, element_prefix + element.element_identifier + ":")
++            else:
++                for element in collection.elements:
++                    markdown_wrapper[0] += "**Element:** %s%s\n\n" % (element_prefix, element.element_identifier)
++                    markdown_wrapper[0] += self._display_dataset_content(element.hda, header="Element Contents")
++        walk_elements(hdca.collection)
++        markdown = '---\n%s\n---\n' % markdown_wrapper[0]
++        return (markdown, True)
++
++    def handle_tool_stdout(self, line, job):
++        stdout = job.tool_stdout or "*No Standard Output Available*"
++        return ("**Standard Output:** %s" % stdout, True)
++
++    def handle_tool_stderr(self, line, job):
++        stderr = job.tool_stderr or "*No Standard Error Available*"
++        return ("**Standard Error:** %s" % stderr, True)
++
++    def handle_job_metrics(self, line, job):
++        job_metrics = summarize_job_metrics(self.trans, job)
++        metrics_by_plugin = OrderedDict()
++        for job_metric in job_metrics:
++            plugin = job_metric["plugin"]
++            if plugin not in metrics_by_plugin:
++                metrics_by_plugin[plugin] = OrderedDict()
++            metrics_by_plugin[plugin][job_metric["title"]] = job_metric["value"]
++        markdown = ""
++        for metric_plugin, metrics_for_plugin in metrics_by_plugin.items():
++            markdown += "**%s**\n\n" % metric_plugin
++            markdown += "|   |   |\n|---|--|\n"
++            for title, value in metrics_for_plugin.items():
++                markdown += "| %s | %s |\n" % (title, value)
++        return (markdown, True)
++
++    def handle_job_parameters(self, line, job):
++        markdown = """
++| Input Parameter | Value |
++|-----------------|-------|
++"""
++        parameters = summarize_job_parameters(self.trans, job)["parameters"]
++        for parameter in parameters:
++            markdown += "| "
++            depth = parameter["depth"]
++            if depth > 1:
++                markdown += ">" * (parameter["depth"] - 1) + " "
++            markdown += parameter["text"]
++            markdown += " | "
++            value = parameter["value"]
++            if isinstance(value, list):
++                markdown += ", ".join(["%s: %s" % (p["hid"], p["name"]) for p in value])
++            else:
++                markdown += value
++            markdown += " |\n"
++
++        return (markdown, True)
++
++
++class MarkdownFormatHelpers(object):
++    """Inject common markdown formatting helpers for per-datatype rendering."""
++
++    @staticmethod
++    def literal_via_fence(content):
++        return "\n%s\n" % "\n".join(["    %s" % l for l in content.splitlines()])
++
++    @staticmethod
++    def indicate_data_truncated():
++        return "\n**Warning:** The above data has been truncated to be embedded in this document.\n\n"
++
++    @staticmethod
++    def pre_formatted_contents(markdown):
++        return "<pre>%s</pre>" % markdown
++
++
++def to_basic_markdown(trans, internal_galaxy_markdown):
++    """Replace Galaxy Markdown extensions with plain Markdown for PDF/HTML export.
++    """
++    markdown_formatting_helpers = MarkdownFormatHelpers()
++    directive_handler = ToBasicMarkdownDirectiveHandler(trans, markdown_formatting_helpers)
++    plain_markdown = directive_handler.walk(trans, internal_galaxy_markdown)
++    return plain_markdown
++
++
++def to_html(basic_markdown):
++    # Allow data: urls so we can embed images.
++    html = sanitize_html(markdown.markdown(basic_markdown, extensions=["tables"]), allow_data_urls=True)
++    return html
++
++
++def to_pdf(trans, basic_markdown, css_paths=[]):
++    as_html = to_html(basic_markdown)
++    directory = tempfile.mkdtemp('gxmarkdown')
++    index = os.path.join(directory, "index.html")
++    try:
++        output_file = codecs.open(index, "w", encoding="utf-8", errors="xmlcharrefreplace")
++        output_file.write(as_html)
++        output_file.close()
++        html = weasyprint.HTML(filename=index)
++        stylesheets = [weasyprint.CSS(string=pkg_resources.resource_string(__name__, 'markdown_export_base.css'))]
++        for css_path in css_paths:
++            with open(css_path, "r") as f:
++                css_content = f.read()
++            css = weasyprint.CSS(string=css_content)
++            stylesheets.append(css)
++        return html.write_pdf(stylesheets=stylesheets)
++        # font_config = FontConfiguration()
++        # stylesheets=[css], font_config=font_config
++    finally:
++        shutil.rmtree(directory)
++
++
++def internal_galaxy_markdown_to_pdf(trans, internal_galaxy_markdown, document_type):
++    basic_markdown = to_basic_markdown(trans, internal_galaxy_markdown)
++    config = trans.app.config
++    document_type_prologue = getattr(config, "markdown_export_prologue_%ss" % document_type, '') or ''
++    document_type_epilogue = getattr(config, "markdown_export_epilogue_%ss" % document_type, '') or ''
++    general_prologue = config.markdown_export_prologue or ''
++    general_epilogue = config.markdown_export_epilogue or ''
++    effective_prologue = document_type_prologue or general_prologue
++    effective_epilogue = document_type_epilogue or general_epilogue
++    branded_markdown = effective_prologue + basic_markdown + effective_epilogue
++    css_paths = []
++    general_css_path = trans.app.config.markdown_export_css
++    document_type_css_path = getattr(config, "markdown_export_css_%ss" % document_type, None)
++    if general_css_path and os.path.exists(general_css_path):
++        css_paths.append(general_css_path)
++    if document_type_css_path and os.path.exists(document_type_css_path):
++        css_paths.append(document_type_css_path)
++    return to_pdf(trans, branded_markdown, css_paths=css_paths)
+ 
+ 
+ def resolve_invocation_markdown(trans, invocation, workflow_markdown):
+@@ -291,6 +626,7 @@ def _validate(*args, **kwds):
+ 
+ 
+ __all__ = (
++    'internal_galaxy_markdown_to_pdf',
+     'ready_galaxy_markdown_for_export',
+     'ready_galaxy_markdown_for_import',
+     'resolve_invocation_markdown',
+diff --git a/lib/galaxy/util/sanitize_html.py b/lib/galaxy/util/sanitize_html.py
+index 3dd2d4c185fc..b2c66b2cdb3b 100644
+--- a/lib/galaxy/util/sanitize_html.py
++++ b/lib/galaxy/util/sanitize_html.py
+@@ -41,5 +41,8 @@
+         'volume', 'vspace', 'vrml', 'width', 'wrap', 'xml:lang']
+ 
+ 
+-def sanitize_html(htmlSource):
+-    return bleach.clean(htmlSource, tags=_acceptable_elements, attributes=_acceptable_attributes, strip=True)
++def sanitize_html(htmlSource, allow_data_urls=False):
++    kwd = dict(tags=_acceptable_elements, attributes=_acceptable_attributes, strip=True)
++    if allow_data_urls:
++        kwd["protocols"] = bleach.ALLOWED_PROTOCOLS + ["data"]
++    return bleach.clean(htmlSource, **kwd)
+diff --git a/lib/galaxy/webapps/galaxy/api/jobs.py b/lib/galaxy/webapps/galaxy/api/jobs.py
+index bd6b948f73b0..c8ea2adc01dc 100644
+--- a/lib/galaxy/webapps/galaxy/api/jobs.py
++++ b/lib/galaxy/webapps/galaxy/api/jobs.py
+@@ -12,7 +12,12 @@
+ from galaxy import exceptions
+ from galaxy import model
+ from galaxy import util
+-from galaxy.managers.jobs import JobManager, JobSearch
++from galaxy.managers.jobs import (
++    JobManager,
++    JobSearch,
++    summarize_job_metrics,
++    summarize_job_parameters,
++)
+ from galaxy.web import (
+     expose_api,
+     expose_api_anonymous,
+@@ -154,20 +159,7 @@ def show(self, trans, id, **kwd):
+                 else:
+                     job_dict['user_email'] = None
+ 
+-                def metric_to_dict(metric):
+-                    metric_name = metric.metric_name
+-                    metric_value = metric.metric_value
+-                    metric_plugin = metric.plugin
+-                    title, value = trans.app.job_metrics.format(metric_plugin, metric_name, metric_value)
+-                    return dict(
+-                        title=title,
+-                        value=value,
+-                        plugin=metric_plugin,
+-                        name=metric_name,
+-                        raw_value=str(metric_value),
+-                    )
+-
+-                job_dict['job_metrics'] = self._metrics_as_dict(trans, job)
++                job_dict['job_metrics'] = summarize_job_metrics(trans, job)
+         return job_dict
+ 
+     @expose_api
+@@ -290,28 +282,7 @@ def metrics(self, trans, **kwd):
+         :returns:   list containing job metrics
+         """
+         job = self.__get_job(trans, **kwd)
+-        if not trans.user_is_admin and not trans.app.config.expose_potentially_sensitive_job_metrics:
+-            return []
+-
+-        return self._metrics_as_dict(trans, job)
+-
+-    def _metrics_as_dict(self, trans, job):
+-
+-        def metric_to_dict(metric):
+-            metric_name = metric.metric_name
+-            metric_value = metric.metric_value
+-            metric_plugin = metric.plugin
+-            title, value = trans.app.job_metrics.format(metric_plugin, metric_name, metric_value)
+-            return dict(
+-                title=title,
+-                value=value,
+-                plugin=metric_plugin,
+-                name=metric_name,
+-                raw_value=str(metric_value),
+-            )
+-
+-        metrics = [m for m in job.metrics if m.plugin != 'env' or trans.user_is_admin]
+-        return list(map(metric_to_dict, metrics))
++        return summarize_job_metrics(trans, job)
+ 
+     @expose_api_anonymous
+     def parameters_display(self, trans, **kwd):
+@@ -342,88 +313,7 @@ def parameters_display(self, trans, **kwd):
+         :returns:   job parameters for for display
+         """
+         job = self.__get_job(trans, **kwd)
+-
+-        def inputs_recursive(input_params, param_values, depth=1, upgrade_messages=None):
+-            if upgrade_messages is None:
+-                upgrade_messages = {}
+-
+-            rval = []
+-
+-            for input_index, input in enumerate(input_params.values()):
+-                if input.name in param_values:
+-                    if input.type == "repeat":
+-                        for i in range(len(param_values[input.name])):
+-                            rval.extend(inputs_recursive(input.inputs, param_values[input.name][i], depth=depth + 1))
+-                    elif input.type == "section":
+-                        # Get the value of the current Section parameter
+-                        rval.append(dict(text=input.name, depth=depth))
+-                        rval.extend(inputs_recursive(input.inputs, param_values[input.name], depth=depth + 1, upgrade_messages=upgrade_messages.get(input.name)))
+-                    elif input.type == "conditional":
+-                        try:
+-                            current_case = param_values[input.name]['__current_case__']
+-                            is_valid = True
+-                        except Exception:
+-                            current_case = None
+-                            is_valid = False
+-                        if is_valid:
+-                            rval.append(dict(text=input.test_param.label, depth=depth, value=input.cases[current_case].value))
+-                            rval.extend(inputs_recursive(input.cases[current_case].inputs, param_values[input.name], depth=depth + 1, upgrade_messages=upgrade_messages.get(input.name)))
+-                        else:
+-                            rval.append(dict(text=input.name, depth=depth, notes="The previously used value is no longer valid.", error=True))
+-                    elif input.type == "upload_dataset":
+-                        rval.append(dict(text=input.group_title(param_values), depth=depth, value="%s uploaded datasets" % len(param_values[input.name])))
+-                    elif input.type == "data":
+-                        value = []
+-                        for i, element in enumerate(util.listify(param_values[input.name])):
+-                            if element.history_content_type == "dataset":
+-                                hda = element
+-                                encoded_id = trans.security.encode_id(hda.id)
+-                                value.append({"src": "hda", "id": encoded_id, "hid": hda.hid, "name": hda.name})
+-                            else:
+-                                value.append({"hid": element.hid, "name": element.name})
+-                        rval.append(dict(text=input.label, depth=depth, value=value))
+-                    elif input.visible:
+-                        if hasattr(input, "label") and input.label:
+-                            label = input.label
+-                        else:
+-                            # value for label not required, fallback to input name (same as tool panel)
+-                            label = input.name
+-                        rval.append(dict(text=label, depth=depth, value=input.value_to_display_text(param_values[input.name]), notes=upgrade_messages.get(input.name, '')))
+-                else:
+-                    # Parameter does not have a stored value.
+-                    # Get parameter label.
+-                    if input.type == "conditional":
+-                        label = input.test_param.label
+-                    elif input.type == "repeat":
+-                        label = input.label()
+-                    else:
+-                        label = input.label or input.name
+-                    rval.append(dict(text=label, depth=depth, notes="not used (parameter was added after this job was run)"))
+-
+-            return rval
+-
+-        # Load the tool
+-        toolbox = self.app.toolbox
+-        tool = toolbox.get_tool(job.tool_id, job.tool_version)
+-        assert tool is not None, 'Requested tool has not been loaded.'
+-
+-        params_objects = None
+-        upgrade_messages = {}
+-        has_parameter_errors = False
+-
+-        # Load parameter objects, if a parameter type has changed, it's possible for the value to no longer be valid
+-        try:
+-            params_objects = job.get_param_values(self.app, ignore_errors=False)
+-        except Exception:
+-            params_objects = job.get_param_values(self.app, ignore_errors=True)
+-            # use different param_objects in the following line, since we want to display original values as much as possible
+-            upgrade_messages = tool.check_and_update_param_values(job.get_param_values(self.app, ignore_errors=True),
+-                                                                  trans,
+-                                                                  update_values=False)
+-            has_parameter_errors = True
+-
+-        parameters = inputs_recursive(tool.inputs, params_objects, depth=1, upgrade_messages=upgrade_messages)
+-        return {"parameters": parameters, "has_parameter_errors": has_parameter_errors}
++        return summarize_job_parameters(trans, job)
+ 
+     @expose_api_anonymous
+     def build_for_rerun(self, trans, id, **kwd):
+diff --git a/lib/galaxy/webapps/galaxy/api/pages.py b/lib/galaxy/webapps/galaxy/api/pages.py
+index 9f737ce73dcc..e14ffa4161bc 100644
+--- a/lib/galaxy/webapps/galaxy/api/pages.py
++++ b/lib/galaxy/webapps/galaxy/api/pages.py
+@@ -3,13 +3,15 @@
+ """
+ import logging
+ 
++from galaxy.exceptions import RequestParameterInvalidException
+ from galaxy.managers.base import get_object
++from galaxy.managers.markdown_util import internal_galaxy_markdown_to_pdf
+ from galaxy.managers.pages import (
+     PageManager,
+     PageSerializer
+ )
+ from galaxy.model.item_attrs import UsesAnnotations
+-from galaxy.web import expose_api
++from galaxy.web import expose_api, expose_api_raw
+ from galaxy.webapps.base.controller import (
+     BaseAPIController,
+     SharableItemSecurityMixin,
+@@ -124,3 +126,22 @@ def show(self, trans, id, **kwd):
+         rval['content_format'] = page.latest_revision.content_format
+         self.manager.rewrite_content_for_export(trans, rval)
+         return rval
++
++    @expose_api_raw
++    def show_pdf(self, trans, id, **kwd):
++        """
++        show( self, trans, id, **kwd )
++        * GET /api/pages/{id}.pdf
++            View a page summary and the content of the latest revision as PDF.
++
++        :param  id:    ID of page to be displayed
++
++        :rtype:     dict
++        :returns:   Dictionary return of the Page.to_dict call with the 'content' field populated by the most recent revision
++        """
++        page = get_object(trans, id, 'Page', check_ownership=False, check_accessible=True)
++        if page.latest_revision.content_format != "markdown":
++            raise RequestParameterInvalidException("PDF export only allowed for Markdown based pages")
++        internal_galaxy_markdown = page.latest_revision.content
++        trans.response.set_content_type("application/pdf")
++        return internal_galaxy_markdown_to_pdf(trans, internal_galaxy_markdown, 'page')
+diff --git a/lib/galaxy/webapps/galaxy/api/workflows.py b/lib/galaxy/webapps/galaxy/api/workflows.py
+index 68f47a11942e..3164d95ddad4 100644
+--- a/lib/galaxy/webapps/galaxy/api/workflows.py
++++ b/lib/galaxy/webapps/galaxy/api/workflows.py
+@@ -43,7 +43,7 @@
+ )
+ from galaxy.workflow.extract import extract_workflow
+ from galaxy.workflow.modules import module_factory
+-from galaxy.workflow.reports import generate_report_json
++from galaxy.workflow.reports import generate_report
+ from galaxy.workflow.run import invoke, queue_invoke
+ from galaxy.workflow.run_request import build_workflow_run_configs
+ 
+@@ -926,15 +926,35 @@ def show_invocation_report(self, trans, invocation_id, **kwd):
+ 
+         Get JSON summarizing invocation for reporting.
+         """
++        kwd["format"] = "json"
++        return self._generate_report(trans, invocation_id, **kwd)
++
++    @expose_api_raw
++    def show_invocation_report_pdf(self, trans, invocation_id, **kwd):
++        """
++        GET /api/workflows/{workflow_id}/invocations/{invocation_id}/report.pdf
++        GET /api/invocations/{invocation_id}/report.pdf
++
++        Get JSON summarizing invocation for reporting.
++        """
++        kwd["format"] = "pdf"
++        trans.response.set_content_type("application/pdf")
++        return self._generate_report(trans, invocation_id, **kwd)
++
++    def _generate_report(self, trans, invocation_id, **kwd):
+         decoded_workflow_invocation_id = self.decode_id(invocation_id)
+         workflow_invocation = self.workflow_manager.get_invocation(trans, decoded_workflow_invocation_id)
+         generator_plugin_type = kwd.get("generator_plugin_type")
+         runtime_report_config_json = kwd.get("runtime_report_config_json")
+         invocation_markdown = kwd.get("invocation_markdown", None)
++        target_format = kwd.get("format", "json")
+         if invocation_markdown:
+             runtime_report_config_json = {"markdown": invocation_markdown}
+-        return generate_report_json(
+-            trans, workflow_invocation, runtime_report_config_json=runtime_report_config_json, plugin_type=generator_plugin_type
++        return generate_report(
++            trans, workflow_invocation,
++            runtime_report_config_json=runtime_report_config_json,
++            plugin_type=generator_plugin_type,
++            target_format=target_format,
+         )
+ 
+     @expose_api
+diff --git a/lib/galaxy/webapps/galaxy/buildapp.py b/lib/galaxy/webapps/galaxy/buildapp.py
+index 4e1bd3eaa7fc..f6914745bd78 100644
+--- a/lib/galaxy/webapps/galaxy/buildapp.py
++++ b/lib/galaxy/webapps/galaxy/buildapp.py
+@@ -450,6 +450,7 @@ def populate_api_routes(webapp, app):
+                            collection={'sniffers': 'GET', 'mapping': 'GET', 'converters': 'GET', 'edam_data': 'GET', 'edam_formats': 'GET'},
+                            parent_resources=dict(member_name='datatype', collection_name='datatypes'))
+     webapp.mapper.resource('search', 'search', path_prefix='/api')
++    webapp.mapper.connect('/api/pages/{id}.pdf', action='show_pdf', controller="pages", conditions=dict(method=["GET"]))
+     webapp.mapper.resource('page', 'pages', path_prefix="/api")
+     webapp.mapper.connect('/api/pages/{id}/sharing', action='sharing', controller="pages", conditions=dict(method=["GET", "POST"]))
+     webapp.mapper.resource('revision', 'revisions',
+@@ -596,6 +597,7 @@ def connect_invocation_endpoint(endpoint_name, endpoint_suffix, action, conditio
+ 
+     connect_invocation_endpoint('show', '', action='show_invocation')
+     connect_invocation_endpoint('show_report', '/report', action='show_invocation_report')
++    connect_invocation_endpoint('show_report_pdf', '/report.pdf', action='show_invocation_report_pdf')
+     connect_invocation_endpoint('jobs_summary', '/jobs_summary', action='invocation_jobs_summary')
+     connect_invocation_endpoint('step_jobs_summary', '/step_jobs_summary', action='invocation_step_jobs_summary')
+     connect_invocation_endpoint('cancel', '', action='cancel_invocation', conditions=dict(method=['DELETE']))
+diff --git a/lib/galaxy/webapps/galaxy/config_schema.yml b/lib/galaxy/webapps/galaxy/config_schema.yml
+index a0f1472019ac..b82d5ae658e8 100644
+--- a/lib/galaxy/webapps/galaxy/config_schema.yml
++++ b/lib/galaxy/webapps/galaxy/config_schema.yml
+@@ -2692,6 +2692,81 @@ mapping:
+           the actual user, to remove the need to configure each user's environment
+           individually.
+ 
++      enable_beta_markdown_export:
++        type: bool
++        default: false
++        required: false
++        desc: |
++          Enable export of Galaxy Markdown documents (pages and workflow reports)
++          to PDF. Requires manual installation and setup of weasyprint (latest version
++          available for Python 2.7 is 0.42).
++
++      markdown_export_css:
++        type: str
++        default: markdown_export.css
++        required: false
++        desc: |
++          CSS file to apply to all Markdown exports to PDF - currently used by
++          WeasyPrint during rendering an HTML export of the document to PDF.
++
++      markdown_export_css_pages:
++        type: str
++        default: markdown_export_pages.css
++        required: false
++        desc: |
++          CSS file to apply to "Galaxy Page" exports to PDF. Generally prefer 
++          markdown_export_css, but this is here for deployments that
++          would like to tailor different kinds of exports.
++
++      markdown_export_css_invocation_reports:
++        type: str
++        default: markdown_export_invocation_reports.css
++        required: false
++        desc: |
++          CSS file to apply to invocation report exports to PDF. Generally prefer 
++          markdown_export_css, but this is here for deployments that
++          would like to tailor different kinds of exports.
++
++      markdown_export_prologue:
++        type: str
++        default: ''
++        desc: |
++          Prologue Markdown/HTML to apply to markdown exports to PDF. Allowing
++          branded headers.
++
++      markdown_export_epilogue:
++        type: str
++        default: ''
++        desc: |
++          Prologue Markdown/HTML to apply to markdown exports to PDF. Allowing
++          branded footers.
++
++      markdown_export_prologue_pages:
++        type: str
++        default: ''
++        desc: |
++          Alternative to markdown_export_prologue that applies just to page exports.
++
++      markdown_export_prologue_invocation_reports:
++        type: str
++        default: ''
++        desc: |
++          Alternative to markdown_export_prologue that applies just to invocation report
++          exports.
++
++      markdown_export_epilogue_pages:
++        type: str
++        default: ''
++        desc: |
++          Alternative to markdown_export_epilogue that applies just to page exports.
++
++      markdown_export_epilogue_invocation_reports:
++        type: str
++        default: ''
++        desc: |
++          Alternative to markdown_export_epilogue that applies just to invocation report
++          exports.
++
+       job_resource_params_file:
+         type: str
+         default: job_resource_params_conf.xml
+diff --git a/lib/galaxy/workflow/reports/__init__.py b/lib/galaxy/workflow/reports/__init__.py
+index f30370070d79..15c068e40cac 100644
+--- a/lib/galaxy/workflow/reports/__init__.py
++++ b/lib/galaxy/workflow/reports/__init__.py
+@@ -1,11 +1,17 @@
++from galaxy.exceptions import RequestParameterInvalidException
+ from galaxy.util import plugin_config
+ 
+ DEFAULT_REPORT_GENERATOR_TYPE = "markdown"
+ 
+ 
+-def generate_report_json(trans, invocation, runtime_report_config_json=None, plugin_type=None):
++def generate_report(trans, invocation, runtime_report_config_json=None, plugin_type=None, target_format="json"):
+     import galaxy.workflow.reports.generators
+     plugin_classes = plugin_config.plugins_dict(galaxy.workflow.reports.generators, 'plugin_type')
+     plugin_type = plugin_type or DEFAULT_REPORT_GENERATOR_TYPE
+     plugin = plugin_classes[plugin_type]()
+-    return plugin.generate_report_json(trans, invocation, runtime_report_config_json=runtime_report_config_json)
++    if target_format == "json":
++        return plugin.generate_report_json(trans, invocation, runtime_report_config_json=runtime_report_config_json)
++    elif target_format == "pdf":
++        return plugin.generate_report_pdf(trans, invocation, runtime_report_config_json=runtime_report_config_json)
++    else:
++        raise RequestParameterInvalidException("Unknown report format [%s]" % target_format)
+diff --git a/lib/galaxy/workflow/reports/generators/__init__.py b/lib/galaxy/workflow/reports/generators/__init__.py
+index 25622aa86469..0fa46d4fb295 100644
+--- a/lib/galaxy/workflow/reports/generators/__init__.py
++++ b/lib/galaxy/workflow/reports/generators/__init__.py
+@@ -8,6 +8,7 @@
+ import six
+ 
+ from galaxy.managers.markdown_util import (
++    internal_galaxy_markdown_to_pdf,
+     ready_galaxy_markdown_for_export,
+     resolve_invocation_markdown,
+ )
+@@ -41,21 +42,25 @@ class WorkflowMarkdownGeneratorPlugin(WorkflowReportGeneratorPlugin):
+     def generate_report_json(self, trans, invocation, runtime_report_config_json=None):
+         """
+         """
+-        workflow_markdown = self._generate_report_markdown(trans, invocation, runtime_report_config_json=runtime_report_config_json)
+-        internal_markdown = resolve_invocation_markdown(trans, invocation, workflow_markdown)
++        internal_markdown = self._generate_internal_markdown(trans, invocation, runtime_report_config_json=runtime_report_config_json)
+         export_markdown, extra_rendering_data = ready_galaxy_markdown_for_export(trans, internal_markdown)
+         rval = {
+             "render_format": "markdown",  # Presumably the frontend could render things other ways.
+             "markdown": export_markdown,
+-            "invocation_markdown": workflow_markdown,
++            "invocation_markdown": export_markdown,
+         }
+         rval.update(extra_rendering_data)
+         return rval
+ 
+     def generate_report_pdf(self, trans, invocation, runtime_report_config_json=None):
+-        # TODO: translate markdown to a PDF
+-        raise NotImplementedError()
++        internal_markdown = self._generate_internal_markdown(trans, invocation, runtime_report_config_json=runtime_report_config_json)
++        return internal_galaxy_markdown_to_pdf(trans, internal_markdown, 'invocation_report')
+ 
+     @abstractmethod
+     def _generate_report_markdown(self, trans, invocation, runtime_report_config_json=None):
+         """ """
++
++    def _generate_internal_markdown(self, trans, invocation, runtime_report_config_json=None):
++        workflow_markdown = self._generate_report_markdown(trans, invocation, runtime_report_config_json=runtime_report_config_json)
++        internal_markdown = resolve_invocation_markdown(trans, invocation, workflow_markdown)
++        return internal_markdown
+diff --git a/test/integration/test_config_defaults.py b/test/integration/test_config_defaults.py
+index f0a16393a0a0..87e0b46d777e 100644
+--- a/test/integration/test_config_defaults.py
++++ b/test/integration/test_config_defaults.py
+@@ -68,6 +68,9 @@
+     'job_working_directory',
+     'len_file_path',
+     'library_import_dir',
++    'markdown_export_css',
++    'markdown_export_css_pages',
++    'markdown_export_css_invocation_reports',
+     'migrated_tools_config',
+     'new_file_path',
+     'nginx_upload_job_files_path',
+@@ -178,6 +181,9 @@ def expected_default_config_dir(value):
+     'job_working_directory',  # broken; may or may not be able to test
+     'library_import_dir',  # broken: default overridden
+     'logging',  # mapping loaded in config/
++    'markdown_export_css',  # default not used?
++    'markdown_export_css_pages',  # default not used?
++    'markdown_export_css_invocation_reports',  # default not used?
+     'master_api_key',  # broken: default value assigned outside of config/
+     'migrated_tools_config',  # needs more work (should work)
+     'monitor_thread_join_timeout',  # broken: default overridden
+diff --git a/test/unit/managers/test_markdown_export.py b/test/unit/managers/test_markdown_export.py
+new file mode 100644
+index 000000000000..01f4abb84bbf
+--- /dev/null
++++ b/test/unit/managers/test_markdown_export.py
+@@ -0,0 +1,306 @@
++import os
++import tempfile
++from contextlib import contextmanager
++
++import mock
++
++from galaxy import model
++from galaxy.managers.jobs import JobManager
++from galaxy.managers.markdown_util import (
++    ready_galaxy_markdown_for_export,
++    to_basic_markdown,
++)
++from .base import BaseTestCase
++
++
++class BaseExportTestCase(BaseTestCase):
++
++    def setUp(self):
++        super(BaseExportTestCase, self).setUp()
++        self.app.hda_manager = mock.MagicMock()
++        self.app.workflow_manager = mock.MagicMock()
++        self.app.history_manager = mock.MagicMock()
++        self.app.dataset_collections_service = mock.MagicMock()
++
++    def _new_hda(self, contents=None):
++        hda = model.HistoryDatasetAssociation()
++        hda.id = 1
++        if contents is not None:
++            hda.dataset = mock.MagicMock()
++            hda.dataset.purged = False
++            t = tempfile.NamedTemporaryFile(mode="w", delete=False)
++            t.write(contents)
++            hda.dataset.get_file_name.return_value = t.name
++        return hda
++
++    @contextmanager
++    def _expect_get_hda(self, hda, hda_id=1):
++        self.app.hda_manager.get_accessible.return_value = hda
++        yield
++        self.app.hda_manager.get_accessible.assert_called_once_with(hda.id, self.trans.user)
++
++    def _new_pair_collection(self):
++        hda_forward = self._new_hda(contents="Forward dataset.")
++        hda_forward.id = 1
++        hda_forward.extension = "txt"
++        hda_reverse = self._new_hda(contents="Reverse dataset.")
++        hda_reverse.id = 2
++        hda_reverse.extension = "txt"
++
++        collection = model.DatasetCollection()
++        collection.id = 1
++        elements = []
++        element_forward = model.DatasetCollectionElement(
++            element=hda_forward,
++            element_index=0,
++            element_identifier="forward",
++        )
++        element_forward.id = 1
++        element_reverse = model.DatasetCollectionElement(
++            element=hda_reverse,
++            element_index=0,
++            element_identifier="reverse",
++        )
++        element_reverse.id = 2
++        elements = [element_forward, element_reverse]
++        collection.elements = elements
++        collection.collection_type = "paired"
++        return collection
++
++
++class ToBasicMarkdownTestCase(BaseExportTestCase):
++
++    def setUp(self):
++        super(ToBasicMarkdownTestCase, self).setUp()
++        self.test_dataset_path = None
++
++    def tearDown(self):
++        super(ToBasicMarkdownTestCase, self).tearDown()
++        if self.test_dataset_path is not None:
++            os.remove(self.test_dataset_path)
++
++    def test_noop_on_non_galaxy_blocks(self):
++        example = """# Example
++
++## Some Syntax
++
++*Foo* **bar** [Google](http://google.com/).
++
++## Code Blocks
++
++```
++history_dataset_display(history_dataset_id=4)
++```
++
++Another kind of code block:
++
++    job_metrics(job_id=4)
++
++"""
++        result = self._to_basic(example)
++        assert result == example
++
++    def test_history_dataset_peek(self):
++        hda = self._new_hda()
++        hda.peek = "My Cool Peek"
++        example = """# Example
++```galaxy
++history_dataset_peek(history_dataset_id=1)
++```
++"""
++        with self._expect_get_hda(hda):
++            result = self._to_basic(example)
++        assert '\n    My Cool Peek\n\n' in result
++
++    def test_history_dataset_peek_empty(self):
++        hda = self._new_hda()
++        example = """# Example
++```galaxy
++history_dataset_peek(history_dataset_id=1)
++```
++"""
++        with self._expect_get_hda(hda):
++            result = self._to_basic(example)
++        assert '\n*No Dataset Peek Available*\n' in result
++
++    def test_history_display_binary(self):
++        hda = self._new_hda()
++        hda.extension = 'ab1'
++        example = """# Example
++```galaxy
++history_dataset_display(history_dataset_id=1)
++```
++"""
++        with self._expect_get_hda(hda):
++            result = self._to_basic(example)
++        assert "**Contents:**\n*cannot display binary content*\n" in result
++
++    def test_history_display_text(self):
++        hda = self._new_hda(contents="MooCow")
++        hda.extension = 'txt'
++        example = """# Example
++```galaxy
++history_dataset_display(history_dataset_id=1)
++```
++"""
++        with self._expect_get_hda(hda):
++            result = self._to_basic(example)
++        assert "**Contents:**\n\n    MooCow\n\n" in result
++
++    def test_history_display_gtf(self):
++        gtf = """chr13	Cufflinks	transcript	3405463	3405542	1000	.	.	gene_id "CUFF.50189"; transcript_id "CUFF.50189.1"; FPKM "6.3668918357"; frac "1.000000"; conf_lo "0.000000"; conf_hi "17.963819"; cov "0.406914";
++chr13	Cufflinks	exon	3405463	3405542	1000	.	.	gene_id "CUFF.50189"; transcript_id "CUFF.50189.1"; exon_number "1"; FPKM "6.3668918357"; frac "1.000000"; conf_lo "0.000000"; conf_hi "17.963819"; cov "0.406914";
++chr13	Cufflinks	transcript	3473337	3473372	1000	.	.	gene_id "CUFF.50191"; transcript_id "CUFF.50191.1"; FPKM "11.7350749444"; frac "1.000000"; conf_lo "0.000000"; conf_hi "35.205225"; cov "0.750000";
++"""
++        example = """# Example
++```galaxy
++history_dataset_display(history_dataset_id=1)
++```
++"""
++        hda = self._new_hda(contents=gtf)
++        hda.extension = 'gtf'
++        from galaxy.datatypes.tabular import Tabular
++        assert isinstance(hda.datatype, Tabular)
++        with self._expect_get_hda(hda):
++            result = self._to_basic(example)
++        assert '<table' in result
++
++    def test_history_collection_paired(self):
++        hdca = model.HistoryDatasetCollectionAssociation()
++        hdca.name = "cool name"
++        hdca.collection = self._new_pair_collection()
++        hdca.id = 1
++
++        self.trans.app.dataset_collections_service.get_dataset_collection_instance.return_value = hdca
++        example = """# Example
++```galaxy
++history_dataset_collection_display(history_dataset_collection_id=1)
++```
++"""
++        result = self._to_basic(example)
++        assert "**Dataset Collection:** cool name\n" in result
++        assert "**Element:** forward" in result, result
++        assert "**Element Contents:**\n" in result
++        assert "\n    Forward dataset.\n" in result
++        assert "**Element:** reverse" in result, result
++        assert "\n    Reverse dataset.\n" in result
++
++    def test_workflow_export(self):
++        stored_workflow = model.StoredWorkflow()
++        stored_workflow.name = "My Cool Workflow"
++        workflow = model.Workflow()
++        stored_workflow.latest_workflow = workflow
++        workflow_step_0 = model.WorkflowStep()
++        workflow_step_0.annotation = "My Cool Annotation"
++        workflow.steps = [workflow_step_0]
++        self.trans.app.workflow_manager.get_stored_accessible_workflow.return_value = stored_workflow
++        example = """# Example
++```galaxy
++workflow_display(workflow_id=1)
++```
++"""
++        result = self._to_basic(example)
++        assert "**Workflow:** My Cool Workflow\n" in result
++        assert "**Steps:**\n" in result
++
++    def test_job_parameters(self):
++        job = model.Job()
++        job.id = 1
++        example = """# Example
++```galaxy
++job_parameters(job_id=1)
++```
++"""
++        parameters = [
++            {"text": "Num Lines", "value": "6", "depth": 1},
++            {"text": "Plot", "value": "coolselect", "depth": 2},
++            {"text": "Input Dataset", "value": [{"src": "hda", "hid": 5, "name": "Cool Data"}], "depth": 1},
++        ]
++        response = {"parameters": parameters}
++        with mock.patch.object(JobManager, 'get_accessible_job', return_value=job):
++            with mock.patch("galaxy.managers.markdown_util.summarize_job_parameters", return_value=response):
++                result = self._to_basic(example)
++        assert "| Num Lines |" in result
++        assert "| > Plot |" in result
++        assert "| Input Dataset | " in result
++        assert "| 5: Cool Data |\n" in result
++
++    def test_job_metrics(self):
++        job = model.Job()
++        job.id = 1
++        example = """# Example
++```galaxy
++job_metrics(job_id=1)
++```
++"""
++        metrics = [
++            {"plugin": "core", "title": "Cores Allocated", "value": 1},
++            {"plugin": "core", "title": "Job Start Time", "value": "2019-12-17 11:53:13"},
++            {"plugin": "env", "title": "GALAXY_HOME", "value": "/path/to/home"},
++        ]
++        with mock.patch.object(JobManager, 'get_accessible_job', return_value=job):
++            with mock.patch("galaxy.managers.markdown_util.summarize_job_metrics", return_value=metrics):
++                result = self._to_basic(example)
++        assert "**core**\n" in result
++        assert "**env**\n" in result
++        assert "| Cores Allocated | 1 |\n" in result
++        assert "| GALAXY_HOME | /path/to/home |\n" in result
++
++    def _to_basic(self, example):
++        return to_basic_markdown(self.trans, example)
++
++
++class ReadyExportTestCase(BaseExportTestCase):
++
++    def test_ready_dataset_display(self):
++        hda = self._new_hda()
++        example = """
++```galaxy
++history_dataset_display(history_dataset_id=1)
++```
++"""
++        with self._expect_get_hda(hda):
++            export_markdown, extra_data = self._ready_export(example)
++        assert "history_datasets" in extra_data
++        assert len(extra_data["history_datasets"]) == 1
++
++    def test_ready_export_two_datasets(self):
++        hda = self._new_hda()
++        hda2 = self._new_hda()
++        hda2.id = 2
++        example = """
++```galaxy
++history_dataset_display(history_dataset_id=1)
++```
++
++```galaxy
++history_dataset_display(history_dataset_id=2)
++```
++"""
++        self.app.hda_manager.get_accessible.side_effect = [hda, hda2]
++        export_markdown, extra_data = self._ready_export(example)
++        assert "history_datasets" in extra_data
++        assert len(extra_data["history_datasets"]) == 2
++
++    def test_export_dataset_collection_paired(self):
++        hdca = model.HistoryDatasetCollectionAssociation()
++        hdca.name = "cool name"
++        hdca.collection = self._new_pair_collection()
++        hdca.id = 1
++        hdca.history_id = 1
++
++        self.trans.app.dataset_collections_service.get_dataset_collection_instance.return_value = hdca
++        example = """# Example
++```galaxy
++history_dataset_collection_display(history_dataset_collection_id=1)
++```
++"""
++        # Patch out url_for since we haven't initialized an app.
++        from galaxy.managers.hdcas import HDCASerializer
++        with mock.patch.object(HDCASerializer, 'url_for', return_value="http://google.com"):
++            export, extra_data = self._ready_export(example)
++        assert "history_dataset_collections" in extra_data
++        assert len(extra_data.get("history_dataset_collections")) == 1
++
++    def _ready_export(self, example):
++        return ready_galaxy_markdown_for_export(self.trans, example)
+diff --git a/test/unit/managers/test_markdown_to_html.py b/test/unit/managers/test_markdown_to_html.py
+new file mode 100644
+index 000000000000..a02a3c29c51b
+--- /dev/null
++++ b/test/unit/managers/test_markdown_to_html.py
+@@ -0,0 +1,58 @@
++"""Test low-level Markdown to HTML conversion.
++
++It is an external library for the most part, but given sensitivity of escaping
++HTML content - best to test in insolation and verify the security of our
++dependencies.
++"""
++from galaxy.managers.markdown_util import to_html
++
++
++def test_basics():
++    as_html = to_html("""
++# My header!
++
++My cool document. **Bold** text.
++
++## My sub header
++
++Less important content.
++""")
++    assert "<h1>My header!</h1>" in as_html
++    assert "<strong>Bold</strong>" in as_html
++
++
++def test_indent_code_blocks():
++    as_html = to_html("""
++A Code Block Follows:
++
++    This is code right?
++    Here is another line.
++""")
++    assert "<pre><code>This is code right?\nHere is another line." in as_html
++
++
++def test_tables():
++    as_html = to_html("""
++|animal|sound|
++|------|-----|
++|dog   |bark |
++|cat   |meow |
++""")
++    assert "<table>" in as_html, as_html
++
++
++def test_tags_escaped():
++    as_html = to_html("""
++Bad block approaches <br>
++
++<script>window.location.href = "bad_place";</script>
++""")
++    assert "<script>" not in as_html, as_html
++
++
++def test_embed_img_tags():
++    as_html = to_html("""
++![Red dot](data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAAAAUAAAAFCAYAAACNbyblAAAAHElEQVQI12P4//8/w38GIAXDIBKE0DHxgljNBAAO9TXL0Y4OHwAAAABJRU5ErkJggg==)
++""")
++    assert "img" in as_html, as_html
++    assert "iVBORw0KGgoAAAANSUhEUgAAAAUAAA" in as_html, as_html

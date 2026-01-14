@@ -1,0 +1,1111 @@
+diff --git a/client/galaxy/scripts/components/Dataset/DatasetAsImage/DatasetAsImage.vue b/client/galaxy/scripts/components/Dataset/DatasetAsImage/DatasetAsImage.vue
+new file mode 100644
+index 000000000000..3847b70fa318
+--- /dev/null
++++ b/client/galaxy/scripts/components/Dataset/DatasetAsImage/DatasetAsImage.vue
+@@ -0,0 +1,41 @@
++<template>
++    <div>
++        <img v-if="imgUrl" :src="imgUrl" />
++        <div v-else>
++            <b>Image is not found</b>
++        </div>
++    </div>
++</template>
++
++<script>
++import { getAppRoot } from "onload/loadConfig";
++import { mapCacheActions } from "vuex-cache";
++
++export default {
++    props: {
++        history_dataset_id: {
++            type: String,
++            required: true,
++        },
++        path: {
++            type: String,
++        },
++    },
++    created() {
++        if (this.path) {
++            this.fetchPathDestination({ history_dataset_id: this.history_dataset_id, path: this.path }).then(() => {
++                const pathDestination = this.$store.getters.pathDestination(this.history_dataset_id, this.path);
++                this.imgUrl = pathDestination.fileLink;
++            });
++        } else this.imgUrl = `${getAppRoot()}dataset/display?dataset_id=${this.history_dataset_id}`;
++    },
++    data() {
++        return {
++            imgUrl: undefined,
++        };
++    },
++    methods: {
++        ...mapCacheActions(["fetchPathDestination"]),
++    },
++};
++</script>
+diff --git a/client/galaxy/scripts/components/Dataset/DatasetIndex/DatasetIndex.vue b/client/galaxy/scripts/components/Dataset/DatasetIndex/DatasetIndex.vue
+new file mode 100644
+index 000000000000..762e014b574a
+--- /dev/null
++++ b/client/galaxy/scripts/components/Dataset/DatasetIndex/DatasetIndex.vue
+@@ -0,0 +1,88 @@
++<template>
++    <div>
++        <b-table
++            thead-class="hidden_header"
++            v-if="directoryContent && !errorMessage"
++            striped
++            hover
++            :fields="fields"
++            :items="directoryContent"
++        >
++        </b-table>
++        <div v-if="errorMessage">
++            <b v-if="path">{{ path }}</b> {{ errorMessage }}
++        </div>
++    </div>
++</template>
++
++<script>
++import { mapCacheActions } from "vuex-cache";
++
++export default {
++    props: {
++        history_dataset_id: {
++            type: String,
++            required: true,
++        },
++        path: {
++            type: String,
++        },
++    },
++    created() {
++        this.fetchPathDestination({ history_dataset_id: this.history_dataset_id, path: this.path }).then(() => {
++            const pathDestination = this.$store.getters.pathDestination(this.history_dataset_id, this.path);
++            if (!pathDestination) {
++                this.errorMessage = `Dataset is not composite!`;
++                return;
++            }
++            if (pathDestination.fileLink) {
++                this.errorMessage = `is not a directory!`;
++                return;
++            }
++
++            if (pathDestination.isDirectory) {
++                this.directoryContent = this.removeParentDirectory(
++                    pathDestination.datasetContent,
++                    pathDestination.filepath
++                );
++            } else if (this.path === undefined || this.path === "undefined") {
++                this.directoryContent = this.removeParentDirectory(
++                    pathDestination.datasetContent,
++                    pathDestination.datasetRootDir
++                );
++            } else {
++                this.errorMessage = `is not found!`;
++            }
++        });
++    },
++    data() {
++        return {
++            directoryContent: false,
++            fields: [
++                {
++                    key: "path",
++                    sortable: true,
++                },
++                {
++                    key: "class",
++                    label: "Type",
++                    sortable: true,
++                },
++            ],
++            errorMessage: undefined,
++        };
++    },
++    methods: {
++        ...mapCacheActions(["fetchPathDestination"]),
++
++        removeParentDirectory(datasetContent, filepath) {
++            return datasetContent.filter((entry) => {
++                if (entry.path.startsWith(`${filepath}/`)) {
++                    entry.path = entry.path.replace(`${filepath}/`, "");
++                    return entry;
++                }
++            });
++        },
++    },
++};
++</script>
+diff --git a/client/galaxy/scripts/components/Dataset/DatasetLink/DatasetLink.vue b/client/galaxy/scripts/components/Dataset/DatasetLink/DatasetLink.vue
+new file mode 100644
+index 000000000000..c3a4411734d1
+--- /dev/null
++++ b/client/galaxy/scripts/components/Dataset/DatasetLink/DatasetLink.vue
+@@ -0,0 +1,67 @@
++<template>
++    <div>
++        <a :href="pathDestination.fileLink" title="test" target="_blank">{{ linkLabel }}</a>
++    </div>
++</template>
++
++<script>
++import { getAppRoot } from "onload/loadConfig";
++import { Services } from "components/Dataset/services";
++import { mapCacheActions } from "vuex-cache";
++
++export default {
++    props: {
++        history_dataset_id: {
++            type: String,
++            required: true,
++        },
++        path: {
++            type: String,
++        },
++        label: {
++            type: String,
++        },
++    },
++    created() {
++        this.services = new Services({ root: getAppRoot() });
++        this.pathDestination = {};
++        if (this.path && this.path !== "undefined") {
++            // download individual file from composite dataset
++            this.fetchPathDestination({ history_dataset_id: this.history_dataset_id, path: this.path }).then(() => {
++                this.pathDestination = this.$store.getters.pathDestination(this.history_dataset_id, this.path);
++            });
++        } else {
++            // download whole dataset
++            this.services.getCompositeDatasetInfo(this.history_dataset_id).then((response) => {
++                this.pathDestination = { fileLink: `${response.download_url}?to_ext=${response.file_ext}` };
++            });
++        }
++    },
++    data() {
++        return {
++            pathDestination: undefined,
++        };
++    },
++    computed: {
++        linkLabel() {
++            // if sub-directory, we could potentially implement subdir compression
++            if (this.pathDestination.isDirectory) return `Path: ${this.path} is a directory!`;
++
++            if (!this.pathDestination.fileLink) return `Path: ${this.path} was not found!`;
++
++            if (this.label !== undefined && this.label !== "undefined") {
++                return this.label;
++            } else {
++                return `${
++                    this.pathDestination.datasetRootDir && this.path
++                        ? `DATASET: ${this.pathDestination.datasetRootDir} FILEPATH: ${this.path}`
++                        : `${this.history_dataset_id}`
++                } `;
++            }
++        },
++    },
++    methods: {
++        ...mapCacheActions(["fetchPathDestination"]),
++    },
++};
++</script>
+diff --git a/client/galaxy/scripts/components/Dataset/compositeDatasetUtils.js b/client/galaxy/scripts/components/Dataset/compositeDatasetUtils.js
+new file mode 100644
+index 000000000000..67a0bdf5f275
+--- /dev/null
++++ b/client/galaxy/scripts/components/Dataset/compositeDatasetUtils.js
+@@ -0,0 +1,42 @@
++import { getAppRoot } from "onload/loadConfig";
++import { Services } from "components/Dataset/services";
++import store from "../../store/index";
++
++export const getPathDestination = async (history_dataset_id, path) => {
++    const services = new Services({ root: getAppRoot() });
++
++    const computePathDestination = (pathDestination) => {
++        if (pathDestination.datasetContent[0].class === "Directory")
++            pathDestination.datasetRootDir = datasetContent[0].path;
++        else return;
++
++        if (path === undefined || path === "undefined") {
++            return pathDestination;
++        }
++
++        const filepath = `${pathDestination.datasetRootDir}/${path}`;
++
++        const datasetEntry = datasetContent.find((datasetEntry) => {
++            return filepath === datasetEntry.path;
++        });
++
++        if (datasetEntry) {
++            if (datasetEntry.class === "Directory") {
++                pathDestination.isDirectory = true;
++                pathDestination.filepath = filepath;
++                return pathDestination;
++            }
++            pathDestination.fileLink = services.getCompositeDatasetLink(history_dataset_id, datasetEntry.path);
++        }
++        return pathDestination;
++    };
++
++    let datasetContent = store.getters.getDatasetExtFiles(history_dataset_id);
++
++    if (datasetContent == null) {
++        await store.dispatch("fetchDatasetExtFiles", history_dataset_id);
++        datasetContent = store.getters.getDatasetExtFiles(history_dataset_id);
++    }
++
++    return computePathDestination({ datasetContent: datasetContent });
++};
+diff --git a/client/galaxy/scripts/components/Dataset/mount.js b/client/galaxy/scripts/components/Dataset/mount.js
+new file mode 100644
+index 000000000000..a577a4374e4b
+--- /dev/null
++++ b/client/galaxy/scripts/components/Dataset/mount.js
+@@ -0,0 +1,32 @@
++/**
++ * Endpoint for mounting dataset components from non-Vue environment.
++ */
++import $ from "jquery";
++import DatasetLink from "./DatasetLink/DatasetLink";
++import { mountVueComponent } from "utils/mountVueComponent";
++import DatasetIndex from "./DatasetIndex/DatasetIndex";
++import DatasetAsImage from "./DatasetAsImage/DatasetAsImage";
++
++export const mountDatasetAsImage = () => {
++    return mountDatasetComponent(".dataset-as-image", ["history_dataset_id", "path"], DatasetAsImage);
++};
++export const mountDatasetIndex = () => {
++    return mountDatasetComponent(".dataset-index", ["history_dataset_id", "path"], DatasetIndex);
++};
++export const mountDatasetLink = () => {
++    return mountDatasetComponent(".dataset-link", ["history_dataset_id", "path", "label"], DatasetLink);
++};
++
++export const mountDatasetComponents = () => {
++    const all = [mountDatasetAsImage, mountDatasetIndex, mountDatasetLink];
++    all.forEach((func) => func());
++};
++
++const mountDatasetComponent = (selector, props, component, propsData = {}) => {
++    $(selector).each((index, el) => {
++        props.forEach((prop) => {
++            propsData[prop] = $(el).attr(prop);
++        });
++        mountVueComponent(component)(propsData, el);
++    });
++};
+diff --git a/client/galaxy/scripts/components/Dataset/services.js b/client/galaxy/scripts/components/Dataset/services.js
+index 4d836372d5f9..f276215d4676 100644
+--- a/client/galaxy/scripts/components/Dataset/services.js
++++ b/client/galaxy/scripts/components/Dataset/services.js
+@@ -1,4 +1,5 @@
+ import axios from "axios";
++import { rethrowSimple } from "utils/simple-error";
+ 
+ /** Datasets request helper **/
+ export class Services {
+@@ -68,6 +69,30 @@ export class Services {
+         }
+     }
+ 
++    async getCompositeDatasetContentFiles(id) {
++        const url = `${this.root}api/histories/${id}/contents/${id}/extra_files`;
++        try {
++            const response = await axios.get(url);
++            return response.data;
++        } catch (e) {
++            rethrowSimple(e);
++        }
++    }
++
++    getCompositeDatasetLink(history_dataset_id, path) {
++        return `${this.root}api/histories/${history_dataset_id}/contents/${history_dataset_id}/display?filename=${path}`;
++    }
++
++    async getCompositeDatasetInfo(id) {
++        const url = `${this.root}api/histories/${id}/contents/${id}`;
++        try {
++            const response = await axios.get(url);
++            return response.data;
++        } catch (e) {
++            rethrowSimple(e);
++        }
++    }
++
+     _errorMessage(e) {
+         let message = "Request failed.";
+         if (e.response) {
+diff --git a/client/galaxy/scripts/components/Markdown/Markdown.vue b/client/galaxy/scripts/components/Markdown/Markdown.vue
+index 9ac141bcaea0..70b8538491f0 100644
+--- a/client/galaxy/scripts/components/Markdown/Markdown.vue
++++ b/client/galaxy/scripts/components/Markdown/Markdown.vue
+@@ -14,6 +14,7 @@ import { getGalaxyInstance } from "app";
+ import { render_embedded_items } from "mvc/embedded-objects";
+ import { mountJobMetrics } from "components/JobMetrics";
+ import { mountJobParameters } from "components/JobParameters";
++import { mountDatasetComponents } from "components/Dataset/mount";
+ import MarkdownIt from "markdown-it";
+ 
+ import JOB_STATES_MODEL from "mvc/history/job-states-model";
+@@ -22,7 +23,7 @@ import HDCAListItemEdit from "mvc/history/hdca-li-edit";
+ import HDCAListItem from "mvc/history/hdca-li";
+ const FUNCTION_VALUE_REGEX = `\\s*(?:[\\w_\\-]+|\\"[^\\"]+\\"|\\'[^\\']+\\')\\s*`;
+ const FUNCTION_CALL = `\\s*\\w+\\s*=` + FUNCTION_VALUE_REGEX;
+-const FUNCTION_CALL_LINE = `\\s*(\\w+)\\s*\\((` + FUNCTION_CALL + `)(,` + FUNCTION_CALL + `)*\\)\\s*`;
++const FUNCTION_CALL_LINE = `\\s*(\\w+)\\s*\\(\\s*(?:(${FUNCTION_CALL})(,${FUNCTION_CALL})*)?\\s*\\)\\s*`;
+ const FUNCTION_CALL_LINE_TEMPLATE = new RegExp(FUNCTION_CALL_LINE, "m");
+ 
+ const md = MarkdownIt();
+@@ -61,6 +62,17 @@ const RENDER_FUNCTIONS = {
+             </div>
+         </div>`;
+     },
++    history_dataset_link: (action, args, content) => {
++        const history_dataset_id = args.history_dataset_id;
++        const path = args.path;
++        const label = args.label;
++        return `<div class="dataset-link" history_dataset_id="${history_dataset_id}" path="${path}" label="${label}"></div>`;
++    },
++    history_dataset_index: (action, args, content) => {
++        const history_dataset_id = args.history_dataset_id;
++        const path = args.path;
++        return `<div class="dataset-index" history_dataset_id="${history_dataset_id}" path="${path}"></div>`;
++    },
+     history_dataset_collection_display: (action, args, content) => {
+         const history_dataset_collection_id = args.history_dataset_collection_id;
+         return `<div class='dataset-collection' history_dataset_collection_id="${history_dataset_collection_id}"></div>`;
+@@ -90,7 +102,11 @@ const RENDER_FUNCTIONS = {
+     },
+     history_dataset_as_image: (action, args, content) => {
+         const history_dataset_id = args.history_dataset_id;
+-        return `<img src="${getAppRoot()}dataset/display?dataset_id=${history_dataset_id}"></img>`;
++        const path = args.path;
++        if (path) {
++            `${getAppRoot}api/histories/${history_dataset_id}/contents/${history_dataset_id}/display?filename=${path}`;
++        }
++        return `<div class="dataset-as-image" history_dataset_id="${history_dataset_id}" path="${path}"></div>`;
+     },
+     history_dataset_peek: (action, args, content) => {
+         const history_dataset_id = args.history_dataset_id;
+@@ -100,6 +116,14 @@ const RENDER_FUNCTIONS = {
+         const history_dataset_id = args.history_dataset_id;
+         return `<div class='dataset-info' history_dataset_id="${history_dataset_id}"><pre><code></code></pre></div>`;
+     },
++    history_dataset_name: (action, args, contents) => {
++        const history_dataset_id = args.history_dataset_id;
++        return `<div class='dataset-name' history_dataset_id="${history_dataset_id}"><pre><code></code></pre></div>`;
++    },
++    history_dataset_type: (actions, args, contents) => {
++        const history_dataset_id = args.history_dataset_id;
++        return `<div class='dataset-type' history_dataset_id="${history_dataset_id}"><pre><code></code></pre></div>`;
++    },
+     tool_stdout: (action, args, content) => {
+         const jobId = args.job_id;
+         return `<div class="tool-stdout" job_id="${jobId}"><pre><code></code></pre></div>`;
+@@ -117,27 +141,42 @@ const RENDER_FUNCTIONS = {
+         const param = args.param;
+         return `<div class="job-parameters" job_id="${jobId}" param="${param}"></div>`;
+     },
++    generate_galaxy_version: (actions, args, content) => {
++        return `<div class="galaxy-version"><pre><code></code></pre></div>`;
++    },
++    generate_time: (actions, args, content) => {
++        return `<div class="generate-time"><pre><code></code></pre></div>`;
++    },
++    invocation_time: (actions, args, content) => {
++        const invocationId = args.invocation_id;
++        return `<div class="invocation-time" invocation_id="${invocationId}"><pre><code></code></pre></div>`;
++    },
+ };
+ 
+ md.renderer.rules.fence = function (tokens, idx, options, env, slf) {
+     const token = tokens[idx];
+     const info = token.info ? token.info.trim() : "";
+     const content = token.content;
++
+     if (info == "galaxy") {
+-        const arr = FUNCTION_CALL_LINE_TEMPLATE.exec(content);
++        const galaxy_function = FUNCTION_CALL_LINE_TEMPLATE.exec(content);
+ 
+         const args = {};
+-        const action = arr[1];
+-        for (let i = 2; i < arr.length; i++) {
+-            if (arr[i] === undefined) continue;
+-            const arguments_str = arr[i].replace(/,/g, "").trim();
++        const function_name = galaxy_function[1];
++        // we need [... ] to return empty string, if regex doesn't match
++        const function_arguments = [...content.matchAll(new RegExp(FUNCTION_CALL, "g"))];
++
++        for (let i = 0; i < function_arguments.length; i++) {
++            if (function_arguments[i] === undefined) continue;
++            const arguments_str = function_arguments[i].toString().replace(/,/g, "").trim();
+ 
+             if (arguments_str) {
+                 const [key, val] = arguments_str.split("=");
+                 args[key.trim()] = val.replace(/['"]+/g, "").trim();
+             }
+         }
+-        return RENDER_FUNCTIONS[action](action, args, content);
++
++        return RENDER_FUNCTIONS[function_name](function_name, args, content);
+     } else {
+         return default_fence(tokens, idx, options, env, slf);
+     }
+@@ -172,6 +211,9 @@ export default {
+             historyDatasetCollections: {},
+             workflows: {},
+             jobs: {},
++            invocations: {},
++            generateTime: null,
++            generateGalaxyVersion: null,
+         };
+     },
+     computed: {
+@@ -188,11 +230,16 @@ export default {
+             this.historyDatasetCollections = mConfig.history_dataset_collections || {};
+             this.workflows = mConfig.workflows || {};
+             this.jobs = mConfig.jobs || {};
++            this.invocations = mConfig.invocations || {};
++            this.generateGalaxyVersion = mConfig.generate_version || "Unknown Galaxy Version";
++            this.generateTime = mConfig.generate_time;
+ 
+             this.$nextTick(() => {
+                 render_embedded_items();
+                 mountJobMetrics({ includeTitle: false });
+                 mountJobParameters({ includeTitle: false });
++                mountDatasetComponents();
++
+                 $("span.render-name").each((i, el) => {
+                     const historyDatasetId = $(el).attr("history_dataset_id");
+                     if (historyDatasetId) {
+@@ -208,6 +255,13 @@ export default {
+                 render_fenced_output("tool-stderr", this.jobs, "job_id", "tool_stderr");
+                 render_fenced_output("dataset-peek", this.historyDatasets, "history_dataset_id", "peek");
+                 render_fenced_output("dataset-info", this.historyDatasets, "history_dataset_id", "info");
++                render_fenced_output("dataset-name", this.historyDatasets, "history_dataset_id", "name");
++                render_fenced_output("dataset-type", this.historyDatasets, "history_dataset_id", "ext");
++
++                $(".galaxy-version code").text(this.generateGalaxyVersion);
++                $(".generate-time code").text(this.generateTime);
++
++                render_fenced_output("invocation-time", this.invocations, "invocation_id", "create_time");
+ 
+                 $(".dataset-collection").each((i, el) => {
+                     const Galaxy = getGalaxyInstance();
+diff --git a/client/galaxy/scripts/store/datasetExtFilesStore.js b/client/galaxy/scripts/store/datasetExtFilesStore.js
+new file mode 100644
+index 000000000000..c07cecb1d851
+--- /dev/null
++++ b/client/galaxy/scripts/store/datasetExtFilesStore.js
+@@ -0,0 +1,35 @@
++export const state = {
++    datasetExtFilesById: {},
++};
++
++import Vue from "vue";
++import { getAppRoot } from "onload/loadConfig";
++import axios from "axios";
++
++const getters = {
++    getDatasetExtFiles: (state) => (history_dataset_id) => {
++        return state.datasetExtFilesById[history_dataset_id] || null;
++    },
++};
++
++const actions = {
++    fetchDatasetExtFiles: async ({ commit }, history_dataset_id) => {
++        const { data } = await axios.get(
++            `${getAppRoot()}api/histories/${history_dataset_id}/contents/${history_dataset_id}/extra_files`
++        );
++        commit("saveDatasetExtFiles", { history_dataset_id, datasetExtFiles: data });
++    },
++};
++
++const mutations = {
++    saveDatasetExtFiles: (state, { history_dataset_id, datasetExtFiles }) => {
++        Vue.set(state.datasetExtFilesById, history_dataset_id, datasetExtFiles);
++    },
++};
++
++export const datasetExtFilesStore = {
++    state,
++    getters,
++    actions,
++    mutations,
++};
+diff --git a/client/galaxy/scripts/store/datasetPathDestinationStore.js b/client/galaxy/scripts/store/datasetPathDestinationStore.js
+new file mode 100644
+index 000000000000..b687a3aa1ce4
+--- /dev/null
++++ b/client/galaxy/scripts/store/datasetPathDestinationStore.js
+@@ -0,0 +1,35 @@
++export const state = {
++    datasetPathDestination: {},
++};
++
++import { getPathDestination } from "components/Dataset/compositeDatasetUtils";
++
++const getters = {
++    pathDestination: (state) => (history_dataset_id, path) => {
++        if (state.datasetPathDestination[history_dataset_id]) {
++            return state.datasetPathDestination[history_dataset_id][path];
++        } else {
++            return;
++        }
++    },
++};
++
++const actions = {
++    fetchPathDestination: async ({ commit }, { history_dataset_id, path }) => {
++        const data = await getPathDestination(history_dataset_id, path);
++        commit("savePathDestination", { history_dataset_id, path, pathDestination: data });
++    },
++};
++
++const mutations = {
++    savePathDestination: (state, { history_dataset_id, path, pathDestination }) => {
++        state.datasetPathDestination[history_dataset_id] = { [path]: pathDestination };
++    },
++};
++
++export const datasetPathDestinationStore = {
++    state,
++    getters,
++    actions,
++    mutations,
++};
+diff --git a/client/galaxy/scripts/store/index.js b/client/galaxy/scripts/store/index.js
+index 0f89419a996a..9554dd86af80 100644
+--- a/client/galaxy/scripts/store/index.js
++++ b/client/galaxy/scripts/store/index.js
+@@ -15,6 +15,8 @@ import { historyStore } from "./historyStore";
+ import { userStore } from "./userStore";
+ import { configStore } from "./configStore";
+ import { workflowStore } from "./workflowStore";
++import { datasetPathDestinationStore } from "./datasetPathDestinationStore";
++import { datasetExtFilesStore } from "./datasetExtFilesStore";
+ 
+ Vue.use(Vuex);
+ 
+@@ -33,6 +35,8 @@ export function createStore() {
+             tags: tagStore,
+             jobMetrics: jobMetricsStore,
+             destinationParameters: jobDestinationParametersStore,
++            datasetPathDestination: datasetPathDestinationStore,
++            datasetExtFiles: datasetExtFilesStore,
+             invocations: invocationStore,
+             user: userStore,
+             config: configStore,
+diff --git a/lib/galaxy/managers/markdown_parse.py b/lib/galaxy/managers/markdown_parse.py
+index deb3ebad659e..93a424c56686 100644
+--- a/lib/galaxy/managers/markdown_parse.py
++++ b/lib/galaxy/managers/markdown_parse.py
+@@ -13,30 +13,37 @@
+     r"```\s*galaxy\s*"
+ )
+ VALID_CONTAINER_END_PATTERN = re.compile(r"^```\s*$")
+-GALAXY_FLAVORED_MARKDOWN_CONTAINERS = [
+-    "history_dataset_display",
+-    "history_dataset_embedded",
+-    "history_dataset_collection_display",
+-    "history_dataset_as_image",
+-    "history_dataset_peek",
+-    "history_dataset_info",
+-    "workflow_display",
+-    "job_metrics",
+-    "job_parameters",
+-    "tool_stderr",
+-    "tool_stdout",
+-]
+-INVOCATION_SECTIONS = [
+-    "invocation_inputs",
+-    "invocation_outputs",
+-]
+-ALL_CONTAINER_TYPES = GALAXY_FLAVORED_MARKDOWN_CONTAINERS + INVOCATION_SECTIONS
+-GALAXY_FLAVORED_MARKDOWN_CONTAINER_REGEX = "(%s)" % "|".join(ALL_CONTAINER_TYPES)
++VALID_ARGUMENTS = {
++    "history_dataset_display": ["input", "output", "history_dataset_id"],
++    "history_dataset_embedded": ["input", "output", "history_dataset_id"],
++    "history_dataset_as_image": ["input", "output", "history_dataset_id", "path"],
++    "history_dataset_peek": ["input", "output", "history_dataset_id"],
++    "history_dataset_info": ["input", "output", "history_dataset_id"],
++    "history_dataset_link": ["input", "output", "history_dataset_id", "path", "label"],
++    "history_dataset_index": ["input", "output", "history_dataset_id", "path"],
++    "history_dataset_name": ["input", "output", "history_dataset_id"],
++    "history_dataset_type": ["input", "output", "history_dataset_id"],
++    "history_dataset_collection_display": ["input", "output", "history_dataset_collection_id"],
++    "workflow_display": ["workflow_id"],
++    "job_metrics": ["step", "job_id"],
++    "job_parameters": ["step", "job_id"],
++    "tool_stderr": ["step", "job_id"],
++    "tool_stdout": ["step", "job_id"],
++    "generate_galaxy_version": [],
++    "generate_time": [],
++    "invocation_time": ["invocation_id"],
++    # Invocation Flavored Markdown
++    "invocation_outputs": [],
++    "invocation_inputs": [],
++}
++GALAXY_FLAVORED_MARKDOWN_CONTAINERS = list(VALID_ARGUMENTS.keys())
++GALAXY_FLAVORED_MARKDOWN_CONTAINER_REGEX = r'(?P<container>%s)' % "|".join(GALAXY_FLAVORED_MARKDOWN_CONTAINERS)
+ 
+ ARG_VAL_REGEX = r'''[\w_\-]+|\"[^\"]+\"|\'[^\']+\''''
+ FUNCTION_ARG = r'\s*\w+\s*=\s*(?:%s)\s*' % ARG_VAL_REGEX
+ # embed commas between arguments
+-FUNCTION_MULTIPLE_ARGS = r'(%s)(,%s)*' % (FUNCTION_ARG, FUNCTION_ARG)
++FUNCTION_MULTIPLE_ARGS = r'(?P<firstargcall>%s)(?P<restargcalls>(?:,%s)*)' % (FUNCTION_ARG, FUNCTION_ARG)
++FUNCTION_MULTIPLE_ARGS_PATTERN = re.compile(FUNCTION_MULTIPLE_ARGS)
+ FUNCTION_CALL_LINE_TEMPLATE = r'\s*%s\s*\((?:' + FUNCTION_MULTIPLE_ARGS + r')?\)\s*'
+ GALAXY_MARKDOWN_FUNCTION_CALL_LINE = re.compile(FUNCTION_CALL_LINE_TEMPLATE % GALAXY_FLAVORED_MARKDOWN_CONTAINER_REGEX)
+ WHITE_SPACE_ONLY_PATTERN = re.compile(r"^[\s]+$")
+@@ -77,10 +84,32 @@ def invalid_line(template, **kwd):
+             expecting_container_close_for = line
+             continue
+         elif fenced and line and expecting_container_close_for:
+-            if GALAXY_MARKDOWN_FUNCTION_CALL_LINE.match(line):
++            func_call_match = GALAXY_MARKDOWN_FUNCTION_CALL_LINE.match(line)
++            if func_call_match:
+                 function_calls += 1
+                 if function_calls > 1:
+                     invalid_line("Only one Galaxy directive is allowed per fenced Galaxy block (```galaxy)")
++                container = func_call_match.group("container")
++                valid_args = VALID_ARGUMENTS[container]
++                first_arg_call = func_call_match.group("firstargcall")
++
++                def _validate_arg(arg_str):
++                    if arg_str is not None:
++                        arg_name = arg_str.split("=", 1)[0].strip()
++                        if arg_name not in valid_args:
++                            invalid_line("Invalid argument to Galaxy directive [{argument}]", argument=arg_name)
++
++                _validate_arg(first_arg_call)
++                rest = func_call_match.group("restargcalls")
++                while rest:
++                    rest = rest.strip().split(",", 1)[1]
++                    arg_match = FUNCTION_MULTIPLE_ARGS_PATTERN.match(rest)
++                    if not arg_match:
++                        break
++                    first_arg_call = arg_match.group("firstargcall")
++                    _validate_arg(first_arg_call)
++                    rest = arg_match.group("restargcalls")
++
+                 continue
+             else:
+                 invalid_line("Invalid embedded Galaxy markup line [{line}]", line=line)
+diff --git a/lib/galaxy/managers/markdown_util.py b/lib/galaxy/managers/markdown_util.py
+index 084afe9975f2..2279247c19bb 100644
+--- a/lib/galaxy/managers/markdown_util.py
++++ b/lib/galaxy/managers/markdown_util.py
+@@ -36,6 +36,7 @@
+     summarize_job_parameters,
+ )
+ from galaxy.model.item_attrs import get_item_annotation_str
++from galaxy.model.orm.now import now
+ from galaxy.util.sanitize_html import sanitize_html
+ from .markdown_parse import GALAXY_MARKDOWN_FUNCTION_CALL_LINE, validate_galaxy_markdown
+ 
+@@ -46,8 +47,8 @@
+ INPUT_LABEL_PATTERN = re.compile(r'input=\s*%s\s*' % ARG_VAL_CAPTURED_REGEX)
+ STEP_LABEL_PATTERN = re.compile(r'step=\s*%s\s*' % ARG_VAL_CAPTURED_REGEX)
+ # STEP_OUTPUT_LABEL_PATTERN = re.compile(r'step_output=([\w_\-]+)/([\w_\-]+)')
+-UNENCODED_ID_PATTERN = re.compile(r'(workflow_id|history_dataset_id|history_dataset_collection_id|job_id)=([\d]+)')
+-ENCODED_ID_PATTERN = re.compile(r'(workflow_id|history_dataset_id|history_dataset_collection_id|job_id)=([a-z0-9]+)')
++UNENCODED_ID_PATTERN = re.compile(r'(workflow_id|history_dataset_id|history_dataset_collection_id|job_id|invocation_id)=([\d]+)')
++ENCODED_ID_PATTERN = re.compile(r'(workflow_id|history_dataset_id|history_dataset_collection_id|job_id|invocation_id)=([a-z0-9]+)')
+ INVOCATION_SECTION_MARKDOWN_CONTAINER_LINE_PATTERN = re.compile(
+     r"```\s*galaxy\s*"
+ )
+@@ -98,6 +99,14 @@ def _remap(container, line):
+                 assert object_id is not None
+                 hda = hda_manager.get_accessible(object_id, trans.user)
+                 rval = self.handle_dataset_display(line, hda)
++            elif container == "history_dataset_link":
++                assert object_id is not None
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                rval = self.handle_dataset_display(line, hda)
++            elif container == "history_dataset_index":
++                assert object_id is not None
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                rval = self.handle_dataset_display(line, hda)
+             elif container == "history_dataset_embedded":
+                 assert object_id is not None
+                 hda = hda_manager.get_accessible(object_id, trans.user)
+@@ -114,6 +123,14 @@ def _remap(container, line):
+                 assert object_id is not None
+                 hda = hda_manager.get_accessible(object_id, trans.user)
+                 rval = self.handle_dataset_info(line, hda)
++            elif container == "history_dataset_type":
++                assert object_id is not None
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                rval = self.handle_dataset_type(line, hda)
++            elif container == "history_dataset_name":
++                assert object_id is not None
++                hda = hda_manager.get_accessible(object_id, trans.user)
++                rval = self.handle_dataset_name(line, hda)
+             elif container == "workflow_display":
+                 stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
+                 # TODO: should be workflow id...
+@@ -133,6 +150,14 @@ def _remap(container, line):
+             elif container == "job_metrics":
+                 job = job_manager.get_accessible_job(trans, object_id)
+                 rval = self.handle_job_metrics(line, job)
++            elif container == "generate_galaxy_version":
++                version = trans.app.config.version_major
++                rval = self.handle_generate_galaxy_version(line, version)
++            elif container == "generate_time":
++                rval = self.handle_generate_time(line, now())
++            elif container == "invocation_time":
++                invocation = workflow_manager.get_invocation(trans, object_id)
++                rval = self.handle_invocation_time(line, invocation)
+             else:
+                 raise MalformedContents("Unknown Galaxy Markdown directive encountered [%s]" % container)
+             if rval is not None:
+@@ -159,6 +184,14 @@ def handle_dataset_peek(self, line, hda):
+     def handle_dataset_info(self, line, hda):
+         pass
+ 
++    @abc.abstractmethod
++    def handle_dataset_name(self, line, hda):
++        pass
++
++    @abc.abstractmethod
++    def handle_dataset_type(self, line, hda):
++        pass
++
+     @abc.abstractmethod
+     def handle_workflow_display(self, line, stored_workflow):
+         pass
+@@ -183,6 +216,18 @@ def handle_job_metrics(self, line, job):
+     def handle_job_parameters(self, line, job):
+         pass
+ 
++    @abc.abstractmethod
++    def handle_generate_galaxy_version(self, line, galaxy_version):
++        pass
++
++    @abc.abstractmethod
++    def handle_generate_time(self, line, date):
++        pass
++
++    @abc.abstractmethod
++    def handle_invocation_time(self, line, date):
++        pass
++
+ 
+ class ReadyForExportMarkdownDirectiveHandler(GalaxyInternalMarkdownDirectiveHandler):
+ 
+@@ -243,6 +288,21 @@ def handle_job_metrics(self, line, job):
+     def handle_job_parameters(self, line, job):
+         pass
+ 
++    def handle_generate_galaxy_version(self, line, generate_version):
++        self.extra_rendering_data["generate_version"] = generate_version
++
++    def handle_generate_time(self, line, generate_time):
++        self.extra_rendering_data["generate_time"] = generate_time.isoformat()
++
++    def handle_invocation_time(self, line, invocation):
++        self.ensure_rendering_data_for("invocations", invocation)["create_time"] = invocation.create_time.isoformat()
++
++    def handle_dataset_type(self, line, hda):
++        self.extend_history_dataset_rendering_data(hda, "ext", hda.ext, "*Unknown dataset type*")
++
++    def handle_dataset_name(self, line, hda):
++        self.extend_history_dataset_rendering_data(hda, "name", hda.name, "*Unknown dataset name*")
++
+ 
+ def ready_galaxy_markdown_for_export(trans, internal_galaxy_markdown):
+     """Fill in details needed to render Galaxy flavored markdown.
+@@ -394,6 +454,35 @@ def handle_job_parameters(self, line, job):
+ 
+         return (markdown, True)
+ 
++    def handle_generate_galaxy_version(self, line, generate_version):
++        if generate_version:
++            content = self.markdown_formatting_helpers.literal_via_fence(generate_version)
++        else:
++            content = "*No Galaxy Version Available*"
++        return (content, True)
++
++    def handle_generate_time(self, line, generate_time):
++        content = self.markdown_formatting_helpers.literal_via_fence(generate_time.isoformat())
++        return (content, True)
++
++    def handle_invocation_time(self, line, invocation):
++        content = self.markdown_formatting_helpers.literal_via_fence(invocation.create_time.isoformat())
++        return (content, True)
++
++    def handle_dataset_name(self, line, hda):
++        if hda.name:
++            content = self.markdown_formatting_helpers.literal_via_fence(hda.name)
++        else:
++            content = "*No Dataset Name Available*"
++        return (content, True)
++
++    def handle_dataset_type(self, line, hda):
++        if hda.ext:
++            content = self.markdown_formatting_helpers.literal_via_fence(hda.ext)
++        else:
++            content = "*No Dataset Type Available*"
++        return (content, True)
++
+ 
+ class MarkdownFormatHelpers(object):
+     """Inject common markdown formatting helpers for per-datatype rendering."""
+@@ -530,6 +619,8 @@ def _remap(container, line):
+             # TODO: this really should be workflow id not stored workflow id but the API
+             # it consumes wants the stored id.
+             return ("workflow_display(workflow_id=%s)\n" % invocation.workflow.stored_workflow.id, False)
++        if container == "invocation_date":
++            return ("invocation_date(invocation_id=%s)\n" % invocation.id, False)
+         ref_object_type = None
+         output_match = re.search(OUTPUT_LABEL_PATTERN, line)
+         input_match = re.search(INPUT_LABEL_PATTERN, line)
+diff --git a/test/unit/managers/test_markdown_export.py b/test/unit/managers/test_markdown_export.py
+index 88a06f2dac80..79a154d926ab 100644
+--- a/test/unit/managers/test_markdown_export.py
++++ b/test/unit/managers/test_markdown_export.py
+@@ -10,6 +10,7 @@
+     ready_galaxy_markdown_for_export,
+     to_basic_markdown,
+ )
++from galaxy.model.orm.now import now
+ from .base import BaseTestCase
+ 
+ 
+@@ -33,6 +34,12 @@ def _new_hda(self, contents=None):
+             hda.dataset.get_file_name.return_value = t.name
+         return hda
+ 
++    def _new_invocation(self):
++        invocation = model.WorkflowInvocation()
++        invocation.id = 1
++        invocation.create_time = now()
++        return invocation
++
+     @contextmanager
+     def _expect_get_hda(self, hda, hda_id=1):
+         self.app.hda_manager.get_accessible.return_value = hda
+@@ -165,6 +172,30 @@ def test_history_display_gtf(self):
+             result = self._to_basic(example)
+         assert '<table' in result
+ 
++    def test_dataset_name(self):
++        hda = self._new_hda()
++        hda.name = "cool name"
++        example = """# Example
++```galaxy
++history_dataset_name(history_dataset_id=1)
++```
++"""
++        with self._expect_get_hda(hda):
++            result = self._to_basic(example)
++        assert '\n    cool name' in result
++
++    def test_dataset_extension(self):
++        hda = self._new_hda()
++        hda.extension = "gtf"
++        example = """# Example
++```galaxy
++history_dataset_type(history_dataset_id=1)
++```
++"""
++        with self._expect_get_hda(hda):
++            result = self._to_basic(example)
++        assert '\n    gtf' in result
++
+     def test_history_collection_paired(self):
+         hdca = model.HistoryDatasetCollectionAssociation()
+         hdca.name = "cool name"
+@@ -203,6 +234,35 @@ def test_workflow_export(self):
+         assert "**Workflow:** My Cool Workflow\n" in result
+         assert "**Steps:**\n" in result
+ 
++    def test_galaxy_version(self):
++        example = """# Example
++```galaxy
++generate_galaxy_version()
++```
++"""
++        result = self._to_basic(example)
++        assert "\n    19.09" in result
++
++    def test_generate_time(self):
++        example = """# Example
++```galaxy
++generate_time()
++```
++"""
++        result = self._to_basic(example)
++        assert "\n    20" in result
++
++    def test_generate_invocation_time(self):
++        example = """# Example
++```galaxy
++invocation_time(invocation_id=1)
++```
++"""
++        invocation = self._new_invocation()
++        self.app.workflow_manager.get_invocation.side_effect = [invocation]
++        result = self._to_basic(example)
++        assert "\n    %s" % invocation.create_time.isoformat() in result
++
+     def test_job_parameters(self):
+         job = model.Job()
+         job.id = 1
+@@ -303,5 +363,37 @@ def test_export_dataset_collection_paired(self):
+         assert "history_dataset_collections" in extra_data
+         assert len(extra_data.get("history_dataset_collections")) == 1
+ 
++    def test_galaxy_version(self):
++        example = """# Example
++```galaxy
++generate_galaxy_version()
++```
++"""
++        result, extra_data = self._ready_export(example)
++        assert "generate_version" in extra_data
++        assert extra_data["generate_version"] == "19.09"
++
++    def test_generate_time(self):
++        example = """# Example
++```galaxy
++generate_time()
++```
++"""
++        result, extra_data = self._ready_export(example)
++        assert "generate_time" in extra_data
++
++    def test_get_invocation_time(self):
++        invocation = self._new_invocation()
++        self.app.workflow_manager.get_invocation.side_effect = [invocation]
++        example = """# Example
++```galaxy
++invocation_time(invocation_id=1)
++```
++"""
++        result, extra_data = self._ready_export(example)
++        assert "invocations" in extra_data
++        assert "create_time" in extra_data["invocations"]["be8be0fd2ce547f6"]
++        assert extra_data["invocations"]["be8be0fd2ce547f6"]["create_time"] == invocation.create_time.isoformat()
++
+     def _ready_export(self, example):
+         return ready_galaxy_markdown_for_export(self.trans, example)
+diff --git a/test/unit/test_markdown_validate.py b/test/unit/test_markdown_validate.py
+index a9bf46714744..2b7a6f2acf33 100644
+--- a/test/unit/test_markdown_validate.py
++++ b/test/unit/test_markdown_validate.py
+@@ -86,12 +86,12 @@ def test_markdown_validation():
+     # assert quotes are fine
+     assert_markdown_valid("""
+ ```galaxy
+-job_metrics(output="Moo Cow")
++job_metrics(step="Moo Cow")
+ ```
+ """)
+     assert_markdown_valid("""
+ ```galaxy
+-job_metrics(output='Moo Cow')
++job_metrics(step='Moo Cow')
+ ```
+ """)
+     # assert spaces require quotes
+@@ -121,3 +121,94 @@ def test_markdown_validation():
+ job_metrics(output=Moo Cow')
+ ```
+ """)
++
++    assert_markdown_valid("""
++```galaxy
++workflow_display()
++```
++""")
++
++    # Test image with a composite path (param needs to be closed, can't be misnamed i.e. pathx)
++    assert_markdown_valid("""
++
++```galaxy
++history_dataset_as_image(output="cow", path="foo/bar.png")
++```
++""")
++    assert_markdown_valid("""
++
++```galaxy
++history_dataset_as_image(output=cow, path="foo/bar.png")
++```
++""")
++    assert_markdown_invalid("""
++
++```galaxy
++history_dataset_as_image(output="cow", path="foo/bar.png)
++```
++""", at_line=3)
++    assert_markdown_invalid("""
++
++```galaxy
++history_dataset_as_image(output="cow", pathx="foo/bar.png")
++```
++""", at_line=3)
++
++    # Test validation of three arguments
++    assert_markdown_valid("""
++```galaxy
++history_dataset_link(output=moo, path="cow.png", label="my label")
++```
++""")
++    assert_markdown_invalid("""
++```galaxy
++history_dataset_link(outputx=moo, path="cow.png", label="my label")
++```
++""", at_line=2)
++    assert_markdown_invalid("""
++```galaxy
++history_dataset_link(output=moo, pathx="cow.png", label="my label")
++```
++""", at_line=2)
++    assert_markdown_invalid("""
++```galaxy
++history_dataset_link(output=moo, path="cow.png", labelx="my label")
++```
++""", at_line=2)
++
++    # Test validation of arguments with different whitespaces
++    assert_markdown_valid("""
++```galaxy
++history_dataset_link(output= moo, path= "cow.png", label= "my label")
++```
++""")
++    assert_markdown_valid("""
++```galaxy
++history_dataset_link(output = moo, path = "cow.png", label = "my label")
++```
++""")
++    assert_markdown_valid("""
++```galaxy
++history_dataset_link(output = moo, path ="cow.png", label= "my label" )
++```
++""")
++    assert_markdown_valid("""
++```galaxy
++history_dataset_link(  output = moo, path ="cow.png", label= "my label" )
++```
++""")
++    assert_markdown_invalid("""
++```galaxy
++history_dataset_link(  outputx = moo, path ="cow.png", label= "my label" )
++```
++""", at_line=2)
++    assert_markdown_invalid("""
++```galaxy
++history_dataset_link(  output = moo, pathx ="cow.png", label= "my label" )
++```
++""", at_line=2)
++    assert_markdown_invalid("""
++```galaxy
++history_dataset_link(  output = moo, path ="cow.png", labelx= "my label" )
++```
++""", at_line=2)

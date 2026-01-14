@@ -1,0 +1,54 @@
+@startuml
+!include plantuml_options.txt
+
+title Contextual Addressing → Internal Galaxy Markdown
+
+package "Context-Specific Formats" {
+    component [Workflow\nMarkdown] as workflow_md
+    component [Tool Output\nMarkdown] as tool_md
+    component [Page API\n(encoded)] as page_api
+    component [History\nMarkdown] as history_md #LightGray
+}
+
+package "Canonical Form" {
+    component [Internal\nGalaxy Markdown] as internal_md
+}
+
+package "Output" {
+    component [Rendered\nDocument] as render
+}
+
+note bottom of workflow_md
+  step="bwa_mem"
+  output="results"
+end note
+
+note bottom of tool_md
+  output references
+  extra files
+end note
+
+note bottom of page_api
+  history_dataset_id=
+  a1b2c3d4e5f6
+end note
+
+note bottom of history_md
+  (future)
+  history-relative refs
+end note
+
+note top of internal_md
+  history_dataset_id=12345
+  job_id=67890
+  (numeric IDs)
+end note
+
+workflow_md --> internal_md : resolve\nlabels
+tool_md --> internal_md : resolve\noutputs
+page_api --> internal_md : decode\nIDs
+history_md ..> internal_md : (planned)
+
+internal_md --> render : render\n(HTML/PDF/UI)
+
+@enduml

@@ -1,7 +1,10 @@
-.PHONY: help validate validate-files build-slides build-sphinx build clean view-sphinx lint-sphinx images watch watch-sphinx watch-images sync-to-training compare-slides validate-sync
+.PHONY: help validate validate-files build-slides build-sphinx build clean view-sphinx lint-sphinx images watch watch-sphinx watch-images sync-to-training compare-slides validate-sync setup
 
 help:
 	@echo "Galaxy Architecture Documentation - Build Targets"
+	@echo ""
+	@echo "Setup:"
+	@echo "  make setup             Install dependencies (npm packages for Mermaid)"
 	@echo ""
 	@echo "Verification:"
 	@echo "  make validate          Validate all topics (metadata.yaml, content.yaml)"
@@ -27,10 +30,18 @@ help:
 	@echo "  make validate-sync     Validate synced content"
 	@echo ""
 	@echo "Examples:"
+	@echo "  make setup             # First-time setup"
 	@echo "  make validate          # Validate all topics"
 	@echo "  make build             # Build everything"
 	@echo "  make view-sphinx       # Build and view HTML docs"
 	@echo "  make compare-slides    # Compare with training-material"
+
+setup:
+	@echo "Installing npm dependencies..."
+	npm install
+	@echo "Installing Puppeteer Chrome browser for Mermaid..."
+	npx puppeteer browsers install chrome-headless-shell
+	@echo "✓ Setup complete"
 
 validate:
 	@echo "Validating topics..."
@@ -60,6 +71,8 @@ build-sphinx: images
 	@echo "Copying images for slide support..."
 	@mkdir -p doc/build/html/images
 	@cp images/*.png images/*.svg doc/build/html/images/ 2>/dev/null || true
+	@echo "Copying fonts..."
+	@cp outputs/training-slides/assets/fonts/DIN1451/*.woff2 doc/build/html/images/ 2>/dev/null || true
 	@echo "Copying slides HTML..."
 	@for topic in $$(ls -d outputs/training-slides/generated/architecture-*/); do \
 		topic_name=$$(basename "$$topic"); \
@@ -106,7 +119,7 @@ watch-sphinx:
 watch-images:
 	@echo "Watching image sources for changes..."
 	@echo "Press Ctrl+C to stop"
-	find images -name '*.plantuml.txt' -o -name '*.mindmap.yml' | entr -c make images
+	find images -name '*.plantuml.txt' -o -name '*.mindmap.yml' -o -name '*.mermaid.txt' | entr -c make images
 
 # Sync to training-material targets
 compare-slides:
@@ -114,13 +127,10 @@ compare-slides:
 	uv run python scripts/compare_slides.py --all
 
 sync-to-training:
-	@echo "Syncing to training-material (DRY RUN)..."
-	@echo "This will show what would be synced without making changes."
+	@echo "Syncing to training-material..."
+	uv run python scripts/sync_to_training_material.py --all
 	@echo ""
-	uv run python scripts/sync_to_training_material.py --all --dry-run
-	@echo ""
-	@echo "To actually sync, run:"
-	@echo "  uv run python scripts/sync_to_training_material.py --all"
+	@echo "✓ Sync complete"
 
 validate-sync:
 	@echo "Validating sync to training-material..."

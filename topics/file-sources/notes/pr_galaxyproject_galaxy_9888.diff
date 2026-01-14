@@ -1,0 +1,3016 @@
+diff --git a/client/galaxy/scripts/components/FilesDialog/FilesDialog.vue b/client/galaxy/scripts/components/FilesDialog/FilesDialog.vue
+new file mode 100644
+index 000000000000..642eb3f32816
+--- /dev/null
++++ b/client/galaxy/scripts/components/FilesDialog/FilesDialog.vue
+@@ -0,0 +1,195 @@
++<template>
++    <selection-dialog
++        :error-message="errorMessage"
++        :options-show="optionsShow"
++        :modal-show="modalShow"
++        :hide-modal="() => (modalShow = false)"
++    >
++        <template v-slot:search>
++            <data-dialog-search v-model="filter" />
++        </template>
++        <template v-slot:options>
++            <data-dialog-table
++                v-if="optionsShow"
++                :items="items"
++                :multiple="multiple"
++                :filter="filter"
++                :showDetails="showDetails"
++                :showTime="showTime"
++                :showNavigate="mode == 'directory'"
++                @clicked="clicked"
++                @open="open"
++                @load="load"
++            />
++        </template>
++        <template v-slot:buttons>
++            <b-btn size="sm" class="float-left" v-if="undoShow" @click="load()">
++                <div class="fa fa-caret-left mr-1" />
++                Back
++            </b-btn>
++            <b-btn
++                v-if="multiple"
++                size="sm"
++                class="float-right ml-1"
++                variant="primary"
++                @click="finalize"
++                :disabled="!hasValue"
++            >
++                Ok
++            </b-btn>
++        </template>
++    </selection-dialog>
++</template>
++
++<script>
++import Vue from "vue";
++import SelectionDialogMixin from "components/SelectionDialog/SelectionDialogMixin";
++import { UrlTracker } from "components/DataDialog/utilities";
++import { Services } from "./services";
++import { Model } from "./model";
++
++export default {
++    mixins: [SelectionDialogMixin],
++    props: {
++        multiple: {
++            type: Boolean,
++            default: false,
++        },
++        mode: {
++            type: String,
++            default: "file",
++            validator: (prop) => ["file", "directory"].includes(prop),
++        },
++    },
++    data() {
++        return {
++            errorMessage: null,
++            filter: null,
++            items: [],
++            modalShow: true,
++            optionsShow: false,
++            undoShow: false,
++            hasValue: false,
++            showTime: true,
++            showDetails: true,
++        };
++    },
++    created: function () {
++        this.services = new Services();
++        this.urlTracker = new UrlTracker("");
++        this.model = new Model({ multiple: this.multiple });
++        this.load();
++    },
++    computed: {
++        fileMode() {
++            return this.mode == "file";
++        },
++    },
++    methods: {
++        /** Add highlighting for record variations, i.e. datasets vs. libraries/collections **/
++        formatRows() {
++            for (const item of this.items) {
++                let _rowVariant = "active";
++                if (item.isLeaf || !this.fileMode) {
++                    _rowVariant = this.model.exists(item.id) ? "success" : "default";
++                }
++                Vue.set(item, "_rowVariant", _rowVariant);
++            }
++        },
++        /** Collects selected datasets in value array **/
++        clicked: function (record) {
++            if (record.isLeaf || !this.fileMode) {
++                this.model.add(record);
++                this.hasValue = this.model.count() > 0;
++                if (this.multiple) {
++                    this.formatRows();
++                } else {
++                    this.finalize();
++                }
++            } else {
++                this.open(record);
++            }
++        },
++        open: function (record) {
++            this.load(record.url);
++        },
++        /** Called when selection is complete, values are formatted and parsed to external callback **/
++        finalize: function () {
++            const results = this.model.finalize();
++            this.modalShow = false;
++            this.callback(results);
++        },
++        /** Performs server request to retrieve data records **/
++        load: function (url) {
++            url = this.urlTracker.getUrl(url);
++            this.filter = null;
++            this.optionsShow = false;
++            this.undoShow = !this.urlTracker.atRoot();
++            if (this.urlTracker.atRoot()) {
++                this.services
++                    .getFileSources()
++                    .then((items) => {
++                        this.items = items.map((item) => {
++                            return {
++                                id: item.id,
++                                label: item.label,
++                                details: item.doc,
++                                isLeaf: false,
++                                url: item.uri_root,
++                                labelTitle: item.uri_root,
++                            };
++                        });
++                        this.formatRows();
++                        this.optionsShow = true;
++                        this.showTime = false;
++                        this.showDetails = true;
++                    })
++                    .catch((errorMessage) => {
++                        this.errorMessage = errorMessage;
++                    });
++            } else {
++                this.services
++                    .list(url)
++                    .then((items) => {
++                        if (this.fileMode) {
++                            items = items.map((item) => {
++                                const itemClass = item.class;
++                                return {
++                                    id: item.uri,
++                                    label: item.name,
++                                    time: item.ctime,
++                                    isLeaf: itemClass == "File",
++                                    size: item.size,
++                                    url: item.uri,
++                                    labelTitle: item.uri,
++                                };
++                            });
++                        } else {
++                            items = items
++                                .filter((item) => item.class == "Directory")
++                                .map((item) => {
++                                    return {
++                                        id: item.uri,
++                                        label: item.name,
++                                        time: item.ctime,
++                                        isLeaf: false,
++                                        size: item.size,
++                                        url: item.uri,
++                                        labelTitle: item.uri,
++                                    };
++                                });
++                        }
++                        this.items = items;
++                        this.formatRows();
++                        this.optionsShow = true;
++                        this.showTime = true;
++                        this.showDetails = false;
++                    })
++                    .catch((errorMessage) => {
++                        this.errorMessage = errorMessage;
++                    });
++            }
++        },
++    },
++};
++</script>
+diff --git a/client/galaxy/scripts/components/FilesDialog/index.js b/client/galaxy/scripts/components/FilesDialog/index.js
+new file mode 100644
+index 000000000000..e5770a6aa81f
+--- /dev/null
++++ b/client/galaxy/scripts/components/FilesDialog/index.js
+@@ -0,0 +1 @@
++export { default as FilesDialog } from "./FilesDialog";
+diff --git a/client/galaxy/scripts/components/FilesDialog/model.js b/client/galaxy/scripts/components/FilesDialog/model.js
+new file mode 100644
+index 000000000000..4f4f1ff3ee09
+--- /dev/null
++++ b/client/galaxy/scripts/components/FilesDialog/model.js
+@@ -0,0 +1,48 @@
++/**
++ * Model to track selected URI for FilesDialog - mirroring DataDialog's model.
++ */
++export class Model {
++    constructor(options = {}) {
++        this.values = {};
++        this.multiple = options.multiple || false;
++    }
++
++    /** Adds a new record to the value stack **/
++    add(record) {
++        if (!this.multiple) {
++            this.values = {};
++        }
++        const key = record && record.id;
++        if (key) {
++            if (!this.values[key]) {
++                this.values[key] = record;
++            } else {
++                delete this.values[key];
++            }
++        } else {
++            throw "Invalid record with no <id>.";
++        }
++    }
++
++    /** Returns the number of added records **/
++    count() {
++        return Object.keys(this.values).length;
++    }
++
++    /** Returns true if a record is available for a given key **/
++    exists(key) {
++        return !!this.values[key];
++    }
++
++    /** Finalizes the results from added records **/
++    finalize() {
++        let results = [];
++        Object.values(this.values).forEach((v) => {
++            results.push(v);
++        });
++        if (results.length > 0 && !this.multiple) {
++            results = results[0];
++        }
++        return results;
++    }
++}
+diff --git a/client/galaxy/scripts/components/FilesDialog/services.js b/client/galaxy/scripts/components/FilesDialog/services.js
+new file mode 100644
+index 000000000000..274e74361ac0
+--- /dev/null
++++ b/client/galaxy/scripts/components/FilesDialog/services.js
+@@ -0,0 +1,31 @@
++import axios from "axios";
++import { rethrowSimple } from "utils/simple-error";
++import { getAppRoot } from "onload/loadConfig";
++
++export class Services {
++    constructor(options = {}) {
++        this.root = options.root || getAppRoot();
++    }
++
++    async getFileSources() {
++        const url = `${this.root}api/remote_files/plugins`;
++        try {
++            const response = await axios.get(url);
++            const fileSources = response.data;
++            return fileSources;
++        } catch (e) {
++            rethrowSimple(e);
++        }
++    }
++
++    async list(uri) {
++        const url = `${this.root}api/remote_files?target=${uri}`;
++        try {
++            const response = await axios.get(url);
++            const fileSources = response.data;
++            return fileSources;
++        } catch (e) {
++            rethrowSimple(e);
++        }
++    }
++}
+diff --git a/client/galaxy/scripts/components/RuleCollectionBuilder.vue b/client/galaxy/scripts/components/RuleCollectionBuilder.vue
+index 6f56e5ccc2f9..fc90ace0352d 100644
+--- a/client/galaxy/scripts/components/RuleCollectionBuilder.vue
++++ b/client/galaxy/scripts/components/RuleCollectionBuilder.vue
+@@ -629,6 +629,8 @@ export default {
+         } else {
+             if (this.elementsType == "ftp") {
+                 mapping = [{ type: "ftp_path", columns: [0] }];
++            } else if (this.elementsType == "remote_files") {
++                mapping = [{ type: "url", columns: [0] }];
+             } else if (this.elementsType == "datasets") {
+                 mapping = [{ type: "list_identifiers", columns: [1] }];
+             } else {
+@@ -674,6 +676,11 @@ export default {
+                     type: "add_column_metadata",
+                     value: "path",
+                 });
++            } else if (this.elementsType == "remote_files") {
++                rules.push({
++                    type: "add_column_metadata",
++                    value: "uri",
++                });
+             }
+         }
+         return {
+@@ -961,6 +968,9 @@ export default {
+                 metadataOptions["tags"] = _l("Tags");
+             } else if (this.elementsType == "ftp") {
+                 metadataOptions["path"] = _l("Path");
++            } else if (this.elementsType == "remote_files") {
++                // IS THIS NEEDED?
++                metadataOptions["url"] = _l("URL");
+             } else if (this.elementsType == "library_datasets") {
+                 metadataOptions["name"] = _l("Name");
+             } else if (this.elementsType == "datasets") {
+@@ -1007,7 +1017,8 @@ export default {
+                 valid = false;
+             }
+ 
+-            const requiresSourceColumn = this.elementsType == "ftp" || this.elementsType == "raw";
++            const requiresSourceColumn =
++                this.elementsType == "ftp" || this.elementsType == "raw" || this.elementsType == "remote_files";
+             if (requiresSourceColumn && !mappingAsDict.ftp_path && !mappingAsDict.url) {
+                 valid = false;
+             }
+@@ -1029,7 +1040,8 @@ export default {
+             if (
+                 this.elementsType == "datasets" ||
+                 this.elementsType == "library_datasets" ||
+-                this.elementsType == "ftp"
++                this.elementsType == "ftp" ||
++                this.elementsType == "remote_files"
+             ) {
+                 sources = this.initialElements.slice();
+                 data = sources.map((el) => []);
+diff --git a/client/galaxy/scripts/components/SelectionDialog/DataDialogTable.vue b/client/galaxy/scripts/components/SelectionDialog/DataDialogTable.vue
+index a953f058a85b..997a17ed4e5e 100644
+--- a/client/galaxy/scripts/components/SelectionDialog/DataDialogTable.vue
++++ b/client/galaxy/scripts/components/SelectionDialog/DataDialogTable.vue
+@@ -13,7 +13,7 @@
+         >
+             <template v-slot:cell(label)="data">
+                 <i v-if="data.item.isLeaf" :class="leafIcon" /> <i v-else class="fa fa-folder" />
+-                {{ data.value ? data.value : "-" }}
++                <span :title="data.item.labelTitle">{{ data.value ? data.value : "-" }}</span>
+             </template>
+             <template v-slot:cell(details)="data">
+                 {{ data.value ? data.value : "-" }}
+@@ -21,6 +21,9 @@
+             <template v-slot:cell(time)="data">
+                 {{ data.value ? data.value : "-" }}
+             </template>
++            <template v-slot:cell(navigate)="data">
++                <i v-if="!data.item.isLeaf" class="fa fa-caret-square-o-right" @click.stop="open(data.item)" />
++            </template>
+         </b-table>
+         <div v-if="nItems === 0">
+             <div v-if="filter">
+@@ -39,6 +42,11 @@ import BootstrapVue from "bootstrap-vue";
+ 
+ Vue.use(BootstrapVue);
+ 
++const LABEL_FIELD = { key: "label", sortable: true };
++const DETAILS_FIELD = { key: "details", sortable: true };
++const TIME_FIELD = { key: "time", sortable: true };
++const NAVIGATE_FIELD = { key: "navigate", label: "", sortable: false };
++
+ export default {
+     props: {
+         items: {
+@@ -57,24 +65,22 @@ export default {
+             type: String,
+             default: "fa fa-file-o",
+         },
++        showDetails: {
++            type: Boolean,
++            default: true,
++        },
++        showTime: {
++            type: Boolean,
++            default: true,
++        },
++        showNavigate: {
++            type: Boolean,
++            default: false,
++        },
+     },
+     data() {
+         return {
+             currentPage: 1,
+-            fields: [
+-                {
+-                    key: "label",
+-                    sortable: true,
+-                },
+-                {
+-                    key: "details",
+-                    sortable: true,
+-                },
+-                {
+-                    key: "time",
+-                    sortable: true,
+-                },
+-            ],
+             nItems: 0,
+             perPage: 100,
+         };
+@@ -87,6 +93,21 @@ export default {
+             },
+         },
+     },
++    computed: {
++        fields: function () {
++            const fields = [LABEL_FIELD];
++            if (this.showDetails) {
++                fields.push(DETAILS_FIELD);
++            }
++            if (this.showTime) {
++                fields.push(TIME_FIELD);
++            }
++            if (this.showNavigate) {
++                fields.push(NAVIGATE_FIELD);
++            }
++            return fields;
++        },
++    },
+     methods: {
+         /** Resets pagination when a filter/search word is entered **/
+         filtered: function (items) {
+@@ -97,6 +118,9 @@ export default {
+         clicked: function (record) {
+             this.$emit("clicked", record);
+         },
++        open: function (record) {
++            this.$emit("open", record);
++        },
+     },
+ };
+ </script>
+diff --git a/client/galaxy/scripts/components/Upload/Collection.vue b/client/galaxy/scripts/components/Upload/Collection.vue
+index de800c7bc025..0a116e7f0c25 100644
+--- a/client/galaxy/scripts/components/Upload/Collection.vue
++++ b/client/galaxy/scripts/components/Upload/Collection.vue
+@@ -96,11 +96,11 @@
+                 ref="btnFtp"
+                 class="ui-button-default"
+                 id="btn-ftp"
+-                @click="_eventFtp"
++                @click="_eventRemoteFiles"
+                 :disabled="!enableSources"
+-                v-if="ftpUploadSite"
++                v-if="remoteFiles"
+             >
+-                <span class="fa fa-folder-open-o"></span>{{ btnFtpTitle }}
++                <span class="fa fa-folder-open-o"></span>{{ btnFilesTitle }}
+             </b-button>
+             <b-button
+                 ref="btnLocal"
+diff --git a/client/galaxy/scripts/components/Upload/Default.vue b/client/galaxy/scripts/components/Upload/Default.vue
+index 023a9d9b51ff..b3025e7dd12a 100644
+--- a/client/galaxy/scripts/components/Upload/Default.vue
++++ b/client/galaxy/scripts/components/Upload/Default.vue
+@@ -78,11 +78,11 @@
+                 ref="btnFtp"
+                 class="ui-button-default"
+                 id="btn-ftp"
+-                @click="_eventFtp"
++                @click="_eventRemoteFiles"
+                 :disabled="!enableSources"
+-                v-if="ftpUploadSite"
++                v-if="remoteFiles"
+             >
+-                <span class="fa fa-folder-open-o"></span>{{ btnFtpTitle }}
++                <span class="fa fa-folder-open-o"></span>{{ btnFilesTitle }}
+             </b-button>
+             <b-button
+                 ref="btnLocal"
+@@ -133,7 +133,6 @@ export default {
+             enableSources: false,
+             btnLocalTitle: _l("Choose local files"),
+             btnCreateTitle: _l("Paste/Fetch data"),
+-            btnFtpTitle: _l("Choose FTP files"),
+             btnStartTitle: _l("Start"),
+             btnStopTitle: _l("Pause"),
+             btnResetTitle: _l("Reset"),
+diff --git a/client/galaxy/scripts/components/Upload/RulesInput.vue b/client/galaxy/scripts/components/Upload/RulesInput.vue
+index b3ddaad9b135..567ec96b57a2 100644
+--- a/client/galaxy/scripts/components/Upload/RulesInput.vue
++++ b/client/galaxy/scripts/components/Upload/RulesInput.vue
+@@ -16,8 +16,9 @@
+                     <select2 container-class="upload-footer-selection" v-model="selectionType">
+                         <option value="paste">{{ l("Pasted Table") }}</option>
+                         <option value="dataset">{{ l("History Dataset") }}</option>
+-                        <option v-if="ftpUploadSite" value="ftp">{{ l("FTP Directory") }} </option></select2
+-                    >
++                        <option v-if="ftpUploadSite" value="ftp">{{ l("FTP Directory") }} </option>
++                        <option value="remote_files">{{ l("Remote Files Directory") }}</option>
++                    </select2>
+                 </div>
+             </div>
+             <div id="upload-rule-dataset-option" class="upload-rule-option" v-if="selectionType == 'dataset'">
+@@ -80,6 +81,7 @@ import BootstrapVue from "bootstrap-vue";
+ import UploadUtils from "mvc/upload/upload-utils";
+ import axios from "axios";
+ import { getAppRoot } from "onload/loadConfig";
++import { filesDialog } from "utils/data";
+ 
+ Vue.use(BootstrapVue);
+ 
+@@ -90,6 +92,7 @@ export default {
+             l: _l,
+             datasets: [],
+             ftpFiles: [],
++            uris: [],
+             datasetsSet: false,
+             topInfo: _l("Tabular source data to extract collection files and metadata from"),
+             enableReset: false,
+@@ -126,6 +129,8 @@ export default {
+                     this.sourceContent = ftp_files.map((file) => file["path"]).join("\n");
+                     this.ftpFiles = ftp_files;
+                 });
++            } else if (selectionType == "remote_files") {
++                filesDialog(this._handleRemoteFilesUri, { mode: "directory" });
+             }
+         },
+         selectedDatasetId: function (selectedDatasetId) {
+@@ -152,6 +157,15 @@ export default {
+             this.sourceContent = "";
+         },
+ 
++        _handleRemoteFilesUri: function (record) {
++            // fetch files at URI
++            UploadUtils.getRemoteFilesAt(record.url).then((files) => {
++                files = files.filter((file) => file["class"] == "File");
++                this.sourceContent = files.map((file) => file["uri"]).join("\n");
++                this.uris = files;
++            });
++        },
++
+         _eventBuild: function () {
+             this._buildSelection(this.sourceContent);
+         },
+@@ -167,6 +181,9 @@ export default {
+                 selection.selectionType = "ftp";
+                 selection.elements = this.ftpFiles;
+                 selection.ftpUploadSite = this.ftpUploadSite;
++            } else if (selectionType == "remote_files") {
++                selection.selectionType = "remote_files";
++                selection.elements = this.uris;
+             }
+             selection.dataType = this.dataType;
+             Galaxy.currHistoryPanel.buildCollection("rules", selection, true);
+diff --git a/client/galaxy/scripts/components/Upload/UploadBoxMixin.js b/client/galaxy/scripts/components/Upload/UploadBoxMixin.js
+index 5404ec16f3fb..28d84e9b095e 100644
+--- a/client/galaxy/scripts/components/Upload/UploadBoxMixin.js
++++ b/client/galaxy/scripts/components/Upload/UploadBoxMixin.js
+@@ -9,6 +9,9 @@ import { getGalaxyInstance } from "app";
+ import UploadFtp from "mvc/upload/upload-ftp";
+ import LazyLimited from "mvc/lazy/lazy-limited";
+ import { findExtension } from "./utils";
++import { filesDialog } from "utils/data";
++
++const localize = _l;
+ 
+ export default {
+     components: {
+@@ -25,6 +28,18 @@ export default {
+             default: null,
+         },
+     },
++    computed: {
++        btnFilesTitle() {
++            if (this.fileSourcesConfigured) {
++                return localize("Choose remote files");
++            } else {
++                return localize("Choose FTP files");
++            }
++        },
++        remoteFiles() {
++            return this.fileSourcesConfigured || this.ftpUploadSite;
++        },
++    },
+     methods: {
+         $uploadBox() {
+             return $(this.$refs.wrapper.$refs.uploadBox);
+@@ -183,27 +198,46 @@ export default {
+             this.uploadbox.remove(model.id);
+             this._updateStateForCounters();
+         },
+-        /** Show/hide ftp popup */
+-        _eventFtp: function () {
+-            this.ftp.show(
+-                new UploadFtp({
+-                    collection: this.collection,
+-                    ftp_upload_site: this.ftpUploadSite,
+-                    onadd: (ftp_file) => {
+-                        return this.uploadbox.add([
+-                            {
+-                                mode: "ftp",
+-                                name: ftp_file.path,
+-                                size: ftp_file.size,
+-                                path: ftp_file.path,
+-                            },
+-                        ]);
+-                    },
+-                    onremove: function (model_index) {
+-                        this.collection.remove(model_index);
++        /** Show remote files dialog or FTP files */
++        _eventRemoteFiles: function () {
++            if (this.fileSourcesConfigured) {
++                filesDialog(
++                    (items) => {
++                        this.uploadbox.add(
++                            items.map((item) => {
++                                const rval = {
++                                    mode: "ftp",
++                                    name: item.label,
++                                    size: item.size,
++                                    path: item.url,
++                                };
++                                return rval;
++                            })
++                        );
+                     },
+-                }).$el
+-            );
++                    { multiple: true }
++                );
++            } else {
++                this.ftp.show(
++                    new UploadFtp({
++                        collection: this.collection,
++                        ftp_upload_site: this.ftpUploadSite,
++                        onadd: (ftp_file) => {
++                            return this.uploadbox.add([
++                                {
++                                    mode: "ftp",
++                                    name: ftp_file.path,
++                                    size: ftp_file.size,
++                                    path: ftp_file.path,
++                                },
++                            ]);
++                        },
++                        onremove: function (model_index) {
++                            this.collection.remove(model_index);
++                        },
++                    }).$el
++                );
++            }
+         },
+         /** Create a new file */
+         _eventCreate: function () {
+@@ -252,6 +286,7 @@ export default {
+             this.listExtensions = this.app.listExtensions;
+             this.listGenomes = this.app.listGenomes;
+             this.ftpUploadSite = this.app.currentFtp();
++            this.fileSourcesConfigured = this.app.fileSourcesConfigured;
+         },
+         initFtpPopover() {
+             // add ftp file viewer
+diff --git a/client/galaxy/scripts/components/Upload/UploadModal.vue b/client/galaxy/scripts/components/Upload/UploadModal.vue
+index 152b250422d8..6e441f36b98e 100644
+--- a/client/galaxy/scripts/components/Upload/UploadModal.vue
++++ b/client/galaxy/scripts/components/Upload/UploadModal.vue
+@@ -77,6 +77,10 @@ export default {
+             type: String,
+             default: "n/a",
+         },
++        fileSourcesConfigured: {
++            type: Boolean,
++            default: false,
++        },
+         defaultGenome: {
+             type: String,
+             default: UploadUtils.DEFAULT_GENOME,
+@@ -204,12 +208,19 @@ export default {
+                         inputs[`${prefix}to_posix_lines`] = (it.get("to_posix_lines") && "Yes") || null;
+                         inputs[`${prefix}dbkey`] = it.get("genome", null);
+                         inputs[`${prefix}file_type`] = it.get("extension", null);
++                        let uri;
++                        let how;
+                         switch (it.get("file_mode")) {
+                             case "new":
+                                 inputs[`${prefix}url_paste`] = it.get("url_paste");
+                                 break;
+                             case "ftp":
+-                                inputs[`${prefix}ftp_files`] = it.get("file_path");
++                                uri = it.get("file_path");
++                                how = "ftp_files";
++                                if (uri.indexOf("://") >= 0) {
++                                    how = "url_paste";
++                                }
++                                inputs[`${prefix}${how}`] = uri;
+                                 break;
+                             case "local":
+                                 data.files.push({
+diff --git a/client/galaxy/scripts/components/Upload/config.js b/client/galaxy/scripts/components/Upload/config.js
+index cb6ca03aa090..4dbe037e0ae9 100644
+--- a/client/galaxy/scripts/components/Upload/config.js
++++ b/client/galaxy/scripts/components/Upload/config.js
+@@ -7,6 +7,7 @@ export function initializeUploadDefaults(propsData = {}) {
+     return Object.assign(propsData, {
+         uploadPath: Galaxy.config.nginx_upload_path || `${appRoot}api/tools`,
+         chunkUploadSize: Galaxy.config.chunk_upload_size,
++        fileSourcesConfigured: Galaxy.config.file_sources_configured,
+         ftpUploadSite: Galaxy.config.ftp_upload_site,
+         defaultGenome: Galaxy.config.default_genome,
+         defaultExtension: Galaxy.config.default_extension,
+diff --git a/client/galaxy/scripts/mvc/rules/rule-definitions.js b/client/galaxy/scripts/mvc/rules/rule-definitions.js
+index aac362155492..1abb889402cf 100644
+--- a/client/galaxy/scripts/mvc/rules/rule-definitions.js
++++ b/client/galaxy/scripts/mvc/rules/rule-definitions.js
+@@ -183,14 +183,14 @@ const RULES = {
+                     newRow.push(tags.join(","));
+                     return newRow;
+                 };
+-            } else if (ruleValue == "hid" || ruleValue == "name" || ruleValue == "path") {
++            } else if (ruleValue == "hid" || ruleValue == "name" || ruleValue == "path" || ruleValue == "uri") {
+                 newRow = (row, index) => {
+                     const newRow = row.slice();
+                     newRow.push(sources[index][ruleValue]);
+                     return newRow;
+                 };
+             } else {
+-                return { error: `Unknown metadata type [${ruleValue}}]` };
++                return { error: `Unknown metadata type [${ruleValue}]` };
+             }
+             data = data.map(newRow);
+             columns.push(NEW_COLUMN);
+diff --git a/client/galaxy/scripts/mvc/upload/upload-utils.js b/client/galaxy/scripts/mvc/upload/upload-utils.js
+index 33e26b1f110f..f05af848286d 100644
+--- a/client/galaxy/scripts/mvc/upload/upload-utils.js
++++ b/client/galaxy/scripts/mvc/upload/upload-utils.js
+@@ -1,6 +1,7 @@
+ import $ from "jquery";
+ import { getAppRoot } from "onload/loadConfig";
+ import axios from "axios";
++import { rethrowSimple } from "utils/simple-error";
+ 
+ const AUTO_EXTENSION = {
+     id: "auto",
+@@ -72,6 +73,17 @@ function getUploadGenomes(callback, defaultGenome) {
+         });
+ }
+ 
++async function getRemoteFilesAt(target) {
++    const url = `${getAppRoot()}api/remote_files?target=${target}`;
++    try {
++        const response = await axios.get(url);
++        const files = response.data;
++        return files;
++    } catch (e) {
++        rethrowSimple(e);
++    }
++}
++
+ function getRemoteFiles(success, error) {
+     return $.ajax({
+         url: `${getAppRoot()}api/remote_files`,
+@@ -86,6 +98,7 @@ export default {
+     DEFAULT_GENOME,
+     DEFAULT_EXTENSION,
+     getRemoteFiles,
++    getRemoteFilesAt,
+     getUploadDatatypes,
+     getUploadGenomes,
+ };
+diff --git a/client/galaxy/scripts/utils/data.js b/client/galaxy/scripts/utils/data.js
+index ea9ceab19ee9..9c22eb20f1e8 100644
+--- a/client/galaxy/scripts/utils/data.js
++++ b/client/galaxy/scripts/utils/data.js
+@@ -2,6 +2,7 @@ import $ from "jquery";
+ import axios from "axios";
+ import Vue from "vue";
+ import DataDialog from "components/DataDialog/DataDialog.vue";
++import { FilesDialog } from "components/FilesDialog";
+ import WorkflowDialog from "components/SelectionDialog/WorkflowDialog.vue";
+ import DatasetCollectionDialog from "components/SelectionDialog/DatasetCollectionDialog.vue";
+ import { getGalaxyInstance } from "app";
+@@ -72,6 +73,13 @@ export function datasetCollectionDialog(callback, options = {}) {
+     });
+ }
+ 
++export function filesDialog(callback, options = {}) {
++    Object.assign(options, {
++        callback: callback,
++    });
++    _mountSelectionDialog(FilesDialog, options);
++}
++
+ function _mountSelectionDialog(clazz, options) {
+     const instance = Vue.extend(clazz);
+     const vm = document.createElement("div");
+diff --git a/lib/galaxy/app.py b/lib/galaxy/app.py
+index acf9361296c7..bcc23babdc3e 100644
+--- a/lib/galaxy/app.py
++++ b/lib/galaxy/app.py
+@@ -13,6 +13,7 @@
+ from galaxy import config, job_metrics, jobs
+ from galaxy.config_watchers import ConfigWatchers
+ from galaxy.containers import build_container_interfaces
++from galaxy.files import ConfiguredFileSources
+ from galaxy.managers.collections import DatasetCollectionManager
+ from galaxy.managers.folders import FolderManager
+ from galaxy.managers.hdas import HDAManager
+@@ -110,6 +111,9 @@ def __init__(self, **kwargs):
+         self.library_manager = LibraryManager()
+         self.dynamic_tool_manager = DynamicToolManager(self)
+ 
++        # ConfiguredFileSources
++        self.file_sources = ConfiguredFileSources.from_app_config(self.config)
++
+         # Tool Data Tables
+         self._configure_tool_data_tables(from_shed_config=False)
+         # Load dbkey / genome build manager
+diff --git a/lib/galaxy/config/__init__.py b/lib/galaxy/config/__init__.py
+index acce1f5b7e78..37cb2b6c8517 100644
+--- a/lib/galaxy/config/__init__.py
++++ b/lib/galaxy/config/__init__.py
+@@ -786,6 +786,7 @@ def parse_config_file_options(self, kwargs):
+             job_config_file=[self._in_config_dir('job_conf.xml')],
+             job_metrics_config_file=[self._in_config_dir('job_metrics_conf.xml'), self._in_sample_dir('job_metrics_conf.xml.sample')],
+             job_resource_params_file=[self._in_config_dir('job_resource_params_conf.xml')],
++            file_sources_config_file=[self._in_config_dir('file_sources_conf.yml')],
+             local_conda_mapping_file=[self._in_config_dir('local_conda_mapping.yml')],
+             migrated_tools_config=[self._in_managed_config_dir('migrated_tools_conf.xml')],
+             modules_mapping_files=[self._in_config_dir('environment_modules_mapping.yml')],
+diff --git a/lib/galaxy/datatypes/sniff.py b/lib/galaxy/datatypes/sniff.py
+index d8555fd7b14d..5fd7c2c8b293 100644
+--- a/lib/galaxy/datatypes/sniff.py
++++ b/lib/galaxy/datatypes/sniff.py
+@@ -46,10 +46,17 @@ def get_test_fname(fname):
+     return full_path
+ 
+ 
+-def stream_url_to_file(path):
+-    page = urlopen(path)  # page will be .close()ed in stream_to_file
+-    temp_name = stream_to_file(page, prefix='url_paste', source_encoding=util.get_charset_from_http_headers(page.headers))
+-    return temp_name
++def stream_url_to_file(path, file_sources=None):
++    prefix = "url_paste"
++    if file_sources and file_sources.looks_like_uri(path):
++        file_source_path = file_sources.get_file_source_path(path)
++        _, temp_name = tempfile.mkstemp(prefix=prefix)
++        file_source_path.file_source.realize_to(file_source_path.path, temp_name)
++        return temp_name
++    else:
++        page = urlopen(path)  # page will be .close()ed in stream_to_file
++        temp_name = stream_to_file(page, prefix=prefix, source_encoding=util.get_charset_from_http_headers(page.headers))
++        return temp_name
+ 
+ 
+ def stream_to_open_named_file(stream, fd, filename, source_encoding=None, source_error='strict', target_encoding=None, target_error='strict'):
+diff --git a/lib/galaxy/files/__init__.py b/lib/galaxy/files/__init__.py
+new file mode 100644
+index 000000000000..a86664aee60d
+--- /dev/null
++++ b/lib/galaxy/files/__init__.py
+@@ -0,0 +1,250 @@
++import logging
++import os
++from collections import namedtuple
++
++from galaxy import exceptions
++from galaxy.util import (
++    plugin_config
++)
++
++log = logging.getLogger(__name__)
++
++FileSourcePath = namedtuple('FileSourcePath', ['file_source', 'path'])
++
++
++class ConfiguredFileSources(object):
++    """Load plugins and resolve Galaxy URIs to FileSource objects."""
++
++    def __init__(self, file_sources_config, conf_file=None, conf_dict=None, load_stock_plugins=False):
++        self._file_sources_config = file_sources_config
++        self._plugin_classes = self._file_source_plugins_dict()
++        file_sources = []
++        if conf_file is not None:
++            file_sources = self._load_plugins_from_file(conf_file)
++        elif conf_dict is not None:
++            plugin_source = plugin_config.plugin_source_from_dict(conf_dict)
++            file_sources = self._parse_plugin_source(plugin_source)
++        else:
++            file_sources = []
++        custom_sources_configured = len(file_sources) > 0
++        if load_stock_plugins:
++            stock_file_source_conf_dict = []
++
++            def _ensure_loaded(plugin_type):
++                for file_source in file_sources:
++                    if file_source.plugin_type == plugin_type:
++                        return
++                stock_file_source_conf_dict.append({'type': plugin_type})
++
++            if file_sources_config.library_import_dir is not None:
++                _ensure_loaded('gximport')
++            if file_sources_config.user_library_import_dir is not None:
++                _ensure_loaded('gxuserimport')
++            if file_sources_config.ftp_upload_dir is not None:
++                _ensure_loaded('gxftp')
++            if stock_file_source_conf_dict:
++                stock_plugin_source = plugin_config.plugin_source_from_dict(stock_file_source_conf_dict)
++                file_sources.extend(self._parse_plugin_source(stock_plugin_source))
++
++        self._file_sources = file_sources
++        self.custom_sources_configured = custom_sources_configured
++
++    def _load_plugins_from_file(self, conf_file):
++        plugin_source = plugin_config.plugin_source_from_path(conf_file)
++        return self._parse_plugin_source(plugin_source)
++
++    def _file_source_plugins_dict(self):
++        import galaxy.files.sources
++        return plugin_config.plugins_dict(galaxy.files.sources, 'plugin_type')
++
++    def _parse_plugin_source(self, plugin_source):
++        extra_kwds = {
++            'file_sources_config': self._file_sources_config,
++        }
++        return plugin_config.load_plugins(self._plugin_classes, plugin_source, extra_kwds)
++
++    def get_file_source_path(self, uri):
++        """Parse uri into a FileSource object and a path relative to its base."""
++        if "://" not in uri:
++            raise exceptions.RequestParameterInvalidException("Invalid uri [%s]" % uri)
++        scheme, rest = uri.split("://", 1)
++        if scheme not in self.get_schemas():
++            raise exceptions.RequestParameterInvalidException("Unsupported URI scheme [%s]" % scheme)
++
++        if scheme != "gxfiles":
++            # prefix unused
++            id_prefix = None
++            path = rest
++        else:
++            if "/" in rest:
++                id_prefix, path = rest.split("/", 1)
++            else:
++                id_prefix, path = rest, "/"
++        file_source = self.get_file_source(id_prefix, scheme)
++        return FileSourcePath(file_source, path)
++
++    def validate_uri_root(self, uri, user_context):
++        # validate a URI against Galaxy's configuration, environment, and the current
++        # user. Throw appropriate exception if there is a problem with the files source
++        # referenced by the URI.
++        if uri.startswith("gxuserimport://"):
++            user_login = user_context.email
++            user_base_dir = self._file_sources_config.user_library_import_dir
++            if user_base_dir is None:
++                raise exceptions.ConfigDoesNotAllowException('The configuration of this Galaxy instance does not allow upload from user directories.')
++            full_import_dir = os.path.join(user_base_dir, user_login)
++            if not os.path.exists(full_import_dir):
++                raise exceptions.ObjectNotFound('Your user import directory does not exist.')
++        elif uri.startswith("gximport://"):
++            base_dir = self._file_sources_config.library_import_dir
++            if base_dir is None:
++                raise exceptions.ConfigDoesNotAllowException('The configuration of this Galaxy instance does not allow usage of import directory.')
++        elif uri.startswith("gxftp://"):
++            user_ftp_base_dir = self._file_sources_config.ftp_upload_dir
++            if user_ftp_base_dir is None:
++                raise exceptions.ConfigDoesNotAllowException('The configuration of this Galaxy instance does not allow upload from FTP directories.')
++            user_ftp_dir = user_context.ftp_dir
++            if not user_ftp_dir or not os.path.exists(user_ftp_dir):
++                raise exceptions.ObjectNotFound('Your FTP directory does not exist, attempting to upload files to it may cause it to be created.')
++
++    def get_file_source(self, id_prefix, schema):
++        for file_source in self._file_sources:
++            # gxfiles uses prefix to find plugin, other schema are assumed to have
++            # at most one file_source.
++            if schema != file_source.get_schema():
++                continue
++            prefix_match = schema != "gxfiles" or file_source.get_prefix() == id_prefix
++            if prefix_match:
++                return file_source
++
++    def looks_like_uri(self, path_or_uri):
++        # is this string a URI this object understands how to realize
++        if path_or_uri.startswith("gx") and "://" in path_or_uri:
++            for scheme in self.get_schemas():
++                if path_or_uri.startswith("%s://" % scheme):
++                    return True
++
++        return False
++
++    def get_schemas(self):
++        schemas = set()
++        for file_source in self._file_sources:
++            schemas.add(file_source.get_schema())
++        return schemas
++
++    def plugins_to_dict(self, for_serialization=False, user_context=None):
++        rval = []
++        for file_source in self._file_sources:
++            el = file_source.to_dict(for_serialization=for_serialization, user_context=user_context)
++            rval.append(el)
++        return rval
++
++    def to_dict(self, for_serialization=False, user_context=None):
++        return {
++            'file_sources': self.plugins_to_dict(for_serialization=for_serialization, user_context=user_context),
++            'config': self._file_sources_config.to_dict()
++        }
++
++    @staticmethod
++    def from_app_config(config):
++        config_file = config.file_sources_config_file
++        if not os.path.exists(config_file):
++            config_file = None
++        file_sources_config = ConfiguredFileSourcesConfig.from_app_config(config)
++        return ConfiguredFileSources(file_sources_config, config_file, load_stock_plugins=True)
++
++    @staticmethod
++    def from_dict(as_dict):
++        sources_as_dict = as_dict["file_sources"]
++        config_as_dict = as_dict["config"]
++        file_sources_config = ConfiguredFileSourcesConfig.from_dict(config_as_dict)
++        return ConfiguredFileSources(file_sources_config, conf_dict=sources_as_dict)
++
++
++class ConfiguredFileSourcesConfig(object):
++
++    def __init__(self, symlink_allowlist=[], library_import_dir=None, user_library_import_dir=None, ftp_upload_dir=None, ftp_upload_purge=True):
++        self.symlink_allowlist = symlink_allowlist
++        self.library_import_dir = library_import_dir
++        self.user_library_import_dir = user_library_import_dir
++        self.ftp_upload_dir = ftp_upload_dir
++        self.ftp_upload_purge = ftp_upload_purge
++
++    @staticmethod
++    def from_app_config(config):
++        # Formalize what we read in from config to create a more clear interface
++        # for this component.
++        kwds = {}
++        kwds["symlink_allowlist"] = getattr(config, "user_library_import_symlink_allowlist", [])
++        kwds["library_import_dir"] = getattr(config, "library_import_dir", None)
++        kwds["user_library_import_dir"] = getattr(config, "user_library_import_dir", None)
++        kwds["ftp_upload_dir"] = getattr(config, "ftp_upload_dir", None)
++        kwds["ftp_upload_purge"] = getattr(config, "ftp_upload_purge", True)
++        return ConfiguredFileSourcesConfig(**kwds)
++
++    def to_dict(self):
++        return {
++            'symlink_allowlist': self.symlink_allowlist,
++            'library_import_dir': self.library_import_dir,
++            'user_library_import_dir': self.user_library_import_dir,
++            'ftp_upload_dir': self.ftp_upload_dir,
++            'ftp_upload_purge': self.ftp_upload_purge,
++        }
++
++    @staticmethod
++    def from_dict(as_dict):
++        return ConfiguredFileSourcesConfig(
++            symlink_allowlist=as_dict['symlink_allowlist'],
++            library_import_dir=as_dict['library_import_dir'],
++            user_library_import_dir=as_dict['user_library_import_dir'],
++            ftp_upload_dir=as_dict['ftp_upload_dir'],
++            ftp_upload_purge=as_dict['ftp_upload_purge'],
++        )
++
++
++class ProvidesUserFileSourcesUserContext(object):
++    """Implement a FileSourcesUserContext from a Galaxy ProvidesUserContext (e.g. trans)."""
++
++    def __init__(self, trans):
++        self.trans = trans
++
++    @property
++    def email(self):
++        user = self.trans.user
++        return user and user.email
++
++    @property
++    def username(self):
++        user = self.trans.user
++        return user and user.username
++
++    @property
++    def ftp_dir(self):
++        return self.trans.user_ftp_dir
++
++    @property
++    def preferences(self):
++        user = self.trans.user
++        return user and user.extra_preferences
++
++
++class DictFileSourcesUserContext(object):
++
++    def __init__(self, **kwd):
++        self._kwd = kwd
++
++    @property
++    def email(self):
++        return self._kwd.get("email")
++
++    @property
++    def username(self):
++        return self._kwd.get("username")
++
++    @property
++    def ftp_dir(self):
++        return self._kwd.get("user_ftp_dir")
++
++    @property
++    def preferences(self):
++        return self._kwd.get("preferences")
+diff --git a/lib/galaxy/files/sources/__init__.py b/lib/galaxy/files/sources/__init__.py
+new file mode 100644
+index 000000000000..cfdc122a12b3
+--- /dev/null
++++ b/lib/galaxy/files/sources/__init__.py
+@@ -0,0 +1,125 @@
++import abc
++import os
++import time
++
++import six
++
++from galaxy.util.template import fill_template
++
++
++@six.add_metaclass(abc.ABCMeta)
++class FilesSource(object):
++    """
++    """
++
++    @abc.abstractproperty
++    def get_uri_root(self):
++        """Return a prefix for the root (e.g. gxfiles://prefix/)."""
++
++    @abc.abstractproperty
++    def get_schema(self):
++        """Return a prefix for the root (e.g. the gxfiles in gxfiles://prefix/path)."""
++
++    # TODO: off-by-default
++    @abc.abstractmethod
++    def list(self, source_path="/", recursive=False, user_context=None):
++        """Return dictionary of 'Directory's and 'File's."""
++
++    @abc.abstractmethod
++    def realize_to(self, source_path, native_path, user_context=None):
++        """Realize source path (relative to uri root) to local file system path."""
++
++    @abc.abstractmethod
++    def to_dict(self, for_serialization=False, user_context=None):
++        """Return a dictified representation of this FileSource instance.
++
++        If ``user_context`` is supplied, properties should be written so user
++        context doesn't need to be present after the plugin is re-hydrated.
++        """
++
++
++class BaseFilesSource(FilesSource):
++
++    def get_prefix(self):
++        return self.id
++
++    def get_schema(self):
++        return "gxfiles"
++
++    def get_uri_root(self):
++        prefix = self.get_prefix()
++        schema = self.get_schema()
++        root = "%s://" % schema
++        if prefix:
++            root = uri_join(root, prefix)
++        return root
++
++    def uri_from_path(self, path):
++        uri_root = self.get_uri_root()
++        return uri_join(uri_root, path)
++
++    def _parse_common_config_opts(self, kwd):
++        self._file_sources_config = kwd.pop("file_sources_config")
++        self.id = kwd.pop("id")
++        self.label = kwd.pop("label", None) or self.id
++        self.doc = kwd.pop("doc", None)
++        self.schema = kwd.pop("schema", "gxfiles")
++        # If coming from to_dict, strip API helper values
++        kwd.pop("uri_root", None)
++        kwd.pop("type", None)
++        return kwd
++
++    def to_dict(self, for_serialization=False, user_context=None):
++        rval = {
++            "id": self.id,
++            "type": self.plugin_type,
++            "uri_root": self.get_uri_root(),
++            "label": self.label,
++            "doc": self.doc,
++        }
++        if for_serialization:
++            rval.update(self._serialization_props(user_context=user_context))
++        return rval
++
++    def to_dict_time(self, ctime):
++        if ctime is None:
++            return None
++        elif isinstance(ctime, (int, float)):
++            return time.strftime("%m/%d/%Y %I:%M:%S %p", time.localtime(ctime))
++        else:
++            return ctime.strftime("%m/%d/%Y %I:%M:%S %p")
++
++    @abc.abstractmethod
++    def _serialization_props(self):
++        """Serialize properties needed to recover plugin configuration.
++
++        Used in to_dict method if for_serialization is True.
++        """
++
++    def _evaluate_prop(self, prop_val, user_context):
++        rval = prop_val
++        if "$" in prop_val:
++            template_context = dict(
++                user=user_context,
++                environ=os.environ,
++                config=self._file_sources_config,
++            )
++            rval = fill_template(prop_val, context=template_context, futurized=True)
++
++        return rval
++
++
++def uri_join(*args):
++    # url_join doesn't work with non-standard scheme
++    arg0 = args[0]
++    if "://" in arg0:
++        scheme, path = arg0.split("://", 1)
++        rval = scheme + "://" + (slash_join(path, *args[1:]) if path else slash_join(*args[1:]))
++    else:
++        rval = slash_join(*args)
++    return rval
++
++
++def slash_join(*args):
++    # https://codereview.stackexchange.com/questions/175421/joining-strings-to-form-a-url
++    return "/".join(arg.strip("/") for arg in args)
+diff --git a/lib/galaxy/files/sources/_pyfilesystem2.py b/lib/galaxy/files/sources/_pyfilesystem2.py
+new file mode 100644
+index 000000000000..5f49eb5eb81c
+--- /dev/null
++++ b/lib/galaxy/files/sources/_pyfilesystem2.py
+@@ -0,0 +1,66 @@
++import abc
++import functools
++import logging
++import os
++
++from ..sources import BaseFilesSource
++
++log = logging.getLogger(__name__)
++
++PACKAGE_MESSAGE = "FilesSource plugin is missing required Python PyFilesystem2 plugin package [%s]"
++
++
++class PyFilesystem2FilesSource(BaseFilesSource):
++
++    def __init__(self, **kwd):
++        if self.required_module is None:
++            raise Exception(PACKAGE_MESSAGE % self.required_package)
++        props = self._parse_common_config_opts(kwd)
++        self._props = props
++
++    @abc.abstractmethod
++    def _open_fs(self, user_context=None):
++        """Subclasses must instantiate a PyFilesystem2 handle for this file system."""
++
++    def list(self, path="/", recursive=False, user_context=None):
++        """Return dictionary of 'Directory's and 'File's."""
++
++        with self._open_fs(user_context=user_context) as h:
++            if recursive:
++                res = []
++                for p, dirs, files in h.walk(path):
++                    to_dict = functools.partial(self._resource_info_to_dict, p)
++                    res.extend(map(to_dict, dirs))
++                    res.extend(map(to_dict, files))
++                return res
++            else:
++                res = h.scandir(path)
++                to_dict = functools.partial(self._resource_info_to_dict, path)
++                return list(map(to_dict, res))
++
++    def realize_to(self, source_path, native_path, user_context=None):
++        with open(native_path, 'wb') as write_file:
++            self._open_fs(user_context=user_context).download(source_path, write_file)
++
++    def _resource_info_to_dict(self, dir_path, resource_info):
++        name = resource_info.name
++        path = os.path.join(dir_path, name)
++        uri = self.uri_from_path(path)
++        if resource_info.is_dir:
++            return {"class": "Directory", "name": name, "uri": uri, "path": path}
++        else:
++            created = resource_info.created
++            return {
++                "class": "File",
++                "name": name,
++                "size": resource_info.size,
++                "ctime": self.to_dict_time(created),
++                "uri": uri,
++                "path": path,
++            }
++
++    def _serialization_props(self, user_context=None):
++        effective_props = {}
++        for key, val in self._props.items():
++            effective_props[key] = self._evaluate_prop(val, user_context=user_context)
++        return effective_props
+diff --git a/lib/galaxy/files/sources/dropbox.py b/lib/galaxy/files/sources/dropbox.py
+new file mode 100644
+index 000000000000..49a9b2f958dd
+--- /dev/null
++++ b/lib/galaxy/files/sources/dropbox.py
+@@ -0,0 +1,20 @@
++try:
++    from dropboxfs.dropboxfs import DropboxFS
++except ImportError:
++    DropboxFS = None
++
++from ._pyfilesystem2 import PyFilesystem2FilesSource
++
++
++class DropboxFilesSource(PyFilesystem2FilesSource):
++    plugin_type = 'dropbox'
++    required_module = DropboxFS
++    required_package = "fs.dropboxfs"
++
++    def _open_fs(self, user_context):
++        props = self._serialization_props(user_context)
++        handle = DropboxFS(**props)
++        return handle
++
++
++__all__ = ('DropboxFilesSource',)
+diff --git a/lib/galaxy/files/sources/galaxy.py b/lib/galaxy/files/sources/galaxy.py
+new file mode 100644
+index 000000000000..6b0fdc1ccef1
+--- /dev/null
++++ b/lib/galaxy/files/sources/galaxy.py
+@@ -0,0 +1,69 @@
++"""Static Galaxy file sources - ftp and libraries."""
++
++from .posix import PosixFilesSource
++
++
++class UserFtpFilesSource(PosixFilesSource):
++    plugin_type = 'gxftp'
++
++    def __init__(self, label="FTP Directory", doc="Galaxy User's FTP Directory", root="${user.ftp_dir}", **kwd):
++        posix_kwds = dict(
++            id="_ftp",
++            root=root,
++            label=label,
++            doc=doc,
++        )
++        posix_kwds.update(kwd)
++        if "delete_on_realize" not in posix_kwds:
++            file_sources_config = kwd.get("file_sources_config")
++            posix_kwds["delete_on_realize"] = file_sources_config.ftp_upload_purge
++        super(UserFtpFilesSource, self).__init__(**posix_kwds)
++
++    def get_prefix(self):
++        return None
++
++    def get_schema(self):
++        return "gxftp"
++
++
++class LibraryImportFilesSource(PosixFilesSource):
++    plugin_type = 'gximport'
++
++    def __init__(self, label="Library Import Directory", doc="Galaxy's library import directory", root="${config.library_import_dir}", **kwd):
++        posix_kwds = dict(
++            id="_import",
++            root=root,
++            label=label,
++            doc=doc,
++        )
++        posix_kwds.update(kwd)
++        super(LibraryImportFilesSource, self).__init__(**posix_kwds)
++
++    def get_prefix(self):
++        return None
++
++    def get_schema(self):
++        return "gximport"
++
++
++class UserLibraryImportFilesSource(PosixFilesSource):
++    plugin_type = 'gxuserimport'
++
++    def __init__(self, label="Library User Import Directory", doc="Galaxy's user library import directory", root="${config.user_library_import_dir}/${user.email}", **kwd):
++        posix_kwds = dict(
++            id="_userimport",
++            root=root,
++            label=label,
++            doc=doc,
++        )
++        posix_kwds.update(kwd)
++        super(UserLibraryImportFilesSource, self).__init__(**posix_kwds)
++
++    def get_prefix(self):
++        return None
++
++    def get_schema(self):
++        return "gxuserimport"
++
++
++__all__ = ('UserFtpFilesSource', 'LibraryImportFilesSource', 'UserLibraryImportFilesSource')
+diff --git a/lib/galaxy/files/sources/posix.py b/lib/galaxy/files/sources/posix.py
+new file mode 100644
+index 000000000000..96f611dff7ae
+--- /dev/null
++++ b/lib/galaxy/files/sources/posix.py
+@@ -0,0 +1,114 @@
++import functools
++import os
++import shutil
++
++from galaxy import exceptions
++from galaxy.util.path import (
++    safe_contains,
++    safe_path,
++    safe_walk,
++)
++from ..sources import BaseFilesSource
++
++DEFAULT_ENFORCE_SYMLINK_SECURITY = True
++DEFAULT_DELETE_ON_REALIZE = False
++
++
++class PosixFilesSource(BaseFilesSource):
++    plugin_type = 'posix'
++
++    # If this were a PyFilesystem2FilesSource all that would be needed would be,
++    # but we couldn't enforce security our way I suspect.
++    # def _open_fs(self):
++    #    from fs.osfs import OSFS
++    #    handle = OSFS(**self._props)
++    #    return handle
++
++    def __init__(self, **kwd):
++        props = self._parse_common_config_opts(kwd)
++        self.root = props["root"]
++        self.enforce_symlink_security = props.get("enforce_symlink_security", DEFAULT_ENFORCE_SYMLINK_SECURITY)
++        self.delete_on_realize = props.get("delete_on_realize", DEFAULT_DELETE_ON_REALIZE)
++
++    def list(self, path="/", recursive=True, user_context=None):
++        dir_path = self._to_native_path(path, user_context=user_context)
++        if not self._safe_directory(dir_path):
++            raise exceptions.ObjectNotFound('The specified directory does not exist [%s].' % dir_path)
++        if recursive:
++            res = []
++            for (p, dirs, files) in safe_walk(dir_path, allowlist=self._allowlist):
++                rel_dir = os.path.relpath(p, dir_path)
++                to_dict = functools.partial(self._resource_info_to_dict, rel_dir, user_context=user_context)
++                res.extend(map(to_dict, dirs))
++                res.extend(map(to_dict, files))
++            return res
++        else:
++            res = os.listdir(dir_path)
++            to_dict = functools.partial(self._resource_info_to_dict, path, user_context=user_context)
++            return list(map(to_dict, res))
++
++    def realize_to(self, source_path, native_path, user_context=None):
++        effective_root = self._effective_root(user_context)
++        source_native_path = self._to_native_path(source_path, user_context=user_context)
++        if self.enforce_symlink_security:
++            if not safe_contains(effective_root, source_native_path, allowlist=self._allowlist):
++                raise Exception("Operation not allowed.")
++        else:
++            source_native_path = os.path.normpath(source_native_path)
++            assert source_native_path.startswith(os.path.normpath(effective_root))
++
++        if not self.delete_on_realize:
++            shutil.copyfile(source_native_path, native_path)
++        else:
++            shutil.move(source_native_path, native_path)
++
++    def _to_native_path(self, source_path, user_context=None):
++        source_path = os.path.normpath(source_path)
++        if source_path.startswith("/"):
++            source_path = source_path[1:]
++        return os.path.join(self._effective_root(user_context), source_path)
++
++    def _effective_root(self, user_context=None):
++        return self._evaluate_prop(self.root, user_context=user_context)
++
++    def _resource_info_to_dict(self, dir, name, user_context=None):
++        rel_path = os.path.normpath(os.path.join(dir, name))
++        full_path = self._to_native_path(rel_path, user_context=user_context)
++        uri = self.uri_from_path(rel_path)
++        if os.path.isdir(full_path):
++            return {"class": "Directory", "name": name, "uri": uri, "path": rel_path}
++        else:
++            statinfo = os.lstat(full_path)
++            return {
++                "class": "File",
++                "name": name,
++                "size": statinfo.st_size,
++                "ctime": self.to_dict_time(statinfo.st_ctime),
++                "uri": uri,
++                "path": rel_path,
++            }
++
++    def _safe_directory(self, directory):
++        if self.enforce_symlink_security:
++            if not safe_path(directory, allowlist=self._allowlist):
++                raise exceptions.ConfigDoesNotAllowException('directory (%s) is a symlink to a location not on the allowlist' % directory)
++
++        if not os.path.exists(directory):
++            return False
++        return True
++
++    def _serialization_props(self, user_context=None):
++        return {
++            # abspath needed because will be used by external Python from
++            # a job working directory
++            "root": os.path.abspath(self._effective_root(user_context)),
++            "enforce_symlink_security": self.enforce_symlink_security,
++            "delete_on_realize": self.delete_on_realize,
++        }
++
++    @property
++    def _allowlist(self):
++        return self._file_sources_config.symlink_allowlist
++
++
++__all__ = ('PosixFilesSource',)
+diff --git a/lib/galaxy/files/sources/webdav.py b/lib/galaxy/files/sources/webdav.py
+new file mode 100644
+index 000000000000..ba43e106b2d0
+--- /dev/null
++++ b/lib/galaxy/files/sources/webdav.py
+@@ -0,0 +1,20 @@
++try:
++    from webdavfs.webdavfs import WebDAVFS
++except ImportError:
++    WebDAVFS = None
++
++from ._pyfilesystem2 import PyFilesystem2FilesSource
++
++
++class WebDavFilesSource(PyFilesystem2FilesSource):
++    plugin_type = 'webdav'
++    required_module = WebDAVFS
++    required_package = "fs.webdavfs"
++
++    def _open_fs(self, user_context):
++        props = self._serialization_props(user_context)
++        handle = WebDAVFS(**props)
++        return handle
++
++
++__all__ = ('WebDavFilesSource',)
+diff --git a/lib/galaxy/managers/configuration.py b/lib/galaxy/managers/configuration.py
+index a34c21ccd518..217f341151a9 100644
+--- a/lib/galaxy/managers/configuration.py
++++ b/lib/galaxy/managers/configuration.py
+@@ -104,6 +104,7 @@ def _use_config(config, key, **context):
+             'cookie_domain'                     : _use_config,
+             'python'                            : _defaults_to((sys.version_info.major, sys.version_info.minor)),
+             'select_type_workflow_threshold'    : _use_config,
++            'file_sources_configured'           : lambda config, key, **context: self.app.file_sources.custom_sources_configured,
+         }
+ 
+ 
+diff --git a/lib/galaxy/tool_util/xsd/galaxy.xsd b/lib/galaxy/tool_util/xsd/galaxy.xsd
+index d0ee3d4682bb..9ac8d53a7e2e 100644
+--- a/lib/galaxy/tool_util/xsd/galaxy.xsd
++++ b/lib/galaxy/tool_util/xsd/galaxy.xsd
+@@ -4759,6 +4759,7 @@ to setup configuration files for use by tools.]]></xs:documentation>
+   <xs:group name="ConfigFilesElement">
+     <xs:choice>
+       <xs:element name="inputs" type="ConfigInputs"/>
++      <xs:element name="file_sources" type="ConfigFileSources"/>
+       <xs:element name="configfile" type="ConfigFile"/>
+     </xs:choice>
+   </xs:group>
+@@ -4893,6 +4894,30 @@ response to this directive.
+     </xs:simpleContent>
+   </xs:complexType>
+ 
++  <xs:complexType name="ConfigFileSources">
++    <xs:annotation>
++      <xs:documentation xml:lang="en"><![CDATA[
++]]></xs:documentation>
++    </xs:annotation>
++    <xs:simpleContent>
++      <xs:extension base="xs:string">
++        <xs:attribute name="name" type="xs:string">
++          <xs:annotation>
++            <xs:documentation xml:lang="en"><![CDATA[
++Cheetah variable to populate the path to the inputs JSON file created in
++response to this directive.
++]]></xs:documentation>
++          </xs:annotation>
++        </xs:attribute>
++        <xs:attribute name="filename" type="xs:string">
++          <xs:annotation>
++            <xs:documentation xml:lang="en">Path relative to the working directory of the tool for the file sources JSON configuration file created in response to this directive.</xs:documentation>
++          </xs:annotation>
++        </xs:attribute>
++      </xs:extension>
++    </xs:simpleContent>
++  </xs:complexType>
++
+   <xs:complexType name="VersionCommand">
+     <xs:annotation>
+       <xs:documentation xml:lang="en"><![CDATA[Specifies the command to be run in
+diff --git a/lib/galaxy/tools/__init__.py b/lib/galaxy/tools/__init__.py
+index d3e697a31574..7d4450630c23 100755
+--- a/lib/galaxy/tools/__init__.py
++++ b/lib/galaxy/tools/__init__.py
+@@ -969,7 +969,13 @@ def __parse_config_files(self, tool_source):
+                 filename = inputs_elem.get("filename", None)
+                 format = inputs_elem.get("format", "json")
+                 data_style = inputs_elem.get("data_style", "skip")
+-                content = dict(format=format, handle_files=data_style)
++                content = dict(format=format, handle_files=data_style, type="inputs")
++                self.config_files.append((name, filename, content))
++            file_sources_elem = conf_parent_elem.find("file_sources")
++            if file_sources_elem is not None:
++                name = file_sources_elem.get("name")
++                filename = file_sources_elem.get("filename", None)
++                content = dict(type="files")
+                 self.config_files.append((name, filename, content))
+             for conf_elem in conf_parent_elem.findall("configfile"):
+                 name = conf_elem.get("name")
+diff --git a/lib/galaxy/tools/data_fetch.py b/lib/galaxy/tools/data_fetch.py
+index 90b35f64c69f..b2969320ff83 100644
+--- a/lib/galaxy/tools/data_fetch.py
++++ b/lib/galaxy/tools/data_fetch.py
+@@ -223,7 +223,7 @@ def _has_src_to_path(upload_config, item, is_dataset=False):
+     name = item.get("name")
+     if src == "url":
+         url = item.get("url")
+-        path = sniff.stream_url_to_file(url)
++        path = sniff.stream_url_to_file(url, file_sources=get_file_sources())
+         if not is_dataset:
+             # Actual target dataset will validate and put results in dict
+             # that gets passed back to Galaxy.
+@@ -261,6 +261,26 @@ def _arg_parser():
+     return parser
+ 
+ 
++_file_sources = None
++
++
++def get_file_sources():
++    global _file_sources
++    if _file_sources is None:
++        from galaxy.files import ConfiguredFileSources
++        file_sources = None
++        if os.path.exists("file_sources.json"):
++            file_sources_as_dict = None
++            with open("file_sources.json", "r") as f:
++                file_sources_as_dict = json.load(f)
++            if file_sources_as_dict is not None:
++                file_sources = ConfiguredFileSources.from_dict(file_sources_as_dict)
++        if file_sources is None:
++            ConfiguredFileSources.from_dict([])
++        _file_sources = file_sources
++    return _file_sources
++
++
+ class UploadConfig(object):
+ 
+     def __init__(self, request, registry):
+diff --git a/lib/galaxy/tools/data_fetch.xml b/lib/galaxy/tools/data_fetch.xml
+index 7c2d3ff1960f..5ebe6ea5e57b 100644
+--- a/lib/galaxy/tools/data_fetch.xml
++++ b/lib/galaxy/tools/data_fetch.xml
+@@ -26,6 +26,7 @@
+   </inputs>
+   <configfiles>
+     <configfile name="request_path">$request_json</configfile>
++    <file_sources filename="file_sources.json" />
+   </configfiles>
+   <outputs>
+   </outputs>
+diff --git a/lib/galaxy/tools/evaluation.py b/lib/galaxy/tools/evaluation.py
+index 44b6119137e2..6a3c8ed1d7db 100644
+--- a/lib/galaxy/tools/evaluation.py
++++ b/lib/galaxy/tools/evaluation.py
+@@ -7,6 +7,7 @@
+ from six import string_types
+ 
+ from galaxy import model
++from galaxy.files import ProvidesUserFileSourcesUserContext
+ from galaxy.job_execution.setup import ensure_configs_directory
+ from galaxy.model.none_like import NoneDataset
+ from galaxy.tools import global_tool_errors
+@@ -73,6 +74,7 @@ def set_compute_environment(self, compute_environment, get_special=None):
+ 
+         # Full parameter validation
+         request_context = WorkRequestContext(app=self.app, user=self._user, history=self._history)
++        self.request_context = request_context
+ 
+         def validate_inputs(input, value, context, **kwargs):
+             value = input.from_json(value, request_context, context)
+@@ -600,12 +602,21 @@ def __build_config_file_text(self, content):
+         if isinstance(content, string_types):
+             return content, True
+ 
+-        content_format = content["format"]
+-        handle_files = content["handle_files"]
+-        if content_format != "json":
+-            template = "Galaxy can only currently convert inputs to json, format [%s] is unhandled"
+-            message = template % content_format
+-            raise Exception(message)
++        config_type = content.get("type", "inputs")
++        if config_type == "inputs":
++            content_format = content["format"]
++            handle_files = content["handle_files"]
++            if content_format != "json":
++                template = "Galaxy can only currently convert inputs to json, format [%s] is unhandled"
++                message = template % content_format
++                raise Exception(message)
++        elif config_type == "files":
++            user_context = ProvidesUserFileSourcesUserContext(self.request_context)
++            file_sources_dict = self.app.file_sources.to_dict(for_serialization=True, user_context=user_context)
++            rval = json.dumps(file_sources_dict)
++            return rval, False
++        else:
++            raise Exception("Unknown config file type %s" % config_type)
+ 
+         return json.dumps(wrapped_json.json_wrap(self.tool.inputs,
+                                                  self.param_dict,
+diff --git a/lib/galaxy/tools/parameters/grouping.py b/lib/galaxy/tools/parameters/grouping.py
+index f04418989179..1b664cf8f559 100644
+--- a/lib/galaxy/tools/parameters/grouping.py
++++ b/lib/galaxy/tools/parameters/grouping.py
+@@ -26,6 +26,7 @@
+ from galaxy.util.expressions import ExpressionContext
+ 
+ log = logging.getLogger(__name__)
++URI_PREFIXES = ["%s://" % x for x in ["http", "https", "ftp", "file", "gxfiles", "gximport", "gxuserimport", "gxftp"]]
+ 
+ 
+ class Group(Dictifiable):
+@@ -352,9 +353,9 @@ def get_url_paste_urls_or_filename(group_incoming, override_name=None, override_
+                 url_paste = open(url_paste_file, 'r').read()
+ 
+                 def start_of_url(content):
+-                    start_of_url_paste = content.lstrip()[0:8].lower()
++                    start_of_url_paste = content.lstrip()[0:10].lower()
+                     looks_like_url = False
+-                    for url_prefix in ["http://", "https://", "ftp://", "file://"]:
++                    for url_prefix in URI_PREFIXES:
+                         if start_of_url_paste.startswith(url_prefix):
+                             looks_like_url = True
+                             break
+diff --git a/lib/galaxy/util/plugin_config.py b/lib/galaxy/util/plugin_config.py
+index 9393468d6e7a..8fc621afc08e 100644
+--- a/lib/galaxy/util/plugin_config.py
++++ b/lib/galaxy/util/plugin_config.py
+@@ -91,6 +91,10 @@ def plugin_source_from_path(path):
+         return PluginConfigSource('xml', parse_xml(path, remove_comments=True).getroot())
+ 
+ 
++def plugin_source_from_dict(as_dict):
++    return PluginConfigSource('dict', as_dict)
++
++
+ def __read_yaml(path):
+     if yaml is None:
+         raise ImportError("Attempting to read YAML configuration file - but PyYAML dependency unavailable.")
+diff --git a/lib/galaxy/webapps/galaxy/api/_fetch_util.py b/lib/galaxy/webapps/galaxy/api/_fetch_util.py
+index 174f26100983..2ae77e4c2767 100644
+--- a/lib/galaxy/webapps/galaxy/api/_fetch_util.py
++++ b/lib/galaxy/webapps/galaxy/api/_fetch_util.py
+@@ -162,6 +162,9 @@ def check_src(item):
+                     looks_like_url = True
+                     break
+ 
++            if not looks_like_url and trans.app.file_sources.looks_like_uri(url):
++                looks_like_url = True
++
+             if not looks_like_url:
+                 raise RequestParameterInvalidException("Invalid URL [%s] found in src definition." % url)
+ 
+diff --git a/lib/galaxy/webapps/galaxy/api/remote_files.py b/lib/galaxy/webapps/galaxy/api/remote_files.py
+index 15a140b46ca8..cd08d871f39b 100644
+--- a/lib/galaxy/webapps/galaxy/api/remote_files.py
++++ b/lib/galaxy/webapps/galaxy/api/remote_files.py
+@@ -3,19 +3,13 @@
+ """
+ import hashlib
+ import logging
+-import os
+-import time
+ from operator import itemgetter
+ 
+ from galaxy import exceptions
++from galaxy.files import ProvidesUserFileSourcesUserContext
+ from galaxy.util import (
+     jstree,
+     smart_str,
+-    unicodify
+-)
+-from galaxy.util.path import (
+-    safe_path,
+-    safe_walk
+ )
+ from galaxy.web import expose_api
+ from galaxy.webapps.base.controller import BaseAPIController
+@@ -32,142 +26,81 @@ def index(self, trans, **kwd):
+ 
+         Displays remote files.
+ 
+-        :param  target:      target to load available datasets from, defaults to ftp
+-            possible values: ftp, userdir, importdir
++        :param  target:      target to load available datasets from, defaults to ftpdir
++            possible values: ftpdir, userdir, importdir
+         :type   target:      str
+ 
+         :param  format:      requested format of data, defaults to flat
+-            possible values: flat, jstree, ajax
++            possible values: flat, jstree
+ 
+         :returns:   list of available files
+         :rtype:     list
+         """
+-        target = kwd.get('target', None)
+-        format = kwd.get('format', None)
+-
+-        if target == 'userdir':
+-            user_login = trans.user.email
+-            user_base_dir = trans.app.config.user_library_import_dir
+-            if user_base_dir is None:
+-                raise exceptions.ConfigDoesNotAllowException('The configuration of this Galaxy instance does not allow upload from user directories.')
+-            full_import_dir = os.path.join(user_base_dir, user_login)
+-            if not os.path.exists(full_import_dir):
+-                raise exceptions.ObjectNotFound('You do not have any files in your user directory. Use FTP to upload there.')
+-            if full_import_dir is not None:
+-                if format == 'jstree':
+-                    disable = kwd.get('disable', 'folders')
+-                    try:
+-                        userdir_jstree = self.__create_jstree(full_import_dir, disable, allowlist=trans.app.config.user_library_import_symlink_allowlist)
+-                        response = userdir_jstree.jsonData()
+-                    except Exception as e:
+-                        log.debug(unicodify(e))
+-                        raise exceptions.InternalServerError('Could not create tree representation of the given folder: %s' % full_import_dir)
+-                    if not response:
+-                        raise exceptions.ObjectNotFound('You do not have any files in your user directory. Use FTP to upload there.')
+-                elif format == 'ajax':
+-                    raise exceptions.NotImplemented('Not implemented yet. Sorry.')
+-                else:
+-                    try:
+-                        response = self.__load_all_filenames(full_import_dir, allowlist=trans.app.config.user_library_import_symlink_allowlist)
+-                    except Exception:
+-                        log.exception('Could not get user import files')
+-                        raise exceptions.InternalServerError('Could not get the files from your user directory folder.')
+-            else:
+-                raise exceptions.InternalServerError('Could not get the files from your user directory folder.')
++        # If set, target must be one of 'ftpdir' (default), 'userdir', 'importdir'
++        target = kwd.get('target', 'ftpdir')
++
++        user_context = ProvidesUserFileSourcesUserContext(trans)
++        default_recursive = False
++        default_format = "uri"
++
++        if "://" in target:
++            uri = target
++        elif target == 'userdir':
++            uri = "gxuserimport://"
++            default_format = "flat"
++            default_recursive = True
+         elif target == 'importdir':
+-            base_dir = trans.app.config.library_import_dir
+-            if base_dir is None:
+-                raise exceptions.ConfigDoesNotAllowException('The configuration of this Galaxy instance does not allow usage of import directory.')
+-            if format == 'jstree':
+-                disable = kwd.get('disable', 'folders')
+-                try:
+-                    importdir_jstree = self.__create_jstree(base_dir, disable, allowlist=trans.app.config.user_library_import_symlink_allowlist)
+-                    response = importdir_jstree.jsonData()
+-                except Exception as e:
+-                    log.debug(unicodify(e))
+-                    raise exceptions.InternalServerError('Could not create tree representation of the given folder: %s' % base_dir)
+-            elif format == 'ajax':
+-                raise exceptions.NotImplemented('Not implemented yet. Sorry.')
+-            else:
+-                try:
+-                    response = self.__load_all_filenames(base_dir, trans.app.config.user_library_import_symlink_allowlist)
+-                except Exception:
+-                    log.exception('Could not get user import files')
+-                    raise exceptions.InternalServerError('Could not get the files from your import directory folder.')
++            uri = 'gximport://'
++            default_format = "flat"
++            default_recursive = True
++        elif target in ['ftpdir', 'ftp']:  # legacy, allow both
++            uri = 'gxftp://'
++            default_format = "flat"
++            default_recursive = True
+         else:
+-            user_ftp_base_dir = trans.app.config.ftp_upload_dir
+-            if user_ftp_base_dir is None:
+-                raise exceptions.ConfigDoesNotAllowException('The configuration of this Galaxy instance does not allow upload from FTP directories.')
+-            try:
+-                user_ftp_dir = trans.user_ftp_dir
+-                if user_ftp_dir is not None:
+-                    response = self.__load_all_filenames(user_ftp_dir, trans.app.config.user_library_import_symlink_allowlist)
+-                else:
+-                    log.warning('You do not have an FTP directory named as your login at this Galaxy instance.')
+-                    return None
+-            except Exception:
+-                log.warning('Could not get ftp files', exc_info=True)
+-                return None
+-        return response
+-
+-    def __load_all_filenames(self, directory, allowlist=None):
+-        """
+-        Loads recursively all files within the given folder and its
+-        subfolders and returns a flat list.
+-        """
+-        response = []
+-        if self.__safe_directory(directory, allowlist=allowlist):
+-            for (dirpath, dirnames, filenames) in safe_walk(directory, allowlist=allowlist):
+-                for filename in filenames:
+-                    path = os.path.relpath(os.path.join(dirpath, filename), directory)
+-                    statinfo = os.lstat(os.path.join(dirpath, filename))
+-                    response.append(dict(path=path,
+-                                         size=statinfo.st_size,
+-                                         ctime=time.strftime("%m/%d/%Y %I:%M:%S %p", time.localtime(statinfo.st_ctime))))
+-        else:
+-            log.warning("The directory \"%s\" does not exist." % directory)
+-            return response
+-        # sort by path
+-        response = sorted(response, key=itemgetter("path"))
+-        return response
++            raise exceptions.RequestParameterInvalidException("Invalid target parameter supplied [%s]" % target)
+ 
+-    def __create_jstree(self, directory, disable='folders', allowlist=None):
+-        """
+-        Loads recursively all files and folders within the given folder
+-        and its subfolders and returns jstree representation
+-        of its structure.
+-        """
+-        jstree_paths = []
+-        if self.__safe_directory(directory, allowlist=allowlist):
+-            for (dirpath, dirnames, filenames) in safe_walk(directory, allowlist=allowlist):
+-                for dirname in dirnames:
+-                    dir_path = os.path.relpath(os.path.join(dirpath, dirname), directory)
+-                    dir_path_hash = hashlib.sha1(smart_str(dir_path)).hexdigest()
+-                    disabled = True if disable == 'folders' else False
+-                    jstree_paths.append(jstree.Path(dir_path, dir_path_hash, {'type': 'folder', 'state': {'disabled': disabled}, 'li_attr': {'full_path': dir_path}}))
++        format = kwd.get('format', default_format)
++        recursive = kwd.get('recursive', default_recursive)
+ 
+-                for filename in filenames:
+-                    file_path = os.path.relpath(os.path.join(dirpath, filename), directory)
+-                    file_path_hash = hashlib.sha1(smart_str(file_path)).hexdigest()
++        file_sources = self.app.file_sources
++        file_sources.validate_uri_root(uri, user_context=user_context)
++
++        file_source_path = file_sources.get_file_source_path(uri)
++        file_source = file_source_path.file_source
++        index = file_source.list(file_source_path.path, recursive=recursive, user_context=user_context)
++        if format == "flat":
++            # rip out directories, ensure sorted by path
++            index = [i for i in index if i["class"] == "File"]
++            index = sorted(index, key=itemgetter("path"))
++        if format == "jstree":
++            disable = kwd.get('disable', 'folders')
++
++            jstree_paths = []
++            for ent in index:
++                path = ent["path"]
++                path_hash = hashlib.sha1(smart_str(path)).hexdigest()
++                if ent["class"] == "Directory":
++                    path_type = 'folder'
++                    disabled = True if disable == 'folders' else False
++                else:
++                    path_type = 'file'
+                     disabled = True if disable == 'files' else False
+-                    jstree_paths.append(jstree.Path(file_path, file_path_hash, {'type': 'file', 'state': {'disabled': disabled}, 'li_attr': {'full_path': file_path}}))
+-        else:
+-            raise exceptions.ConfigDoesNotAllowException('The given directory does not exist.')
+-        userdir_jstree = jstree.JSTree(jstree_paths)
+-        return userdir_jstree
+ 
+-    def __safe_directory(self, directory, allowlist=None):
++                jstree_paths.append(jstree.Path(path, path_hash, {'type': path_type, 'state': {'disabled': disabled}, 'li_attr': {'full_path': path}}))
++            userdir_jstree = jstree.JSTree(jstree_paths)
++            index = userdir_jstree.jsonData()
++
++        return index
++
++    @expose_api
++    def plugins(self, trans, **kwd):
+         """
+-        Checks to see if the directory is contained within itself or the allowlist, and whether it exists
++        GET /api/remote_files/plugins
+ 
+-        :param directory:   the directory to check for safety
+-        :type directory:    string
+-        :param allowlist:   a list of acceptable paths to import from
+-        :type allowlist:    comma separated list of strings
+-        :return:            ``True`` if the path is safe to import from, ``False`` otherwise
++        Display plugin information for each of the gxfiles:// URI targets available.
++
++        :returns:   list of configured plugins
++        :rtype:     list
+         """
+-        if not safe_path(directory, allowlist=allowlist):
+-            raise exceptions.ConfigDoesNotAllowException('directory (%s) is a symlink to a location not on the allowlist' % directory)
+-        if not os.path.exists(directory):
+-            return False
+-        return True
++        return self.app.file_sources.plugins_to_dict()
+diff --git a/lib/galaxy/webapps/galaxy/buildapp.py b/lib/galaxy/webapps/galaxy/buildapp.py
+index 37295625c5f7..69cbc8a274cc 100644
+--- a/lib/galaxy/webapps/galaxy/buildapp.py
++++ b/lib/galaxy/webapps/galaxy/buildapp.py
+@@ -329,7 +329,8 @@ def populate_api_routes(webapp, app):
+     webapp.mapper.resource('role', 'roles', path_prefix='/api')
+     webapp.mapper.resource('upload', 'uploads', path_prefix='/api')
+     webapp.mapper.connect('/api/ftp_files', controller='remote_files')
+-    webapp.mapper.resource('remote_file', 'remote_files', path_prefix='/api')
++    webapp.mapper.connect('/api/remote_files', action='index', controller='remote_files', conditions=dict(method=["GET"]))
++    webapp.mapper.connect('/api/remote_files/plugins', action='plugins', controller='remote_files', conditions=dict(method=["GET"]))
+     webapp.mapper.resource('group', 'groups', path_prefix='/api')
+     webapp.mapper.resource_with_deleted('quota', 'quotas', path_prefix='/api')
+ 
+diff --git a/lib/galaxy/webapps/galaxy/config_schema.yml b/lib/galaxy/webapps/galaxy/config_schema.yml
+index 310807f39a9d..3fb439d422ee 100644
+--- a/lib/galaxy/webapps/galaxy/config_schema.yml
++++ b/lib/galaxy/webapps/galaxy/config_schema.yml
+@@ -469,6 +469,15 @@ mapping:
+           considered deprecated and this option will likely be removed in future versions of
+           Galaxy. For more information see https://github.com/galaxyproject/galaxy/issues/6513.
+ 
++      file_sources_config_file:
++        type: str
++        default: file_sources_conf.yml        
++        required: false
++        desc: |
++          Configured FileSource plugins.
++
++          The value of this option will be resolved with respect to <config_dir>.
++
+       enable_mulled_containers:
+         type: bool
+         default: true
+diff --git a/lib/galaxy_test/base/api_asserts.py b/lib/galaxy_test/base/api_asserts.py
+index ff524570d4dd..51a9b72e06a1 100644
+--- a/lib/galaxy_test/base/api_asserts.py
++++ b/lib/galaxy_test/base/api_asserts.py
+@@ -56,4 +56,12 @@ def assert_object_id_error(response):
+         assert_error_code_is(response, 404001)
+ 
+ 
++def assert_error_message_contains(response, expected_contains):
++    if hasattr(response, "json"):
++        response = response.json()
++    assert_has_keys(response, "err_msg")
++    err_msg = response["err_msg"]
++    assert expected_contains in err_msg
++
++
+ assert_has_key = assert_has_keys
+diff --git a/test/integration/file_sources_conf.yml b/test/integration/file_sources_conf.yml
+new file mode 100644
+index 000000000000..6c8ccc795c4b
+--- /dev/null
++++ b/test/integration/file_sources_conf.yml
+@@ -0,0 +1,6 @@
++- type: webdav
++  id: test1
++  doc: Test WebDAV server.
++  url: http://127.0.0.1:7083
++  login: alice  
++  password: secret1234
+diff --git a/test/integration/test_config_defaults.py b/test/integration/test_config_defaults.py
+index 6057254a699b..0a154f743bf6 100644
+--- a/test/integration/test_config_defaults.py
++++ b/test/integration/test_config_defaults.py
+@@ -56,6 +56,7 @@
+     'datatypes_config_file',
+     'dependency_resolvers_config_file',
+     'file_path',
++    'file_sources_config_file',
+     'ftp_upload_dir',
+     'galaxy_data_manager_data_path',
+     'integrated_tool_panel_config',
+@@ -110,6 +111,7 @@
+     'dependency_resolvers_config_file': 'config_dir',
+     'integrated_tool_panel_config': 'managed_config_dir',
+     'involucro_path': 'root_dir',
++    'file_sources_config_file': 'config_dir',
+     'job_resource_params_file': 'config_dir',
+     'len_file_path': 'tool_data_path',
+     'object_store_config_file': 'config_dir',
+diff --git a/test/integration/test_remote_files.py b/test/integration/test_remote_files.py
+new file mode 100644
+index 000000000000..b60f40d1e1c9
+--- /dev/null
++++ b/test/integration/test_remote_files.py
+@@ -0,0 +1,178 @@
++import json
++import operator
++import os
++import shutil
++from tempfile import mkdtemp
++
++from galaxy.exceptions import error_codes
++from galaxy_test.base.api_asserts import assert_error_code_is, assert_error_message_contains
++from galaxy_test.base.populators import DatasetPopulator
++from galaxy_test.driver import integration_util
++
++SCRIPT_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
++FILE_SOURCES_JOB_CONF = os.path.join(SCRIPT_DIRECTORY, "file_sources_conf.yml")
++
++USERNAME = 'user--bx--psu--edu'
++USER_EMAIL = 'user@bx.psu.edu'
++
++
++class RemoteFilesIntegrationTestCase(integration_util.IntegrationTestCase):
++
++    @classmethod
++    def handle_galaxy_config_kwds(cls, config):
++        root = os.path.realpath(mkdtemp())
++        cls._test_driver.temp_directories.append(root)
++        cls.root = root
++        cls.library_dir = os.path.join(root, "library")
++        cls.user_library_dir = os.path.join(root, "user_library")
++        cls.ftp_upload_dir = os.path.join(root, "ftp")
++        config["library_import_dir"] = cls.library_dir
++        config["user_library_import_dir"] = cls.user_library_dir
++        config["ftp_upload_dir"] = cls.ftp_upload_dir
++        config["ftp_upload_site"] = "ftp://cow.com"
++
++        # driver_util sets this to False, though the Galaxy default is True.
++        # Restore default for these tests.
++        config["ftp_upload_purge"] = True
++
++    def setUp(self):
++        super(RemoteFilesIntegrationTestCase, self).setUp()
++        self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
++
++        for d in [self.library_dir, self.user_library_dir, self.ftp_upload_dir]:
++            if os.path.exists(d):
++                shutil.rmtree(d)
++            os.mkdir(d)
++
++    def test_index(self):
++        index = self.galaxy_interactor.get("remote_files?target=importdir").json()
++        self._assert_index_empty(index)
++
++        _write_file_fixtures(self.root, self.library_dir)
++        index = self.galaxy_interactor.get("remote_files?target=importdir").json()
++        self._assert_index_matches_fixtures(index)
++
++        # Get a 404 if the directory doesn't exist.
++        index = self.galaxy_interactor.get("remote_files?target=userdir").json()
++        assert_error_code_is(index, error_codes.USER_OBJECT_NOT_FOUND)
++
++        users_dir = os.path.join(self.user_library_dir, USER_EMAIL)
++        os.mkdir(users_dir)
++
++        index = self.galaxy_interactor.get("remote_files?target=userdir").json()
++        self._assert_index_empty(index)
++
++        _write_file_fixtures(self.root, users_dir)
++
++        index = self.galaxy_interactor.get("remote_files?target=userdir").json()
++        self._assert_index_matches_fixtures(index)
++
++        index = self.galaxy_interactor.get("remote_files?target=userdir&format=jstree").json()
++        self._assert_index_matches_fixtures_jstree(index)
++
++    def test_fetch_from_import(self):
++        _write_file_fixtures(self.root, self.library_dir)
++        with self.dataset_populator.test_history() as history_id:
++            element = dict(src="url", url="gximport://a")
++            target = {
++                "destination": {"type": "hdas"},
++                "elements": [element],
++            }
++            targets = json.dumps([target])
++            payload = {
++                "history_id": history_id,
++                "targets": targets,
++            }
++            new_dataset = self.dataset_populator.fetch(payload, assert_ok=True).json()["outputs"][0]
++            content = self.dataset_populator.get_history_dataset_content(history_id, dataset=new_dataset)
++            assert content == "a\n", content
++
++        assert os.path.exists(os.path.join(self.library_dir, "a"))
++
++    def test_fetch_from_ftp(self):
++        ftp_dir = os.path.join(self.ftp_upload_dir, USER_EMAIL)
++        _write_file_fixtures(self.root, ftp_dir)
++        with self.dataset_populator.test_history() as history_id:
++            element = dict(src="url", url="gxftp://a")
++            target = {
++                "destination": {"type": "hdas"},
++                "elements": [element],
++            }
++            targets = json.dumps([target])
++            payload = {
++                "history_id": history_id,
++                "targets": targets,
++            }
++            new_dataset = self.dataset_populator.fetch(payload, assert_ok=True).json()["outputs"][0]
++            content = self.dataset_populator.get_history_dataset_content(history_id, dataset=new_dataset)
++            assert content == "a\n", content
++
++        assert not os.path.exists(os.path.join(ftp_dir, "a"))
++
++    def _assert_index_empty(self, index):
++        assert len(index) == 0
++
++    def _assert_index_matches_fixtures(self, index):
++        paths = map(operator.itemgetter("path"), index)
++        assert "a" in paths
++        assert "subdir1/c" in paths
++
++    def _assert_index_matches_fixtures_jstree(self, index):
++        a_file = index[0]
++        assert a_file["li_attr"]["full_path"] == "a"
++        subdir1 = index[1]
++        assert subdir1["type"] == "folder"
++        assert subdir1["state"]["disabled"]
++        assert subdir1["li_attr"]["full_path"] == "subdir1"
++        subdir1_children = subdir1["children"]
++        assert len(subdir1_children) == 2
++        c = subdir1_children[0]
++        assert c["li_attr"]["full_path"] == "subdir1/c"
++
++
++class RemoteFilesNotConfiguredIntegrationTestCase(integration_util.IntegrationTestCase):
++
++    @classmethod
++    def handle_galaxy_config_kwds(cls, config):
++        config["library_import_dir"] = None
++        config["user_library_import_dir"] = None
++        config["ftp_upload_dir"] = None
++
++    def test_configuration_statuses(self):
++        importfiles = self.galaxy_interactor.get("remote_files?target=importdir")
++        assert_error_code_is(importfiles, error_codes.CONFIG_DOES_NOT_ALLOW)
++        assert_error_message_contains(importfiles, 'import directory')
++
++        importfiles = self.galaxy_interactor.get("remote_files?target=ftpdir")
++        assert_error_code_is(importfiles, error_codes.CONFIG_DOES_NOT_ALLOW)
++        assert_error_message_contains(importfiles, 'FTP directories')
++
++        importfiles = self.galaxy_interactor.get("remote_files?target=userdir")
++        assert_error_code_is(importfiles, error_codes.CONFIG_DOES_NOT_ALLOW)
++        assert_error_message_contains(importfiles, 'user directories')
++
++        # invalid request parameter waitwhat...
++        importfiles = self.galaxy_interactor.get("remote_files?target=waitwhat")
++        assert_error_code_is(importfiles, error_codes.USER_REQUEST_INVALID_PARAMETER)
++
++
++def _write_file_fixtures(tmp, root):
++    if not os.path.exists(root):
++        os.mkdir(root)
++    os.symlink(os.path.join(tmp, "b"), os.path.join(root, "unsafe"))
++    with open(os.path.join(root, "a"), "w") as f:
++        f.write("a\n")
++    with open(os.path.join(tmp, "b"), "w") as f:
++        f.write("b\n")
++
++    subdir1 = os.path.join(root, "subdir1")
++    os.mkdir(subdir1)
++    with open(os.path.join(subdir1, "c"), "w") as f:
++        f.write("c\n")
++
++    subdir2 = os.path.join(subdir1, "subdir2")
++    os.mkdir(subdir2)
++    with open(os.path.join(subdir2, "d"), "w") as f:
++        f.write("d\n")
++
++    return tmp, root
+diff --git a/test/integration/test_webdav.py b/test/integration/test_webdav.py
+new file mode 100644
+index 000000000000..b104e8a517cd
+--- /dev/null
++++ b/test/integration/test_webdav.py
+@@ -0,0 +1,54 @@
++# TODO:
++
++# nginx+webdav in Docker.
++# docker run -v /Users/john/workspace/galaxy/test/integration/webdav/data:/media  -e WEBDAV_USERNAME=alice -e WEBDAV_PASSWORD=secret1234 -p 7083:7083 jmchilton/webdavdev
++# Apache Docker host doesn't work because displayname not set in response.
++# docker run -v /Users/john/workspace/galaxy/test/integration/webdav:/var/lib/dav  -e AUTH_TYPE=Basic -e USERNAME=alice -e PASSWORD=secret1234  -e LOCATION=/ -p 7083:80 bytemark/webdav
++
++import os
++
++import pytest
++
++from galaxy_test.base import api_asserts
++from galaxy_test.base.populators import DatasetPopulator
++from galaxy_test.driver import integration_util
++
++
++SCRIPT_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
++FILE_SOURCES_JOB_CONF = os.path.join(SCRIPT_DIRECTORY, "file_sources_conf.yml")
++
++skip_if_no_webdav = pytest.mark.skipif(
++    not os.environ.get('GALAXY_TEST_WEBDAV'),
++    reason="GALAXY_TEST_WEBDAV not set"
++)
++
++
++@skip_if_no_webdav
++class WebDavIntegrationTestCase(integration_util.IntegrationTestCase):
++
++    @classmethod
++    def handle_galaxy_config_kwds(cls, config):
++        config["file_sources_config_file"] = FILE_SOURCES_JOB_CONF
++
++    def setUp(self):
++        super(WebDavIntegrationTestCase, self).setUp()
++        self.dataset_populator = DatasetPopulator(self.galaxy_interactor)
++
++    def test_simple_usage(self):
++        plugin_config_response = self.galaxy_interactor.get("remote_files/plugins")
++        api_asserts.assert_status_code_is_ok(plugin_config_response)
++        plugins = plugin_config_response.json()
++        assert len(plugins) == 1
++        assert plugins[0]["type"] == "webdav"
++        assert plugins[0]["uri_prefix"] == "gxfiles://test1"
++
++        data = {"target": "gxfiles://test1"}
++        list_response = self.galaxy_interactor.get("remote_files", data)
++        api_asserts.assert_status_code_is_ok(list_response)
++        remote_files = list_response.json()
++        print(remote_files)
++
++        with self.dataset_populator.test_history() as history_id:
++            new_dataset = self.dataset_populator.new_dataset(history_id, content="gxfiles://test1/a", assert_ok=True)
++            content = self.dataset_populator.get_history_dataset_content(history_id, dataset=new_dataset)
++            assert content == "a\n", content
+diff --git a/test/integration/webdav/DavLock b/test/integration/webdav/DavLock
+new file mode 100644
+index 000000000000..e69de29bb2d1
+diff --git a/test/integration/webdav/data/a b/test/integration/webdav/data/a
+new file mode 100644
+index 000000000000..78981922613b
+--- /dev/null
++++ b/test/integration/webdav/data/a
+@@ -0,0 +1 @@
++a
+diff --git a/test/integration/webdav/data/folder1/b b/test/integration/webdav/data/folder1/b
+new file mode 100644
+index 000000000000..61780798228d
+--- /dev/null
++++ b/test/integration/webdav/data/folder1/b
+@@ -0,0 +1 @@
++b
+diff --git a/test/integration/webdav/data/subdir1/c b/test/integration/webdav/data/subdir1/c
+new file mode 100644
+index 000000000000..f2ad6c76f011
+--- /dev/null
++++ b/test/integration/webdav/data/subdir1/c
+@@ -0,0 +1 @@
++c
+diff --git a/test/integration/webdav/data/subdir1/subdir2/d b/test/integration/webdav/data/subdir1/subdir2/d
+new file mode 100644
+index 000000000000..4bcfe98e640c
+--- /dev/null
++++ b/test/integration/webdav/data/subdir1/subdir2/d
+@@ -0,0 +1 @@
++d
+diff --git a/test/unit/config/test_config_values.py b/test/unit/config/test_config_values.py
+index 1c17510196e6..63c9e07348d6 100644
+--- a/test/unit/config/test_config_values.py
++++ b/test/unit/config/test_config_values.py
+@@ -67,6 +67,7 @@ def _load_paths(self):
+             'dependency_resolvers_config_file': self._in_config_dir('dependency_resolvers_conf.xml'),
+             'dynamic_proxy_session_map': self._in_data_dir('session_map.sqlite'),
+             'file_path': self._in_data_dir('objects'),
++            'file_sources_config_file': self._in_config_dir('file_sources_conf.yml'),
+             'galaxy_data_manager_data_path': self._in_root_dir('tool-data'),
+             'integrated_tool_panel_config': self._in_managed_config_dir('integrated_tool_panel.xml'),
+             'interactivetools_map': self._in_data_dir('interactivetools_map.sqlite'),
+diff --git a/test/unit/files/__init__.py b/test/unit/files/__init__.py
+new file mode 100644
+index 000000000000..e69de29bb2d1
+diff --git a/test/unit/files/_util.py b/test/unit/files/_util.py
+new file mode 100644
+index 000000000000..acaa4fd1bcff
+--- /dev/null
++++ b/test/unit/files/_util.py
+@@ -0,0 +1,72 @@
++"""Utilities for unit test suite for galaxy.files."""
++import os
++import tempfile
++
++from galaxy.files import (
++    ConfiguredFileSources,
++    DictFileSourcesUserContext,
++)
++
++TEST_USERNAME = "alice"
++TEST_EMAIL = "alice@galaxyproject.org"
++
++
++def serialize_and_recover(file_sources_o, user_context=None):
++    as_dict = file_sources_o.to_dict(for_serialization=True, user_context=user_context)
++    file_sources = ConfiguredFileSources.from_dict(as_dict)
++    return file_sources
++
++
++def find_file_a(dir_list):
++    return find(dir_list, class_="File", name="a")
++
++
++def find(dir_list, class_=None, name=None):
++    for ent in dir_list:
++        if class_ is not None and ent["class"] != class_:
++            continue
++        if name is not None and ent["name"] == name:
++            return ent
++
++    return None
++
++
++def list_root(file_sources, uri, recursive, user_context=None):
++    file_source_pair = file_sources.get_file_source_path(uri)
++    file_source = file_source_pair.file_source
++    res = file_source.list("/", recursive=recursive, user_context=user_context)
++    return res
++
++
++def list_dir(file_sources, uri, recursive, user_context=None):
++    file_source_pair = file_sources.get_file_source_path(uri)
++    file_source = file_source_pair.file_source
++    print(file_source_pair.path)
++    print(uri)
++    res = file_source.list(file_source_pair.path, recursive=recursive, user_context=user_context)
++    return res
++
++
++def user_context_fixture(user_ftp_dir=None):
++    user_context = DictFileSourcesUserContext(
++        username=TEST_USERNAME,
++        email=TEST_EMAIL,
++        user_ftp_dir=user_ftp_dir,
++        preferences={
++            'webdav|password': 'secret1234',
++            'dropbox|access_token': os.environ.get('GALAXY_TEST_DROPBOX_ACCESS_TOKEN'),
++        }
++    )
++    return user_context
++
++
++def assert_realizes_as(file_sources, uri, expected, user_context=None):
++    file_source_path = file_sources.get_file_source_path(uri)
++    _, temp_name = tempfile.mkstemp()
++    file_source_path.file_source.realize_to(file_source_path.path, temp_name, user_context=user_context)
++    try:
++        with open(temp_name, "r") as f:
++            assert f.read() == expected
++    finally:
++        os.remove(temp_name)
++    return temp_name
+diff --git a/test/unit/files/dropbox.py b/test/unit/files/dropbox.py
+new file mode 100644
+index 000000000000..9d655fa8d15e
+--- /dev/null
++++ b/test/unit/files/dropbox.py
+@@ -0,0 +1,37 @@
++import os
++
++import pytest
++
++from galaxy.files import ConfiguredFileSources, ConfiguredFileSourcesConfig
++from ._util import (
++    assert_realizes_as,
++    find_file_a,
++    user_context_fixture,
++)
++SCRIPT_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
++FILE_SOURCES_CONF = os.path.join(SCRIPT_DIRECTORY, "dropbox_file_sources_conf.yml")
++
++skip_if_no_dropbox_access_token = pytest.mark.skipif(
++    not os.environ.get('GALAXY_TEST_DROPBOX_ACCESS_TOKEN'),
++    reason="GALAXY_TEST_DROPBOX_ACCESS_TOKEN not set"
++)
++
++
++@skip_if_no_dropbox_access_token
++def test_file_source():
++    user_context = user_context_fixture()
++    file_sources = _configured_file_sources()
++    file_source_pair = file_sources.get_file_source_path("gxfiles://test1")
++
++    assert file_source_pair.path == "/"
++    file_source = file_source_pair.file_source
++    res = file_source.list("/", recursive=True, user_context=user_context)
++    a_file = find_file_a(res)
++    assert a_file
++
++    assert_realizes_as(file_sources, "gxfiles://test1/a", "a\n", user_context=user_context)
++
++
++def _configured_file_sources(conf_file=FILE_SOURCES_CONF):
++    file_sources_config = ConfiguredFileSourcesConfig()
++    return ConfiguredFileSources(file_sources_config, conf_file=conf_file)
+diff --git a/test/unit/files/dropbox_file_sources_conf.yml b/test/unit/files/dropbox_file_sources_conf.yml
+new file mode 100644
+index 000000000000..9dac354b982d
+--- /dev/null
++++ b/test/unit/files/dropbox_file_sources_conf.yml
+@@ -0,0 +1,4 @@
++- type: dropbox
++  id: test1
++  doc: Test WebDAV server.
++  accessToken: ${user.preferences['dropbox|access_token']}
+diff --git a/test/unit/files/posix.py b/test/unit/files/posix.py
+new file mode 100644
+index 000000000000..d9c5c59c8676
+--- /dev/null
++++ b/test/unit/files/posix.py
+@@ -0,0 +1,268 @@
++import os
++import tempfile
++
++from galaxy.datatypes import sniff
++from galaxy.files import (
++    ConfiguredFileSources,
++    ConfiguredFileSourcesConfig,
++)
++from ._util import (
++    assert_realizes_as,
++    find,
++    find_file_a,
++    list_dir,
++    list_root,
++    serialize_and_recover,
++    user_context_fixture,
++)
++
++EMAIL = 'alice@galaxyproject.org'
++
++
++def test_posix():
++    file_sources = _configured_file_sources()
++    as_dict = file_sources.to_dict()
++    assert len(as_dict["file_sources"]) == 1
++    file_source_as_dict = as_dict["file_sources"][0]
++    assert file_source_as_dict["uri_root"] == "gxfiles://test1"
++
++    _download_and_check_file(file_sources)
++
++    res = list_root(file_sources, "gxfiles://test1", recursive=False)
++    file_a = find_file_a(res)
++    assert file_a
++    assert file_a["uri"] == "gxfiles://test1/a"
++    assert file_a["name"] == "a"
++
++    subdir1 = find(res, name="subdir1")
++    assert subdir1["class"] == "Directory"
++    assert subdir1["uri"] == "gxfiles://test1/subdir1"
++
++    res = list_dir(file_sources, "gxfiles://test1/subdir1", recursive=False)
++    subdir2 = find(res, name="subdir2")
++    assert subdir2, res
++    assert subdir2["uri"] == "gxfiles://test1/subdir1/subdir2"
++
++    file_c = find(res, name="c")
++    assert file_c, res
++    assert file_c["uri"] == "gxfiles://test1/subdir1/c"
++
++    res = list_root(file_sources, "gxfiles://test1", recursive=True)
++    subdir1 = find(res, name="subdir1")
++    subdir2 = find(res, name="subdir2")
++    assert subdir1["class"] == "Directory"
++    assert subdir1["uri"] == "gxfiles://test1/subdir1"
++    assert subdir2["uri"] == "gxfiles://test1/subdir1/subdir2"
++    assert subdir2["class"] == "Directory"
++
++
++def test_posix_link_security():
++    file_sources = _configured_file_sources()
++    e = None
++    try:
++        sniff.stream_url_to_file("gxfiles://test1/unsafe", file_sources=file_sources)
++    except Exception as ex:
++        e = ex
++    assert e is not None
++
++
++def test_posix_link_security_allowlist():
++    file_sources = _configured_file_sources(include_allowlist=True)
++    tmp_name = sniff.stream_url_to_file("gxfiles://test1/unsafe", file_sources=file_sources)
++    try:
++        with open(tmp_name, "r") as f:
++            assert f.read() == "b\n"
++    finally:
++        os.remove(tmp_name)
++
++
++def test_posix_disable_link_security():
++    file_sources = _configured_file_sources(plugin_extra_config={"enforce_symlink_security": False})
++    tmp_name = sniff.stream_url_to_file("gxfiles://test1/unsafe", file_sources=file_sources)
++    try:
++        with open(tmp_name, "r") as f:
++            assert f.read() == "b\n"
++    finally:
++        os.remove(tmp_name)
++
++
++def test_posix_per_user():
++    file_sources = _configured_file_sources(per_user=True)
++    user_context = user_context_fixture()
++    assert_realizes_as(file_sources, "gxfiles://test1/a", "a\n", user_context=user_context)
++
++    res = list_root(file_sources, "gxfiles://test1", recursive=False, user_context=user_context)
++    assert find_file_a(res)
++
++
++def test_posix_per_user_serialized():
++    user_context = user_context_fixture()
++    file_sources = serialize_and_recover(_configured_file_sources(per_user=True), user_context=user_context)
++
++    # After serialization and recovery - no need to for user context.
++    assert_realizes_as(file_sources, "gxfiles://test1/a", "a\n", user_context=None)
++
++
++def test_user_ftp_explicit_config():
++    file_sources_config = ConfiguredFileSourcesConfig(
++        ftp_upload_purge=False,
++    )
++    plugin = {
++        'type': 'gxftp',
++    }
++    tmp, root = _setup_root()
++    file_sources = ConfiguredFileSources(file_sources_config, conf_dict=[plugin])
++    user_context = user_context_fixture(user_ftp_dir=root)
++    _write_file_fixtures(tmp, root)
++
++    assert_realizes_as(file_sources, "gxftp://a", "a\n", user_context=user_context)
++
++    file_sources_remote = serialize_and_recover(file_sources, user_context=user_context)
++    assert_realizes_as(file_sources_remote, "gxftp://a", "a\n")
++
++    as_dict = file_sources.to_dict()
++    assert len(as_dict["file_sources"]) == 1
++    file_source_as_dict = as_dict["file_sources"][0]
++    assert file_source_as_dict["uri_root"] == "gxftp://"
++    assert file_source_as_dict["id"] == "_ftp"
++
++
++def test_user_ftp_implicit_config():
++    tmp, root = _setup_root()
++    file_sources_config = ConfiguredFileSourcesConfig(
++        ftp_upload_dir=root,
++        ftp_upload_purge=False,
++    )
++    file_sources = ConfiguredFileSources(file_sources_config, conf_dict=[], load_stock_plugins=True)
++    user_context = user_context_fixture(user_ftp_dir=root)
++    _write_file_fixtures(tmp, root)
++    assert os.path.exists(os.path.join(root, "a"))
++
++    assert_realizes_as(file_sources, "gxftp://a", "a\n", user_context=user_context)
++
++    file_sources_remote = serialize_and_recover(file_sources, user_context=user_context)
++    assert_realizes_as(file_sources_remote, "gxftp://a", "a\n")
++    assert os.path.exists(os.path.join(root, "a"))
++
++
++def test_user_ftp_respects_upload_purge_off():
++    tmp, root = _setup_root()
++    file_sources_config = ConfiguredFileSourcesConfig(
++        ftp_upload_dir=root,
++        ftp_upload_purge=True,
++    )
++    file_sources = ConfiguredFileSources(file_sources_config, conf_dict=[], load_stock_plugins=True)
++    user_context = user_context_fixture(user_ftp_dir=root)
++    _write_file_fixtures(tmp, root)
++    assert_realizes_as(file_sources, "gxftp://a", "a\n", user_context=user_context)
++    assert not os.path.exists(os.path.join(root, "a"))
++
++
++def test_user_ftp_respects_upload_purge_on_by_default():
++    tmp, root = _setup_root()
++    file_sources_config = ConfiguredFileSourcesConfig(
++        ftp_upload_dir=root,
++    )
++    file_sources = ConfiguredFileSources(file_sources_config, conf_dict=[], load_stock_plugins=True)
++    user_context = user_context_fixture(user_ftp_dir=root)
++    _write_file_fixtures(tmp, root)
++    assert_realizes_as(file_sources, "gxftp://a", "a\n", user_context=user_context)
++    assert not os.path.exists(os.path.join(root, "a"))
++
++
++def test_import_dir_explicit_config():
++    tmp, root = _setup_root()
++    file_sources_config = ConfiguredFileSourcesConfig(
++        library_import_dir=root,
++    )
++    plugin = {
++        'type': 'gximport',
++    }
++    file_sources = ConfiguredFileSources(file_sources_config, conf_dict=[plugin])
++    _write_file_fixtures(tmp, root)
++
++    assert_realizes_as(file_sources, "gximport://a", "a\n")
++
++
++def test_import_dir_implicit_config():
++    tmp, root = _setup_root()
++    file_sources_config = ConfiguredFileSourcesConfig(
++        library_import_dir=root,
++    )
++    file_sources = ConfiguredFileSources(file_sources_config, conf_dict=[], load_stock_plugins=True)
++    _write_file_fixtures(tmp, root)
++
++    assert_realizes_as(file_sources, "gximport://a", "a\n")
++
++
++def test_user_import_dir_implicit_config():
++    tmp, root = _setup_root()
++    file_sources_config = ConfiguredFileSourcesConfig(
++        user_library_import_dir=root,
++    )
++    file_sources = ConfiguredFileSources(file_sources_config, conf_dict=[], load_stock_plugins=True)
++
++    _write_file_fixtures(tmp, os.path.join(root, EMAIL))
++
++    user_context = user_context_fixture()
++    assert_realizes_as(file_sources, "gxuserimport://a", "a\n", user_context=user_context)
++
++
++def _configured_file_sources(include_allowlist=False, plugin_extra_config=None, per_user=False):
++    tmp, root = _setup_root()
++    config_kwd = {}
++    if include_allowlist:
++        config_kwd["symlink_allowlist"] = [tmp]
++    file_sources_config = ConfiguredFileSourcesConfig(**config_kwd)
++    plugin = {
++        'type': 'posix',
++        'id': 'test1',
++    }
++    if per_user:
++        plugin['root'] = "%s/${user.username}" % root
++        # setup files just for alice
++        root = os.path.join(root, "alice")
++        os.mkdir(root)
++    else:
++        plugin['root'] = root
++    plugin.update(plugin_extra_config or {})
++    _write_file_fixtures(tmp, root)
++    return ConfiguredFileSources(file_sources_config, conf_dict=[plugin])
++
++
++def _setup_root():
++    tmp = os.path.realpath(tempfile.mkdtemp())
++    root = os.path.join(tmp, "root")
++    os.mkdir(root)
++    return tmp, root
++
++
++def _write_file_fixtures(tmp, root):
++    if not os.path.exists(root):
++        os.mkdir(root)
++    os.symlink(os.path.join(tmp, "b"), os.path.join(root, "unsafe"))
++    with open(os.path.join(root, "a"), "w") as f:
++        f.write("a\n")
++    with open(os.path.join(tmp, "b"), "w") as f:
++        f.write("b\n")
++
++    subdir1 = os.path.join(root, "subdir1")
++    os.mkdir(subdir1)
++    with open(os.path.join(subdir1, "c"), "w") as f:
++        f.write("c\n")
++
++    subdir2 = os.path.join(subdir1, "subdir2")
++    os.mkdir(subdir2)
++    with open(os.path.join(subdir2, "d"), "w") as f:
++        f.write("d\n")
++
++    return tmp, root
++
++
++def _download_and_check_file(file_sources):
++    tmp_name = sniff.stream_url_to_file("gxfiles://test1/a", file_sources=file_sources)
++    try:
++        a_contents = open(tmp_name, "r").read()
++        assert a_contents == "a\n"
++    finally:
++        os.remove(tmp_name)
+diff --git a/test/unit/files/webdav.py b/test/unit/files/webdav.py
+new file mode 100644
+index 000000000000..029959ffbb2e
+--- /dev/null
++++ b/test/unit/files/webdav.py
+@@ -0,0 +1,103 @@
++import os
++
++import pytest
++
++from galaxy.datatypes import sniff
++from galaxy.files import ConfiguredFileSources, ConfiguredFileSourcesConfig
++from ._util import (
++    find,
++    find_file_a,
++    list_dir,
++    list_root,
++    serialize_and_recover,
++    user_context_fixture,
++)
++
++SCRIPT_DIRECTORY = os.path.abspath(os.path.dirname(__file__))
++FILE_SOURCES_CONF = os.path.join(SCRIPT_DIRECTORY, "webdav_file_sources_conf.yml")
++USER_FILE_SOURCES_CONF = os.path.join(SCRIPT_DIRECTORY, "webdav_user_file_sources_conf.yml")
++
++skip_if_no_webdav = pytest.mark.skipif(
++    not os.environ.get('GALAXY_TEST_WEBDAV'),
++    reason="GALAXY_TEST_WEBDAV not set"
++)
++
++
++@skip_if_no_webdav
++def test_file_source():
++    file_sources = _configured_file_sources()
++    file_source_pair = file_sources.get_file_source_path("gxfiles://test1")
++
++    assert file_source_pair.path == "/"
++    file_source = file_source_pair.file_source
++    res = file_source.list("/", recursive=True)
++    a_file = find_file_a(res)
++    assert a_file
++    assert a_file["uri"] == "gxfiles://test1/a", a_file
++
++    res = file_source.list("/", recursive=False)
++    file_a = find_file_a(res)
++    assert file_a
++    assert file_a["uri"] == "gxfiles://test1/a"
++    assert file_a["name"] == "a"
++
++    subdir1 = find(res, name="subdir1")
++    assert subdir1["class"] == "Directory"
++    assert subdir1["uri"] == "gxfiles://test1/subdir1"
++
++    res = list_dir(file_sources, "gxfiles://test1/subdir1", recursive=False)
++    subdir2 = find(res, name="subdir2")
++    assert subdir2, res
++    assert subdir2["uri"] == "gxfiles://test1/subdir1/subdir2"
++
++    file_c = find(res, name="c")
++    assert file_c, res
++    assert file_c["uri"] == "gxfiles://test1/subdir1/c"
++
++
++@skip_if_no_webdav
++def test_sniff_to_tmp():
++    file_sources = _configured_file_sources()
++    _download_and_check_file(file_sources)
++
++
++@skip_if_no_webdav
++def test_serialization():
++    # serialize the configured file sources and rematerialize them,
++    # ensure they still function. This is needed for uploading files.
++    file_sources = serialize_and_recover(_configured_file_sources())
++
++    res = list_root(file_sources, "gxfiles://test1", recursive=True)
++    assert find_file_a(res)
++
++    res = list_root(file_sources, "gxfiles://test1", recursive=False)
++    assert find_file_a(res)
++
++    _download_and_check_file(file_sources)
++
++
++@skip_if_no_webdav
++def test_serialization_user():
++    file_sources_o = _configured_file_sources(USER_FILE_SOURCES_CONF)
++    user_context = user_context_fixture()
++
++    res = list_root(file_sources_o, "gxfiles://test1", recursive=True, user_context=user_context)
++    assert find_file_a(res)
++
++    file_sources = serialize_and_recover(file_sources_o, user_context=user_context)
++    res = list_root(file_sources, "gxfiles://test1", recursive=True, user_context=None)
++    assert find_file_a(res)
++
++
++def _configured_file_sources(conf_file=FILE_SOURCES_CONF):
++    file_sources_config = ConfiguredFileSourcesConfig()
++    return ConfiguredFileSources(file_sources_config, conf_file=conf_file)
++
++
++def _download_and_check_file(file_sources):
++    tmp_name = sniff.stream_url_to_file("gxfiles://test1/a", file_sources=file_sources)
++    try:
++        a_contents = open(tmp_name, "r").read()
++        assert a_contents == "a\n"
++    finally:
++        os.remove(tmp_name)
+diff --git a/test/unit/files/webdav_file_sources_conf.yml b/test/unit/files/webdav_file_sources_conf.yml
+new file mode 120000
+index 000000000000..12e2e0e3cbfb
+--- /dev/null
++++ b/test/unit/files/webdav_file_sources_conf.yml
+@@ -0,0 +1 @@
++../../integration/file_sources_conf.yml
+\ No newline at end of file
+diff --git a/test/unit/files/webdav_user_file_sources_conf.yml b/test/unit/files/webdav_user_file_sources_conf.yml
+new file mode 100644
+index 000000000000..3104d2d0a5f8
+--- /dev/null
++++ b/test/unit/files/webdav_user_file_sources_conf.yml
+@@ -0,0 +1,6 @@
++- type: webdav
++  id: test1
++  doc: Test WebDAV server.
++  url: http://127.0.0.1:7083
++  login: ${user.username}
++  password: ${user.preferences['webdav|password']}
+diff --git a/tools/data_source/upload.py b/tools/data_source/upload.py
+index a968ad152537..1d9c1dd024bd 100644
+--- a/tools/data_source/upload.py
++++ b/tools/data_source/upload.py
+@@ -11,8 +11,6 @@
+ import sys
+ from json import dump, load, loads
+ 
+-from six.moves.urllib.request import urlopen
+-
+ from galaxy.datatypes import sniff
+ from galaxy.datatypes.registry import Registry
+ from galaxy.datatypes.upload_util import handle_upload, UploadProblemException
+@@ -26,6 +24,26 @@
+ assert sys.version_info[:2] >= (2, 7)
+ 
+ 
++_file_sources = None
++
++
++def get_file_sources():
++    global _file_sources
++    if _file_sources is None:
++        from galaxy.files import ConfiguredFileSources
++        file_sources = None
++        if os.path.exists("file_sources.json"):
++            file_sources_as_dict = None
++            with open("file_sources.json", "r") as f:
++                file_sources_as_dict = load(f)
++            if file_sources_as_dict is not None:
++                file_sources = ConfiguredFileSources.from_dict(file_sources_as_dict)
++        if file_sources is None:
++            ConfiguredFileSources.from_dict([])
++        _file_sources = file_sources
++    return _file_sources
++
++
+ def file_err(msg, dataset):
+     # never remove a server-side upload
+     if dataset.type not in ('server_dir', 'path_paste'):
+@@ -102,7 +120,7 @@ def add_file(dataset, registry, output_path):
+ 
+     if dataset.type == 'url':
+         try:
+-            dataset.path = sniff.stream_url_to_file(dataset.path)
++            dataset.path = sniff.stream_url_to_file(dataset.path, file_sources=get_file_sources())
+         except Exception as e:
+             raise UploadProblemException('Unable to fetch %s\n%s' % (dataset.path, unicodify(e)))
+ 
+@@ -184,7 +202,7 @@ def to_path(path_or_url):
+         is_url = path_or_url.find('://') != -1  # todo fixme
+         if is_url:
+             try:
+-                temp_name = sniff.stream_to_file(urlopen(path_or_url), prefix='url_paste')
++                temp_name = sniff.stream_url_to_file(path_or_url, file_sources=get_file_sources())
+             except Exception as e:
+                 raise UploadProblemException('Unable to fetch %s\n%s' % (path_or_url, unicodify(e)))
+ 
+diff --git a/tools/data_source/upload.xml b/tools/data_source/upload.xml
+index e64c38652b65..72c3a87d8fb8 100644
+--- a/tools/data_source/upload.xml
++++ b/tools/data_source/upload.xml
+@@ -1,7 +1,10 @@
+ <?xml version="1.0"?>
+-<tool name="Upload File" id="upload1" version="1.1.6" workflow_compatible="false" profile="16.04">
++<tool name="Upload File" id="upload1" version="1.1.7" workflow_compatible="false" profile="16.04">
+   <description>from your computer</description>
+   <action module="galaxy.tools.actions.upload" class="UploadToolAction"/>
++  <configfiles>
++    <file_sources filename="file_sources.json" />
++  </configfiles>
+   <command>
+     python '$__tool_directory__/upload.py' '$GALAXY_ROOT_DIR' '$GALAXY_DATATYPES_CONF_FILE' '$paramfile'
+     #set $outnum = 0

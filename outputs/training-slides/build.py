@@ -190,25 +190,27 @@ def generate_slides(topic_name):
     metadata = load_metadata(topic_name)
     content = load_content(topic_name)
 
-    # Extract all slide-type content blocks (exclude prose-only blocks)
+    # Extract only SLIDE-type content blocks (exclude prose and agent-context)
     all_slides = []
     for block in content.root:
-        # Include blocks that are explicitly slides or blocks that are not marked as prose-only
-        # By default blocks render as slides (doc.render controls doc-only blocks)
-        if block.type != ContentBlockType.PROSE:
+        # Only include blocks explicitly marked as slides
+        if block.type == ContentBlockType.SLIDE:
             markdown = block.content or ""
             # Add heading to markdown if present
             if block.heading and block.heading.strip():
                 markdown = f"### {block.heading}\n\n{markdown}"
             if markdown.strip():
                 slides = markdown_to_slides(markdown)
-                # Apply block-level layout class to all slides from this block
-                # The class comes from the 'class:' shorthand in YAML, which gets propagated to slides.layout
-                if block.slides.layout:
+                # Apply block-level layout reference and CSS classes to all slides from this block
+                if block.slides.layout_name:
+                    for slide in slides:
+                        if not slide.get('layout_ref'):
+                            slide['layout_ref'] = block.slides.layout_name
+                if block.slides.class_:
                     for slide in slides:
                         # Only set class if the slide doesn't already have one from its markdown
                         if not slide.get('class'):
-                            slide['class'] = f"class: {block.slides.layout}"
+                            slide['class'] = f"class: {block.slides.class_}"
                 all_slides.extend(slides)
 
     # Convert slide dicts to strings for template
@@ -219,19 +221,40 @@ def generate_slides(topic_name):
         # Process .code[] wrapper syntax: {.code} before code block becomes .code[```...```]
         slide_content = process_code_wrappers(slide_content)
 
-        # Class is already in content if it was set, or we use the class from dict
+        # Build slide directives (layout reference and/or class)
+        directives = []
+
+        # Add layout reference if present
+        if slide.get('layout_ref'):
+            directives.append(f"layout: {slide['layout_ref']}")
+
+        # Add class directive if present (unless already in content)
         lines = slide_content.split('\n')
-        if lines and lines[0].strip().startswith('class:'):
-            # Class already in content, use as-is
-            formatted_slides.append(slide_content)
-        elif slide['class']:
-            # Add class directive before slide content
-            formatted_slides.append(f"{slide['class']}\n\n{slide_content}")
+        class_in_content = lines and lines[0].strip().startswith('class:')
+        if slide.get('class') and not class_in_content:
+            directives.append(slide['class'])
+
+        # Format the slide with directives
+        if directives:
+            formatted_slides.append('\n\n'.join(directives + [slide_content]))
         else:
             formatted_slides.append(slide_content)
 
     # Note: Navigation footnotes are NOT added here - they should be added during
     # the sync process to training-material only, not for local sphinx or standalone HTML
+
+    # Add standard Remark.js layout definitions at top of slides
+    layout_definitions_str = """
+layout: true
+name: left-aligned
+class: left, middle
+---
+layout: true
+class: center, middle
+"""
+
+    # Prepend layout definitions to formatted slides
+    formatted_slides_with_layouts = [layout_definitions_str] + formatted_slides
 
     # Generate GTN-compatible markdown format (slides.md)
     gtn_template_path = Path(__file__).parent / "template.html"
@@ -248,7 +271,7 @@ def generate_slides(topic_name):
         objectives=metadata.training.objectives,
         key_points=metadata.training.key_points,
         time_estimation=metadata.training.time_estimation,
-        slides=formatted_slides,
+        slides=formatted_slides_with_layouts,
         topic_id=metadata.topic_id,
         contributors=metadata.contributors,
     )
@@ -261,11 +284,21 @@ def generate_slides(topic_name):
     # Rewrite image paths for HTML context (different depth than GTN markdown)
     fixed_slides = [rewrite_image_paths_for_html(slide, topic_name) for slide in formatted_slides]
 
+    # Add layout definitions for HTML slides (these are Remark.js templates, not visible slides)
+    html_layout_definitions_str = """
+layout: true
+name: left-aligned
+class: left, middle
+---
+layout: true
+class: center, middle
+"""
+
     # Join slides with --- separator (Remark.js requires this)
     # Title slide with subtitle
     subtitle = metadata.training.subtitle or ""
-    title_slide = f"# {metadata.title}\n\n*{subtitle}.*"
-    markdown_parts = [title_slide]
+    title_slide = f"class: enlarge200\n# {metadata.title}\n\n*{subtitle}.*"
+    markdown_parts = [html_layout_definitions_str, title_slide]
 
     # Add Learning Questions slide if questions exist
     if metadata.training.questions:

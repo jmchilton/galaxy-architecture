@@ -1,0 +1,1261 @@
+diff --git a/client/src/components/Dataset/DatasetAsImage/DatasetAsImage.vue b/client/src/components/Dataset/DatasetAsImage/DatasetAsImage.vue
+index c51b286633e2..492f48210c40 100644
+--- a/client/src/components/Dataset/DatasetAsImage/DatasetAsImage.vue
++++ b/client/src/components/Dataset/DatasetAsImage/DatasetAsImage.vue
+@@ -1,5 +1,6 @@
+ <script setup lang="ts">
+ import { computedAsync } from "@vueuse/core";
++import { BAlert, BImg } from "bootstrap-vue";
+ import { computed } from "vue";
+ 
+ import { type PathDestination, useDatasetPathDestination } from "@/composables/datasetPathDestination";
+@@ -22,7 +23,6 @@ const imageUrl = computed(() => {
+     if (props.path === undefined || props.path === "undefined") {
+         return `${getAppRoot()}dataset/display?dataset_id=${props.historyDatasetId}`;
+     }
+-
+     return pathDestination.value?.fileLink;
+ });
+ 
+@@ -37,15 +37,11 @@ const isImage = computedAsync(async () => {
+ </script>
+ 
+ <template>
+-    <div>
+-        <div v-if="imageUrl" class="w-100 p-2">
+-            <b-card nobody body-class="p-1">
+-                <span v-if="!isImage" class="text-danger">This dataset does not appear to be an image.</span>
+-                <b-img v-else :src="imageUrl" fluid />
+-            </b-card>
+-        </div>
+-        <div v-else>
+-            <b>Image is not found</b>
+-        </div>
++    <div v-if="imageUrl" class="w-100">
++        <BAlert v-if="!isImage" variant="warning" show>
++            This dataset does not appear to be an image: {{ imageUrl }}.
++        </BAlert>
++        <BImg v-else :src="imageUrl" fluid />
+     </div>
++    <BAlert v-else variant="warning" show>Image not found: {{ imageUrl }}.</BAlert>
+ </template>
+diff --git a/client/src/components/Markdown/Markdown.vue b/client/src/components/Markdown/Markdown.vue
+index f7fc63ed6345..0ddd458cc357 100644
+--- a/client/src/components/Markdown/Markdown.vue
++++ b/client/src/components/Markdown/Markdown.vue
+@@ -120,7 +120,7 @@ onMounted(() => {
+                     </div>
+                 </b-alert>
+             </div>
+-            <div v-for="(obj, index) in markdownObjects" :key="index" class="markdown-components">
++            <div v-for="(obj, index) in markdownObjects" :key="index" class="markdown-component">
+                 <MarkdownDefault v-if="obj.name === 'markdown'" :content="obj.content" />
+                 <MarkdownGalaxy v-else-if="obj.name === 'galaxy'" :content="obj.content" />
+             </div>
+diff --git a/client/src/components/Markdown/Sections/MarkdownGalaxy.test.js b/client/src/components/Markdown/Sections/MarkdownGalaxy.test.js
+index 9902607c19de..cbbbf681d9bd 100644
+--- a/client/src/components/Markdown/Sections/MarkdownGalaxy.test.js
++++ b/client/src/components/Markdown/Sections/MarkdownGalaxy.test.js
+@@ -27,6 +27,7 @@ jest.mock("@/composables/config", () => ({
+ 
+ const localVue = getLocalVue();
+ const axiosMock = new MockAdapter(axios);
++const pinia = createTestingPinia({ stubActions: false });
+ 
+ function mapAxios(apiMap = {}) {
+     axiosMock.reset();
+@@ -37,20 +38,8 @@ function mapAxios(apiMap = {}) {
+     }
+ }
+ 
+-async function mountComponent(propsData, apiMap = {}) {
++function mountComponent(propsData = {}, apiMap = {}) {
+     mapAxios(apiMap);
+-    return mount(MountTarget, {
+-        localVue,
+-        propsData,
+-        stubs: {
+-            FontAwesomeIcon: true,
+-        },
+-    });
+-}
+-
+-function mountComponentWithServer(propsData = {}, apiMap = {}) {
+-    mapAxios(apiMap);
+-    const pinia = createTestingPinia({ stubActions: false });
+     server.use(
+         http.get("/api/histories/test_history_id", ({ response }) =>
+             response(200).json({ id: "test_history_id", name: "history_name" })
+@@ -101,7 +90,7 @@ describe("MarkdownContainer", () => {
+     });
+ 
+     it("Renders history link", async () => {
+-        const wrapper = mountComponentWithServer(
++        const wrapper = mountComponent(
+             {
+                 content: "history_link(history_id=test_history_id)",
+             },
+@@ -123,7 +112,7 @@ describe("MarkdownContainer", () => {
+     });
+ 
+     it("Renders history link (with failing import error message)", async () => {
+-        const wrapper = mountComponentWithServer({
++        const wrapper = mountComponent({
+             content: "history_link(history_id=test_history_id)",
+         });
+         await wrapper.find("a").trigger("click");
+diff --git a/client/src/components/Markdown/Sections/MarkdownGalaxy.vue b/client/src/components/Markdown/Sections/MarkdownGalaxy.vue
+index d07a560e4f9e..4300a32ec0bd 100644
+--- a/client/src/components/Markdown/Sections/MarkdownGalaxy.vue
++++ b/client/src/components/Markdown/Sections/MarkdownGalaxy.vue
+@@ -1,8 +1,12 @@
+ <script setup>
++import { BAlert, BCollapse, BLink } from "bootstrap-vue";
+ import { computed, ref, watch } from "vue";
+ 
+ import { getArgs } from "@/components/Markdown/parse";
++import { parseInvocation } from "@/components/Markdown/Utilities/parseInvocation";
+ import { useConfig } from "@/composables/config";
++import { useInvocationStore } from "@/stores/invocationStore";
++import { useWorkflowStore } from "@/stores/workflowStore";
+ 
+ import HistoryDatasetAsImage from "./Elements/HistoryDatasetAsImage.vue";
+ import HistoryDatasetAsTable from "./Elements/HistoryDatasetAsTable.vue";
+@@ -21,8 +25,11 @@ import Visualization from "./Elements/Visualization.vue";
+ import WorkflowDisplay from "./Elements/Workflow/WorkflowDisplay.vue";
+ import WorkflowImage from "./Elements/Workflow/WorkflowImage.vue";
+ import WorkflowLicense from "./Elements/Workflow/WorkflowLicense.vue";
++import LoadingSpan from "@/components/LoadingSpan.vue";
+ 
+ const { config, isConfigLoaded } = useConfig();
++const { getInvocationById, getInvocationLoadError, isLoadingInvocation } = useInvocationStore();
++const { fetchWorkflowForInstanceIdCached, getStoredWorkflowIdByInstanceId } = useWorkflowStore();
+ 
+ const props = defineProps({
+     content: {
+@@ -31,48 +38,79 @@ const props = defineProps({
+     },
+ });
+ 
+-const args = ref();
+-const attributes = ref();
++const attributes = ref({});
+ const error = ref("");
+-const loaded = ref(false);
+ const toggle = ref(false);
++const workflowLoading = ref(false);
+ 
++const args = computed(() => {
++    if (invocation.value && workflowId.value) {
++        return parseInvocation(invocation.value, workflowId.value, name.value, attributes.value.args);
++    } else {
++        return { ...attributes.value.args };
++    }
++});
++
++const invocation = computed(() => invocationId.value && getInvocationById(invocationId.value));
++const invocationId = computed(() => attributes.value.args?.invocation_id);
++const invocationLoading = computed(() => isLoadingInvocation(invocationId.value));
++const invocationLoadError = computed(() => getInvocationLoadError(invocationId.value));
+ const isCollapsible = computed(() => args.value?.collapse !== undefined);
++const isLoading = computed(() => invocationLoading.value || workflowLoading.value);
+ const isVisible = computed(() => !isCollapsible.value || toggle.value);
+ const name = computed(() => attributes.value.name);
+ const version = computed(() => config.version_major);
++const workflowId = computed(() => invocation.value && getStoredWorkflowIdByInstanceId(invocation.value.workflow_id));
++
++async function fetchWorkflow() {
++    if (invocation.value?.workflow_id) {
++        try {
++            workflowLoading.value = true;
++            await fetchWorkflowForInstanceIdCached(invocation.value.workflow_id);
++        } catch (e) {
++            error.value = String(e);
++        } finally {
++            workflowLoading.value = false;
++        }
++    }
++}
+ 
+-async function handleArgs() {
++function handleAttributes() {
+     try {
+         error.value = "";
+         attributes.value = getArgs(props.content);
+-        const attributesArgs = { ...attributes.value.args };
+-        args.value = attributesArgs;
+     } catch (e) {
+         error.value = "The directive provided below is invalid. Please review it for errors.";
+         attributes.value = {};
+     }
+-    loaded.value = true;
+ }
+ 
+ watch(
+     () => props.content,
+-    () => {
+-        handleArgs();
+-    },
++    () => handleAttributes(),
++    { immediate: true }
++);
++
++watch(
++    () => invocation.value,
++    () => fetchWorkflow(),
+     { immediate: true }
+ );
+ </script>
+ 
+ <template>
+-    <div v-if="loaded">
+-        <b-alert v-if="error" variant="danger" show>
+-            {{ error }}
+-        </b-alert>
+-        <b-link v-if="isCollapsible" class="font-weight-bold" @click="toggle = !toggle">
++    <BAlert v-if="error" v-localize variant="danger" show>
++        {{ error }}
++    </BAlert>
++    <BAlert v-else-if="invocationLoadError" v-localize variant="danger" show>
++        {{ invocationLoadError }}
++    </BAlert>
++    <LoadingSpan v-else-if="isLoading" />
++    <div v-else>
++        <BLink v-if="isCollapsible" class="font-weight-bold" @click="toggle = !toggle">
+             {{ args.collapse }}
+-        </b-link>
+-        <b-collapse :visible="isVisible">
++        </BLink>
++        <BCollapse :visible="isVisible">
+             <div v-if="name == 'generate_galaxy_version'" class="galaxy-version">
+                 <pre><code>{{ version }}</code></pre>
+             </div>
+@@ -180,6 +218,6 @@ watch(
+                 :size="args.size || 'lg'"
+                 :workflow-version="args.workflow_checkpoint || undefined" />
+             <WorkflowLicense v-else-if="name == 'workflow_license'" :workflow-id="args.workflow_id" />
+-        </b-collapse>
++        </BCollapse>
+     </div>
+ </template>
+diff --git a/client/src/components/Markdown/Utilities/parseInvocation.test.js b/client/src/components/Markdown/Utilities/parseInvocation.test.js
+new file mode 100644
+index 000000000000..471a77071470
+--- /dev/null
++++ b/client/src/components/Markdown/Utilities/parseInvocation.test.js
+@@ -0,0 +1,84 @@
++import { parseInvocation } from "./parseInvocation";
++
++const INVOCATION = {
++    id: "invocation_id_1",
++    history_id: "history_id_1",
++    inputs: [
++        {
++            label: "input_1",
++            id: "input_id_1",
++        },
++        {
++            label: "input_2",
++            id: "input_id_2",
++        },
++        {
++            label: "input_3",
++            id: "input_id_3",
++        },
++    ],
++    outputs: {
++        output_1: {
++            id: "output_id_1",
++        },
++        output_2: {
++            id: "output_id_2",
++        },
++    },
++    steps: [
++        {
++            workflow_step_label: "workflow_step_1",
++            job_id: "job_id_1",
++        },
++        {
++            workflow_step_label: "workflow_step_2",
++            implicit_collection_jobs_id: "implicit_id_2",
++            job_id: "job_id_2",
++        },
++    ],
++};
++
++const STORED_WORKFLOW_ID = "workflow_id_1";
++
++describe("parseInvocation.ts", () => {
++    describe("parseInvocation", () => {
++        it("populate args with invocation details", () => {
++            expect(parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "history_link", {}).history_id).toBe("history_id_1");
++            expect(parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "workflow_display", {}).workflow_id).toBe(
++                "workflow_id_1"
++            );
++            expect(parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "workflow_image", {}).workflow_id).toBe(
++                "workflow_id_1"
++            );
++            expect(parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "workflow_license", {}).workflow_id).toBe(
++                "workflow_id_1"
++            );
++            expect(
++                parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "", {
++                    input: "input_3",
++                }).history_target_id
++            ).toBe("input_id_3");
++            expect(
++                parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "", {
++                    output: "unavailable_output",
++                }).history_target_id
++            ).toBeUndefined();
++            expect(
++                parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "", {
++                    output: "output_2",
++                }).history_target_id
++            ).toBe("output_id_2");
++            expect(
++                parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "", {
++                    step: "workflow_step_1",
++                }).job_id
++            ).toBe("job_id_1");
++            expect(
++                parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "", {
++                    step: "workflow_step_2",
++                }).implicit_collection_jobs_id
++            ).toBe("implicit_id_2");
++            expect(parseInvocation(INVOCATION, STORED_WORKFLOW_ID, "", {}).invocation.id).toBe("invocation_id_1");
++        });
++    });
++});
+diff --git a/client/src/components/Markdown/Utilities/parseInvocation.ts b/client/src/components/Markdown/Utilities/parseInvocation.ts
+new file mode 100644
+index 000000000000..bf6474e7c383
+--- /dev/null
++++ b/client/src/components/Markdown/Utilities/parseInvocation.ts
+@@ -0,0 +1,53 @@
++interface Invocation {
++    history_id: string;
++    inputs: Record<string, { label?: string; id?: string }>;
++    outputs: Record<string, { id?: string }>;
++    steps: { workflow_step_label?: string; job_id?: string; implicit_collection_jobs_id?: string }[];
++    workflow_id: string;
++}
++
++interface ParsedAttributes {
++    history_id?: string;
++    history_target_id?: string;
++    input?: string;
++    invocation: Invocation;
++    implicit_collection_jobs_id?: string;
++    job_id?: string;
++    name: string;
++    output?: string;
++    step?: string;
++    workflow_id?: string;
++}
++
++export function parseInvocation(
++    invocation: Invocation,
++    workflowId: string,
++    name: string,
++    attributes: ParsedAttributes
++): ParsedAttributes {
++    const result: ParsedAttributes = { ...attributes };
++    result.invocation = invocation;
++    if (name === "history_link") {
++        result.history_id = invocation.history_id;
++    } else if (["workflow_display", "workflow_image", "workflow_license"].includes(name)) {
++        result.workflow_id = workflowId;
++    } else if (result.input && invocation.inputs) {
++        const inputs = Object.values(invocation.inputs);
++        const input = inputs.find((i) => i.label && i.label === result?.input);
++        if (input) {
++            result.history_target_id = input.id;
++        }
++    } else if (result.output && invocation.outputs) {
++        const output = invocation.outputs[result.output];
++        if (output) {
++            result.history_target_id = output.id;
++        }
++    } else if (result.step && invocation.steps) {
++        const step = invocation.steps.find((s) => s.workflow_step_label === result.step);
++        if (step) {
++            result.job_id = step.job_id;
++            result.implicit_collection_jobs_id = step.implicit_collection_jobs_id;
++        }
++    }
++    return result;
++}
+diff --git a/client/src/stores/invocationStore.ts b/client/src/stores/invocationStore.ts
+index d212f8c6e644..aa367f3cd7c7 100644
+--- a/client/src/stores/invocationStore.ts
++++ b/client/src/stores/invocationStore.ts
+@@ -56,8 +56,10 @@ export const useInvocationStore = defineStore("invocationStore", () => {
+     }
+ 
+     const {
+-        getItemById: getInvocationById,
+         fetchItemById: fetchInvocationForId,
++        getItemById: getInvocationById,
++        getItemLoadError: getInvocationLoadError,
++        isLoadingItem: isLoadingInvocation,
+         storedItems: storedInvocations,
+     } = useKeyedCache<WorkflowInvocation>(fetchInvocationDetails);
+ 
+@@ -68,13 +70,15 @@ export const useInvocationStore = defineStore("invocationStore", () => {
+         useKeyedCache<InvocationStep>(fetchInvocationStep);
+ 
+     return {
+-        getInvocationById,
++        cancelWorkflowScheduling,
+         fetchInvocationForId,
+-        getInvocationJobsSummaryById,
+         fetchInvocationJobsSummaryForId,
+-        getInvocationStepById,
+         fetchInvocationStepById,
+-        cancelWorkflowScheduling,
++        getInvocationById,
++        getInvocationJobsSummaryById,
++        getInvocationLoadError,
++        getInvocationStepById,
+         graphStepsByStoreId,
++        isLoadingInvocation,
+     };
+ });
+diff --git a/client/src/stores/workflowStore.ts b/client/src/stores/workflowStore.ts
+index e68b62ab604f..56c046b301db 100644
+--- a/client/src/stores/workflowStore.ts
++++ b/client/src/stores/workflowStore.ts
+@@ -1,9 +1,8 @@
+-import axios from "axios";
+ import { defineStore } from "pinia";
+ import { computed, ref, set } from "vue";
+ 
++import { GalaxyApi } from "@/api";
+ // import type { StoredWorkflowDetailed } from "@/api/workflows"; // TODO: use this instead of locally defined type
+-import { getAppRoot } from "@/onload/loadConfig";
+ import { type Steps } from "@/stores/workflowStepStore";
+ 
+ export interface Workflow {
+@@ -34,7 +33,6 @@ export const useWorkflowStore = defineStore("workflowStore", () => {
+ 
+     const getStoredWorkflowNameByInstanceId = computed(() => (workflowId: string, defaultName = "...") => {
+         const details = workflowsByInstanceId.value[workflowId];
+-
+         if (details && details.name) {
+             return details.name;
+         } else {
+@@ -51,23 +49,24 @@ export const useWorkflowStore = defineStore("workflowStore", () => {
+      */
+     async function fetchWorkflowForInstanceId(workflowId: string) {
+         const promise = workflowDetailPromises.get(workflowId);
+-
+         if (promise) {
+             console.debug("Workflow details fetching already requested for", workflowId);
+             await promise;
+         } else {
+             console.debug("Fetching workflow details for", workflowId);
+-
+-            const params = { instance: "true" };
+-            const promise = axios.get(`${getAppRoot()}api/workflows/${workflowId}`, { params });
+-
++            const promise = GalaxyApi().GET("/api/workflows/{workflow_id}", {
++                params: {
++                    path: { workflow_id: workflowId },
++                    query: { instance: true },
++                },
++            });
+             workflowDetailPromises.set(workflowId, promise);
+-
+-            const { data } = await promise;
+-
+-            set(workflowsByInstanceId.value, workflowId, data as Workflow);
++            const { data, error } = await promise;
++            if (error) {
++                throw Error(`Failed to retrieve workflow. ${error.err_msg}`);
++            }
++            set(workflowsByInstanceId.value, workflowId, data);
+         }
+-
+         workflowDetailPromises.delete(workflowId);
+     }
+ 
+@@ -82,11 +81,11 @@ export const useWorkflowStore = defineStore("workflowStore", () => {
+     }
+ 
+     return {
+-        workflowsByInstanceId,
++        fetchWorkflowForInstanceId,
++        fetchWorkflowForInstanceIdCached,
+         getStoredWorkflowByInstanceId,
+         getStoredWorkflowIdByInstanceId,
+         getStoredWorkflowNameByInstanceId,
+-        fetchWorkflowForInstanceId,
+-        fetchWorkflowForInstanceIdCached,
++        workflowsByInstanceId,
+     };
+ });
+diff --git a/lib/galaxy/managers/markdown_parse.py b/lib/galaxy/managers/markdown_parse.py
+index 7f3110da3cd4..1cdcb2b1a090 100644
+--- a/lib/galaxy/managers/markdown_parse.py
++++ b/lib/galaxy/managers/markdown_parse.py
+@@ -27,11 +27,12 @@ class DynamicArguments:
+ DYNAMIC_ARGUMENTS = DynamicArguments()
+ SHARED_ARGUMENTS: List[str] = ["collapse"]
+ VALID_ARGUMENTS: Dict[str, Union[List[str], DynamicArguments]] = {
+-    "history_link": ["history_id"],
+-    "history_dataset_display": ["input", "output", "history_dataset_id"],
+-    "history_dataset_embedded": ["input", "output", "history_dataset_id"],
+-    "history_dataset_as_image": ["input", "output", "history_dataset_id", "path"],
++    "history_link": ["history_id", "invocation_id"],
++    "history_dataset_display": ["invocation_id", "input", "output", "history_dataset_id"],
++    "history_dataset_embedded": ["invocation_id", "input", "output", "history_dataset_id"],
++    "history_dataset_as_image": ["invocation_id", "input", "output", "history_dataset_id", "path"],
+     "history_dataset_as_table": [
++        "invocation_id",
+         "input",
+         "output",
+         "history_dataset_id",
+@@ -41,20 +42,20 @@ class DynamicArguments:
+         "show_column_headers",
+         "compact",
+     ],
+-    "history_dataset_peek": ["input", "output", "history_dataset_id"],
+-    "history_dataset_info": ["input", "output", "history_dataset_id"],
+-    "history_dataset_link": ["input", "output", "history_dataset_id", "path", "label"],
+-    "history_dataset_index": ["input", "output", "history_dataset_id", "path"],
+-    "history_dataset_name": ["input", "output", "history_dataset_id"],
+-    "history_dataset_type": ["input", "output", "history_dataset_id"],
+-    "history_dataset_collection_display": ["input", "output", "history_dataset_collection_id"],
+-    "workflow_display": ["workflow_id", "workflow_checkpoint"],
+-    "workflow_license": ["workflow_id"],
+-    "workflow_image": ["workflow_id", "size", "workflow_checkpoint"],
+-    "job_metrics": ["step", "job_id", "implicit_collection_jobs_id"],
+-    "job_parameters": ["step", "job_id", "implicit_collection_jobs_id"],
+-    "tool_stderr": ["step", "job_id", "implicit_collection_jobs_id"],
+-    "tool_stdout": ["step", "job_id", "implicit_collection_jobs_id"],
++    "history_dataset_peek": ["invocation_id", "input", "output", "history_dataset_id"],
++    "history_dataset_info": ["invocation_id", "input", "output", "history_dataset_id"],
++    "history_dataset_link": ["invocation_id", "input", "output", "history_dataset_id", "path", "label"],
++    "history_dataset_index": ["invocation_id", "input", "output", "history_dataset_id", "path"],
++    "history_dataset_name": ["invocation_id", "input", "output", "history_dataset_id"],
++    "history_dataset_type": ["invocation_id", "input", "output", "history_dataset_id"],
++    "history_dataset_collection_display": ["invocation_id", "input", "output", "history_dataset_collection_id"],
++    "workflow_display": ["invocation_id", "workflow_id", "workflow_checkpoint"],
++    "workflow_license": ["invocation_id", "workflow_id"],
++    "workflow_image": ["invocation_id", "workflow_id", "size", "workflow_checkpoint"],
++    "job_metrics": ["invocation_id", "step", "job_id", "implicit_collection_jobs_id"],
++    "job_parameters": ["invocation_id", "step", "job_id", "implicit_collection_jobs_id"],
++    "tool_stderr": ["invocation_id", "step", "job_id", "implicit_collection_jobs_id"],
++    "tool_stdout": ["invocation_id", "step", "job_id", "implicit_collection_jobs_id"],
+     "generate_galaxy_version": [],
+     "generate_time": [],
+     "instance_access_link": [],
+@@ -67,8 +68,8 @@ class DynamicArguments:
+     "visualization": DYNAMIC_ARGUMENTS,
+     # Invocation Flavored Markdown
+     "invocation_time": ["invocation_id"],
+-    "invocation_outputs": [],
+-    "invocation_inputs": [],
++    "invocation_outputs": ["invocation_id"],
++    "invocation_inputs": ["invocation_id"],
+ }
+ GALAXY_FLAVORED_MARKDOWN_CONTAINERS = list(VALID_ARGUMENTS.keys())
+ GALAXY_FLAVORED_MARKDOWN_CONTAINER_REGEX = r"(?P<container>{})".format("|".join(GALAXY_FLAVORED_MARKDOWN_CONTAINERS))
+diff --git a/lib/galaxy/managers/markdown_util.py b/lib/galaxy/managers/markdown_util.py
+index be670bcc917c..f24daa4c0d39 100644
+--- a/lib/galaxy/managers/markdown_util.py
++++ b/lib/galaxy/managers/markdown_util.py
+@@ -69,19 +69,17 @@
+ ARG_VAL_CAPTURED_REGEX = r"""(?:([\w_\-\|]+)|\"([^\"]+)\"|\'([^\']+)\')"""
+ OUTPUT_LABEL_PATTERN = re.compile(rf"output=\s*{ARG_VAL_CAPTURED_REGEX}\s*")
+ INPUT_LABEL_PATTERN = re.compile(rf"input=\s*{ARG_VAL_CAPTURED_REGEX}\s*")
++INVOCATION_ID_PATTERN = re.compile(rf"invocation_id=\s*({ARG_VAL_CAPTURED_REGEX})\s*(?:,\s*)?")
+ STEP_LABEL_PATTERN = re.compile(rf"step=\s*{ARG_VAL_CAPTURED_REGEX}\s*")
+ PATH_LABEL_PATTERN = re.compile(rf"path=\s*{ARG_VAL_CAPTURED_REGEX}\s*")
+-SIZE_PATTERN = re.compile(rf"size=\s*{ARG_VAL_CAPTURED_REGEX}\s*")
+-# STEP_OUTPUT_LABEL_PATTERN = re.compile(r'step_output=([\w_\-]+)/([\w_\-]+)')
++
+ UNENCODED_ID_PATTERN = re.compile(
+     r"(history_id|workflow_id|history_dataset_id|history_dataset_collection_id|job_id|implicit_collection_jobs_id|invocation_id)=([\d]+)"
+ )
+ ENCODED_ID_PATTERN = re.compile(
+     r"(history_id|workflow_id|history_dataset_id|history_dataset_collection_id|job_id|implicit_collection_jobs_id|invocation_id)=([a-z0-9]+)"
+ )
+-INVOCATION_SECTION_MARKDOWN_CONTAINER_LINE_PATTERN = re.compile(r"```\s*galaxy\s*")
+ GALAXY_FENCED_BLOCK = re.compile(r"^```\s*galaxy\s*(.*?)^```", re.MULTILINE ^ re.DOTALL)
+-VALID_CONTAINER_START_PATTERN = re.compile(r"^```\s+[\w]+.*$")
+ 
+ 
+ def ready_galaxy_markdown_for_import(trans, external_galaxy_markdown):
+@@ -109,84 +107,89 @@ def walk(self, trans, internal_galaxy_markdown):
+         job_manager = JobManager(trans.app)
+         collection_manager = trans.app.dataset_collection_manager
+ 
+-        def _check_object(object_id, line):
+-            if object_id is None:
+-                raise MalformedContents(f"Missing object identifier [{line}].")
+-
+         def _remap(container, line):
+-            line, object_id, encoded_id = self._encode_line(trans, line)
++            line, object_type, object_id, encoded_id = self._encode_line(trans, line)
++            rval = None
+             if container == "history_link":
+-                _check_object(object_id, line)
+-                history = history_manager.get_accessible(object_id, trans.user)
+-                rval = self.handle_history_link(line, history)
++                if object_id is not None and object_type == "history_id":
++                    history = history_manager.get_accessible(object_id, trans.user)
++                    rval = self.handle_history_link(line, history)
+             elif container == "history_dataset_display":
+-                _check_object(object_id, line)
+-                hda = hda_manager.get_accessible(object_id, trans.user)
+-                rval = self.handle_dataset_display(line, hda)
++                if object_id is not None and object_type == "history_dataset_id":
++                    hda = hda_manager.get_accessible(object_id, trans.user)
++                    rval = self.handle_dataset_display(line, hda)
+             elif container == "history_dataset_link":
+-                _check_object(object_id, line)
+-                hda = hda_manager.get_accessible(object_id, trans.user)
+-                rval = self.handle_dataset_display(line, hda)
++                if object_id is not None and object_type == "history_dataset_id":
++                    hda = hda_manager.get_accessible(object_id, trans.user)
++                    rval = self.handle_dataset_display(line, hda)
+             elif container == "history_dataset_index":
+-                _check_object(object_id, line)
+-                hda = hda_manager.get_accessible(object_id, trans.user)
+-                rval = self.handle_dataset_display(line, hda)
++                if object_id is not None and object_type == "history_dataset_id":
++                    hda = hda_manager.get_accessible(object_id, trans.user)
++                    rval = self.handle_dataset_display(line, hda)
+             elif container == "history_dataset_embedded":
+-                _check_object(object_id, line)
+-                hda = hda_manager.get_accessible(object_id, trans.user)
+-                rval = self.handle_dataset_embedded(line, hda)
++                if object_id is not None and object_type == "history_dataset_id":
++                    hda = hda_manager.get_accessible(object_id, trans.user)
++                    rval = self.handle_dataset_embedded(line, hda)
+             elif container == "history_dataset_as_image":
+-                _check_object(object_id, line)
+-                hda = hda_manager.get_accessible(object_id, trans.user)
+-                rval = self.handle_dataset_as_image(line, hda)
++                if object_id is not None and object_type == "history_dataset_id":
++                    hda = hda_manager.get_accessible(object_id, trans.user)
++                    rval = self.handle_dataset_as_image(line, hda)
+             elif container == "history_dataset_as_table":
+-                _check_object(object_id, line)
+-                hda = hda_manager.get_accessible(object_id, trans.user)
+-                rval = self.handle_dataset_as_table(line, hda)
++                if object_id is not None and object_type == "history_dataset_id":
++                    hda = hda_manager.get_accessible(object_id, trans.user)
++                    rval = self.handle_dataset_as_table(line, hda)
+             elif container == "history_dataset_peek":
+-                _check_object(object_id, line)
+-                hda = hda_manager.get_accessible(object_id, trans.user)
+-                rval = self.handle_dataset_peek(line, hda)
++                if object_id is not None and object_type == "history_dataset_id":
++                    hda = hda_manager.get_accessible(object_id, trans.user)
++                    rval = self.handle_dataset_peek(line, hda)
+             elif container == "history_dataset_info":
+-                _check_object(object_id, line)
+-                hda = hda_manager.get_accessible(object_id, trans.user)
+-                rval = self.handle_dataset_info(line, hda)
++                if object_id is not None and object_type == "history_dataset_id":
++                    hda = hda_manager.get_accessible(object_id, trans.user)
++                    rval = self.handle_dataset_info(line, hda)
+             elif container == "history_dataset_type":
+-                _check_object(object_id, line)
+-                hda = hda_manager.get_accessible(object_id, trans.user)
+-                rval = self.handle_dataset_type(line, hda)
++                if object_id is not None and object_type == "history_dataset_id":
++                    hda = hda_manager.get_accessible(object_id, trans.user)
++                    rval = self.handle_dataset_type(line, hda)
+             elif container == "history_dataset_name":
+-                _check_object(object_id, line)
+-                hda = hda_manager.get_accessible(object_id, trans.user)
+-                rval = self.handle_dataset_name(line, hda)
++                if object_id is not None and object_type == "history_dataset_id":
++                    hda = hda_manager.get_accessible(object_id, trans.user)
++                    rval = self.handle_dataset_name(line, hda)
+             elif container == "workflow_display":
+-                stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
+-                workflow_version_str = _parse_directive_argument_value("workflow_checkpoint", line)
+-                workflow_version = None if not workflow_version_str else int(workflow_version_str)
+-                rval = self.handle_workflow_display(line, stored_workflow, workflow_version)
++                if encoded_id is not None and object_type == "workflow_id":
++                    stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
++                    workflow_version_str = _parse_directive_argument_value("workflow_checkpoint", line)
++                    workflow_version = None if not workflow_version_str else int(workflow_version_str)
++                    rval = self.handle_workflow_display(line, stored_workflow, workflow_version)
+             elif container == "workflow_image":
+-                stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
+-                workflow_version_str = _parse_directive_argument_value("workflow_checkpoint", line)
+-                workflow_version = None if not workflow_version_str else int(workflow_version_str)
+-                rval = self.handle_workflow_image(line, stored_workflow, workflow_version)
++                if encoded_id is not None and object_type == "workflow_id":
++                    stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
++                    workflow_version_str = _parse_directive_argument_value("workflow_checkpoint", line)
++                    workflow_version = None if not workflow_version_str else int(workflow_version_str)
++                    rval = self.handle_workflow_image(line, stored_workflow, workflow_version)
+             elif container == "workflow_license":
+-                stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
+-                rval = self.handle_workflow_license(line, stored_workflow)
++                if encoded_id is not None and object_type == "workflow_id":
++                    stored_workflow = workflow_manager.get_stored_accessible_workflow(trans, encoded_id)
++                    rval = self.handle_workflow_license(line, stored_workflow)
+             elif container == "history_dataset_collection_display":
+-                hdca = collection_manager.get_dataset_collection_instance(trans, "history", encoded_id)
+-                rval = self.handle_dataset_collection_display(line, hdca)
++                if encoded_id is not None and object_type == "history_dataset_collection_id":
++                    hdca = collection_manager.get_dataset_collection_instance(trans, "history", encoded_id)
++                    rval = self.handle_dataset_collection_display(line, hdca)
+             elif container == "tool_stdout":
+-                job = job_manager.get_accessible_job(trans, object_id)
+-                rval = self.handle_tool_stdout(line, job)
++                if object_id is not None and object_type == "job_id":
++                    job = job_manager.get_accessible_job(trans, object_id)
++                    rval = self.handle_tool_stdout(line, job)
+             elif container == "tool_stderr":
+-                job = job_manager.get_accessible_job(trans, object_id)
+-                rval = self.handle_tool_stderr(line, job)
++                if object_id is not None and object_type == "job_id":
++                    job = job_manager.get_accessible_job(trans, object_id)
++                    rval = self.handle_tool_stderr(line, job)
+             elif container == "job_parameters":
+-                job = job_manager.get_accessible_job(trans, object_id)
+-                rval = self.handle_job_parameters(line, job)
++                if object_id is not None and object_type == "job_id":
++                    job = job_manager.get_accessible_job(trans, object_id)
++                    rval = self.handle_job_parameters(line, job)
+             elif container == "job_metrics":
+-                job = job_manager.get_accessible_job(trans, object_id)
+-                rval = self.handle_job_metrics(line, job)
++                if object_id is not None and object_type == "job_id":
++                    job = job_manager.get_accessible_job(trans, object_id)
++                    rval = self.handle_job_metrics(line, job)
+             elif container == "generate_galaxy_version":
+                 version = trans.app.config.version_major
+                 rval = self.handle_generate_galaxy_version(line, version)
+@@ -214,13 +217,26 @@ def _remap(container, line):
+                 title = trans.app.config.organization_name
+                 url = trans.app.config.organization_url
+                 rval = self.handle_instance_organization_link(line, title, url)
++            elif container == "invocation_inputs":
++                if object_id is not None and object_type == "invocation_id":
++                    invocation = workflow_manager.get_invocation(
++                        trans, object_id, check_ownership=False, check_accessible=True
++                    )
++                    rval = self.handle_invocation_inputs(line, invocation)
++            elif container == "invocation_outputs":
++                if object_id is not None and object_type == "invocation_id":
++                    invocation = workflow_manager.get_invocation(
++                        trans, object_id, check_ownership=False, check_accessible=True
++                    )
++                    rval = self.handle_invocation_outputs(line, invocation)
+             elif container == "invocation_time":
+-                invocation = workflow_manager.get_invocation(
+-                    trans, object_id, check_ownership=False, check_accessible=True
+-                )
+-                rval = self.handle_invocation_time(line, invocation)
++                if object_id is not None and object_type == "invocation_id":
++                    invocation = workflow_manager.get_invocation(
++                        trans, object_id, check_ownership=False, check_accessible=True
++                    )
++                    rval = self.handle_invocation_time(line, invocation)
+             elif container == "visualization":
+-                rval = None
++                rval = self.handle_visualization(line)
+             else:
+                 raise MalformedContents(f"Unknown Galaxy Markdown directive encountered [{container}].")
+             if rval is not None:
+@@ -239,13 +255,15 @@ def _remap_container(container, line):
+         return export_markdown
+ 
+     def _encode_line(self, trans, line):
++        object_type = None
+         object_id = None
+         encoded_id = None
+         if id_match := re.search(UNENCODED_ID_PATTERN, line):
++            object_type = id_match.group(1)
+             object_id = int(id_match.group(2))
+             encoded_id = trans.security.encode_id(object_id)
+-            line = line.replace(id_match.group(), f"{id_match.group(1)}={encoded_id}")
+-        return line, object_id, encoded_id
++            line = line.replace(id_match.group(), f"{object_type}={encoded_id}")
++        return line, object_type, object_id, encoded_id
+ 
+     @abc.abstractmethod
+     def handle_history_link(self, line, history):
+@@ -352,7 +370,19 @@ def handle_instance_organization_link(self, line, title, url):
+         pass
+ 
+     @abc.abstractmethod
+-    def handle_invocation_time(self, line, date):
++    def handle_invocation_time(self, line, invocation):
++        pass
++
++    @abc.abstractmethod
++    def handle_invocation_inputs(self, line, invocation):
++        pass
++
++    @abc.abstractmethod
++    def handle_invocation_outputs(self, line, invocation):
++        pass
++
++    @abc.abstractmethod
++    def handle_visualization(self, line):
+         pass
+ 
+     @abc.abstractmethod
+@@ -464,6 +494,15 @@ def handle_invocation_time(self, line, invocation):
+             "%Y-%m-%d, %H:%M:%S"
+         )
+ 
++    def handle_invocation_inputs(self, line, invocation):
++        pass
++
++    def handle_invocation_outputs(self, line, invocation):
++        pass
++
++    def handle_visualization(self, line):
++        pass
++
+     def handle_dataset_type(self, line, hda):
+         self.extend_history_dataset_rendering_data(hda, "ext", hda.ext, "*Unknown dataset type*")
+ 
+@@ -725,6 +764,15 @@ def handle_invocation_time(self, line, invocation):
+         content = literal_via_fence(invocation.create_time.strftime("%Y-%m-%d, %H:%M:%S"))
+         return (content, True)
+ 
++    def handle_invocation_inputs(self, line, invocation):
++        return ("*Invocation inputs not implemented*", True)
++
++    def handle_invocation_outputs(self, line, invocation):
++        return ("*Invocation outputs not implemented*", True)
++
++    def handle_visualization(self, line):
++        return ("*Visualization inputs not implemented*", True)
++
+     def handle_dataset_name(self, line, hda):
+         if hda.name:
+             content = literal_via_fence(hda.name)
+@@ -746,7 +794,8 @@ def handle_error(self, container, line, error):
+ def to_basic_markdown(trans, internal_galaxy_markdown: str) -> str:
+     """Replace Galaxy Markdown extensions with plain Markdown for PDF/HTML export."""
+     directive_handler = ToBasicMarkdownDirectiveHandler(trans)
+-    plain_markdown = directive_handler.walk(trans, internal_galaxy_markdown)
++    resolved_invocations_markdown = resolve_invocation_markdown(trans, internal_galaxy_markdown)
++    plain_markdown = directive_handler.walk(trans, resolved_invocations_markdown)
+     return plain_markdown
+ 
+ 
+@@ -826,7 +875,60 @@ def to_branded_pdf(basic_markdown: str, document_type: PdfDocumentType, config:
+     return to_pdf_raw(branded_markdown, css_paths=css_paths)
+ 
+ 
+-def resolve_invocation_markdown(trans, invocation, workflow_markdown):
++def populate_invocation_markdown(trans, invocation, workflow_markdown):
++    """
++    Resolve invocation objects to convert markdown to 'internal' representation.
++
++    Add the invocation_id to the relevant attributes where required.
++    Avoid making irreversible changes to the markdown, as this could compromise the interchangeability between
++    workflow reports and pages. In future updates, the `invocation_id` may be migrated from the markdown to a
++    dedicated database relationship column for better management.
++
++    Specifically:
++    - Convert references to abstract workflow parts into attributes that include invocation-specific
++    details, such as invocation_id. For example:
++        - `output=name` becomes `invocation_id=<id>, output=name`
++        - `input=name` becomes `invocation_id=<id>, input=name`
++        - `step=name` becomes `invocation_id=<id>, step=name `
++
++    Additionally, expand/convert workflow invocation-specific container sections into their
++    corresponding Galaxy markdown representations. These sections include:
++    - invocation_inputs
++    - invocation_outputs
++    - invocation_workflow
++    """
++
++    def _remap(container, line):
++        invocation_id_match = re.search(INVOCATION_ID_PATTERN, line)
++        if not invocation_id_match:
++            for instance_directive in [
++                "history_link",
++                "invocation_inputs",
++                "invocation_outputs",
++                "invocation_time",
++                "workflow_display",
++                "workflow_image",
++                "workflow_license",
++            ]:
++                if container == instance_directive:
++                    return (
++                        f"{instance_directive}(invocation_id={invocation.id})\n",
++                        False,
++                    )
++
++            output_match = re.search(OUTPUT_LABEL_PATTERN, line)
++            input_match = re.search(INPUT_LABEL_PATTERN, line)
++            step_match = re.search(STEP_LABEL_PATTERN, line)
++            if input_match or output_match or step_match:
++                line = line.replace(f"{container}(", f"{container}(invocation_id={invocation.id}, ")
++
++        return (line, False)
++
++    galaxy_markdown = _remap_galaxy_markdown_calls(_remap, workflow_markdown)
++    return galaxy_markdown
++
++
++def resolve_invocation_markdown(trans, workflow_markdown):
+     """Resolve invocation objects to convert markdown to 'internal' representation.
+ 
+     Replace references to abstract workflow parts with actual galaxy object IDs corresponding
+@@ -838,71 +940,84 @@ def resolve_invocation_markdown(trans, invocation, workflow_markdown):
+ 
+     Also expand/convert workflow invocation specific container sections into actual Galaxy
+     markdown - these containers include: invocation_inputs, invocation_outputs, invocation_workflow.
+-    Hopefully this list will be expanded to include invocation_qc.
++    Hopefully this list will be expanded to include invocation_qc and step_output.
+     """
+-    # TODO: convert step outputs?
+-    # convert step_output=index/name -to- history_dataset_id=<id> | history_dataset_collection_id=<id>
+ 
+-    def _section_remap(container, line):
+-        section_markdown = ""
++    def get_invocation(trans, line):
++        workflow_manager = trans.app.workflow_manager
++        invocation_id_match = re.search(INVOCATION_ID_PATTERN, line)
++        if invocation_id_match:
++            invocation_id = invocation_id_match.group(1)
++            invocation = workflow_manager.get_invocation(
++                trans, invocation_id, check_ownership=False, check_accessible=True
++            )
++            return invocation
++        else:
++            return None
++
++    def _remap(container, line):
++        invocation = get_invocation(trans, line)
++        if invocation is None:
++            return line, False
++
+         if container == "invocation_outputs":
++            section_markdown = ""
+             for output_assoc in invocation.output_associations:
+-                if not output_assoc.workflow_output.label:
+-                    continue
+-
+-                if output_assoc.history_content_type == "dataset":
+-                    section_markdown += f"""#### Output Dataset: {output_assoc.workflow_output.label}
+-```galaxy
+-history_dataset_display(output="{output_assoc.workflow_output.label}")
+-```
+-"""
+-                else:
+-                    section_markdown += f"""#### Output Dataset Collection: {output_assoc.workflow_output.label}
+-```galaxy
+-history_dataset_collection_display(output="{output_assoc.workflow_output.label}")
+-```
+-"""
++                if output_assoc.workflow_output.label:
++                    if output_assoc.history_content_type == "dataset":
++                        section_markdown += (
++                            f"#### Output Dataset: {output_assoc.workflow_output.label}\n"
++                            "```galaxy\n"
++                            f'history_dataset_display(output="{output_assoc.workflow_output.label}")\n'
++                            "```\n"
++                        )
++                    else:
++                        section_markdown += (
++                            f"#### Output Dataset Collection: {output_assoc.workflow_output.label}\n"
++                            "```galaxy\n"
++                            f'history_dataset_collection_display(output="{output_assoc.workflow_output.label}")\n'
++                            "```\n"
++                        )
++            return section_markdown, True
+         elif container == "invocation_inputs":
++            section_markdown = ""
+             for input_assoc in invocation.input_associations:
+-                if not input_assoc.workflow_step.label:
+-                    continue
+-
+-                if input_assoc.history_content_type == "dataset":
+-                    section_markdown += f"""#### Input Dataset: {input_assoc.workflow_step.label}
+-```galaxy
+-history_dataset_display(input="{input_assoc.workflow_step.label}")
+-```
+-"""
+-                else:
+-                    section_markdown += f"""#### Input Dataset Collection: {input_assoc.workflow_step.label}
+-```galaxy
+-history_dataset_collection_display(input={input_assoc.workflow_step.label})
+-```
+-"""
+-        else:
+-            return line, False
+-        return section_markdown, True
+-
+-    def _remap(container, line):
+-        for workflow_instance_directive in ["workflow_display", "workflow_image"]:
+-            if container == workflow_instance_directive:
+-                stored_workflow_id = invocation.workflow.stored_workflow.id
+-                workflow_version = invocation.workflow.version
+-                return (
+-                    f"{workflow_instance_directive}(workflow_id={stored_workflow_id},workflow_checkpoint={workflow_version})\n",
+-                    False,
+-                )
+-        if container == "workflow_license":
++                if input_assoc.workflow_step.label:
++                    if input_assoc.history_content_type == "dataset":
++                        section_markdown += (
++                            f"#### Input Dataset: {input_assoc.workflow_step.label}\n"
++                            "```galaxy\n"
++                            f'history_dataset_display(input="{input_assoc.workflow_step.label}")\n'
++                            "```\n"
++                        )
++                    else:
++                        section_markdown += (
++                            f"#### Input Dataset Collection: {input_assoc.workflow_step.label}\n"
++                            "```galaxy\n"
++                            f"history_dataset_collection_display(input={input_assoc.workflow_step.label})\n"
++                            "```\n"
++                        )
++            return section_markdown, True
++        elif container == "invocation_time":
++            return (f"invocation_time(invocation_id={invocation.id})\n", False)
++        elif container == "history_link":
++            return (f"history_link(history_id={invocation.history.id})\n", False)
++        elif container == "workflow_license":
+             stored_workflow_id = invocation.workflow.stored_workflow.id
+             return (
+                 f"workflow_license(workflow_id={stored_workflow_id})\n",
+                 False,
+             )
+-        if container == "history_link":
+-            return (f"history_link(history_id={invocation.history.id})\n", False)
+-        if container == "invocation_time":
+-            return (f"invocation_time(invocation_id={invocation.id})\n", False)
++        elif container in ["workflow_display", "workflow_image"]:
++            stored_workflow_id = invocation.workflow.stored_workflow.id
++            workflow_version = invocation.workflow.version
++            return (
++                f"{container}(workflow_id={stored_workflow_id}, workflow_checkpoint={workflow_version})\n",
++                False,
++            )
++
+         ref_object_type = None
++        invocation_id_match = re.search(INVOCATION_ID_PATTERN, line)
+         output_match = re.search(OUTPUT_LABEL_PATTERN, line)
+         input_match = re.search(INPUT_LABEL_PATTERN, line)
+         step_match = re.search(STEP_LABEL_PATTERN, line)
+@@ -943,14 +1058,12 @@ def find_non_empty_group(match):
+                 else:
+                     ref_object_type = "history_dataset_collection"
+             line = line.replace(target_match.group(), f"{ref_object_type}_id={ref_object.id}")
+-        return (line, False)
++            if invocation_id_match is not None:
++                line = line.replace(invocation_id_match.group(), "")
++        return line, False
+ 
+-    workflow_markdown = _remap_galaxy_markdown_calls(
+-        _section_remap,
+-        workflow_markdown,
+-    )
+-    galaxy_markdown = _remap_galaxy_markdown_calls(_remap, workflow_markdown)
+-    return galaxy_markdown
++    workflow_markdown = _remap_galaxy_markdown_calls(_remap, workflow_markdown)
++    return workflow_markdown
+ 
+ 
+ def _remap_galaxy_markdown_containers(func, markdown):
+@@ -1016,8 +1129,8 @@ def _validate(*args, **kwds):
+ 
+ __all__ = (
+     "internal_galaxy_markdown_to_pdf",
++    "populate_invocation_markdown",
+     "ready_galaxy_markdown_for_export",
+     "ready_galaxy_markdown_for_import",
+-    "resolve_invocation_markdown",
+     "to_basic_markdown",
+ )
+diff --git a/lib/galaxy/workflow/reports/generators/__init__.py b/lib/galaxy/workflow/reports/generators/__init__.py
+index 02899ef5bfd7..52824e0ff656 100644
+--- a/lib/galaxy/workflow/reports/generators/__init__.py
++++ b/lib/galaxy/workflow/reports/generators/__init__.py
+@@ -8,8 +8,8 @@
+ from galaxy.managers import workflows
+ from galaxy.managers.markdown_util import (
+     internal_galaxy_markdown_to_pdf,
++    populate_invocation_markdown,
+     ready_galaxy_markdown_for_export,
+-    resolve_invocation_markdown,
+ )
+ from galaxy.model import WorkflowInvocation
+ from galaxy.schema import PdfDocumentType
+@@ -72,5 +72,5 @@ def _generate_internal_markdown(self, trans, invocation, runtime_report_config_j
+         workflow_markdown = self._generate_report_markdown(
+             trans, invocation, runtime_report_config_json=runtime_report_config_json
+         )
+-        internal_markdown = resolve_invocation_markdown(trans, invocation, workflow_markdown)
++        internal_markdown = populate_invocation_markdown(trans, invocation, workflow_markdown)
+         return internal_markdown
+diff --git a/lib/galaxy_test/api/test_workflows.py b/lib/galaxy_test/api/test_workflows.py
+index 45723a7dd082..c6b2d79b4d27 100644
+--- a/lib/galaxy_test/api/test_workflows.py
++++ b/lib/galaxy_test/api/test_workflows.py
+@@ -3187,7 +3187,7 @@ def test_workflow_invocation_report_custom(self):
+             assert report_json["render_format"] == "markdown"
+             markdown_content = report_json["markdown"]
+             assert "## Workflow Outputs" in markdown_content
+-            assert "\n```galaxy\nhistory_dataset_display(history_dataset_id=" in markdown_content
++            assert "\n```galaxy\nhistory_dataset_display(invocation_id=" in markdown_content
+             assert "## Workflow Inputs" in markdown_content
+             assert "## About This Report" in markdown_content
+ 
+diff --git a/lib/galaxy_test/selenium/test_workflow_run.py b/lib/galaxy_test/selenium/test_workflow_run.py
+index 8dd83fef676c..24bd18f38057 100644
+--- a/lib/galaxy_test/selenium/test_workflow_run.py
++++ b/lib/galaxy_test/selenium/test_workflow_run.py
+@@ -339,7 +339,7 @@ def test_execution_with_custom_invocation_report(self):
+         self.workflow_populator.wait_for_history_workflows(history_id, expected_invocation_count=1)
+         invocation_0 = self.workflow_populator.history_invocations(history_id)[0]
+         self.get(f"workflows/invocations/report?id={invocation_0['id']}")
+-        self.wait_for_selector_visible(".markdown-components")
++        self.wait_for_selector_visible(".markdown-component")
+         self.screenshot("workflow_report_custom_1")
+ 
+     @selenium_test
+diff --git a/test/unit/app/managers/test_markdown_export.py b/test/unit/app/managers/test_markdown_export.py
+index 3470061b359f..06b3c66555a1 100644
+--- a/test/unit/app/managers/test_markdown_export.py
++++ b/test/unit/app/managers/test_markdown_export.py
+@@ -278,7 +278,7 @@ def test_generate_invocation_time(self):
+ ```
+ """
+         invocation = self._new_invocation()
+-        self.app.workflow_manager.get_invocation.side_effect = [invocation]
++        self.app.workflow_manager.get_invocation.side_effect = [invocation, invocation]
+         result = self._to_basic(example)
+         expectedtime = invocation.create_time.strftime("%Y-%m-%d, %H:%M:%S")
+         assert f"\n    {expectedtime}" in result
+diff --git a/test/unit/workflows/test_workflow_markdown.py b/test/unit/workflows/test_workflow_markdown.py
+index 381fc4069506..108ee6435925 100644
+--- a/test/unit/workflows/test_workflow_markdown.py
++++ b/test/unit/workflows/test_workflow_markdown.py
+@@ -1,6 +1,11 @@
++from unittest import mock
++
+ from galaxy import model
+ from galaxy.managers.markdown_parse import validate_galaxy_markdown
+-from galaxy.managers.markdown_util import resolve_invocation_markdown
++from galaxy.managers.markdown_util import (
++    populate_invocation_markdown,
++    resolve_invocation_markdown,
++)
+ from .test_workflow_progress import TEST_WORKFLOW_YAML
+ from .workflow_support import (
+     MockTrans,
+@@ -15,9 +20,11 @@ def test_workflow_section_expansion():
+ workflow_display()
+ ```
+ """
+-    galaxy_markdown = resolved_markdown(workflow_markdown)
++    galaxy_markdown = populate_markdown(workflow_markdown)
+     assert "## Workflow\n" in galaxy_markdown
+-    assert "```galaxy\nworkflow_display(workflow_id=342,workflow_checkpoint=0)\n```\n" in galaxy_markdown
++    assert "```galaxy\nworkflow_display(invocation_id=44)\n```\n" in galaxy_markdown
++    galaxy_markdown = resolve_markdown(galaxy_markdown)
++    assert "```galaxy\nworkflow_display(workflow_id=342, workflow_checkpoint=0)\n```" in galaxy_markdown
+ 
+ 
+ def test_inputs_section_expansion():
+@@ -27,9 +34,12 @@ def test_inputs_section_expansion():
+ invocation_inputs()
+ ```
+ """
+-    galaxy_markdown = resolved_markdown(workflow_markdown)
++    galaxy_markdown = populate_markdown(workflow_markdown)
+     assert "## Workflow Inputs" in galaxy_markdown
+-    assert "```galaxy\nhistory_dataset_display(history_dataset_id=567)\n" in galaxy_markdown
++    assert "```galaxy\ninvocation_inputs(invocation_id=44)\n```" in galaxy_markdown
++    galaxy_markdown = resolve_markdown(galaxy_markdown)
++    assert "Input Dataset: input1" in galaxy_markdown
++    assert '```galaxy\nhistory_dataset_display(input="input1")\n```' in galaxy_markdown
+     assert len(galaxy_markdown.split("```")) == 3
+ 
+ 
+@@ -40,9 +50,13 @@ def test_outputs_section_expansion():
+ invocation_outputs()
+ ```
+ """
+-    galaxy_markdown = resolved_markdown(workflow_markdown)
++    galaxy_markdown = populate_markdown(workflow_markdown)
+     assert "## Workflow Outputs" in galaxy_markdown
+-    assert "```galaxy\nhistory_dataset_display(history_dataset_id=563)" in galaxy_markdown
++    assert "```galaxy\ninvocation_outputs(invocation_id=44)" in galaxy_markdown
++    galaxy_markdown = resolve_markdown(galaxy_markdown)
++    assert "Output Dataset: output_label" in galaxy_markdown
++    assert '```galaxy\nhistory_dataset_display(output="output_label")\n```' in galaxy_markdown
++    assert len(galaxy_markdown.split("```")) == 5
+ 
+ 
+ def test_input_reference_mapping():
+@@ -53,7 +67,9 @@ def test_input_reference_mapping():
+ history_dataset_peek(input=input1)
+ ```
+ """
+-    galaxy_markdown = resolved_markdown(workflow_markdown)
++    galaxy_markdown = populate_markdown(workflow_markdown)
++    assert "```galaxy\nhistory_dataset_peek(invocation_id=44, input=input1)\n```" in galaxy_markdown
++    galaxy_markdown = resolve_markdown(galaxy_markdown)
+     assert "```galaxy\nhistory_dataset_peek(history_dataset_id=567)\n```" in galaxy_markdown
+ 
+ 
+@@ -65,7 +81,9 @@ def test_invocation_time():
+ invocation_time()
+ ```
+ """
+-    galaxy_markdown = resolved_markdown(workflow_markdown)
++    galaxy_markdown = populate_markdown(workflow_markdown)
++    assert "```galaxy\ninvocation_time(invocation_id=44)\n```" in galaxy_markdown
++    galaxy_markdown = resolve_markdown(galaxy_markdown)
+     assert "```galaxy\ninvocation_time(invocation_id=44)\n```" in galaxy_markdown
+ 
+ 
+@@ -77,16 +95,29 @@ def test_output_reference_mapping():
+ history_dataset_as_image(output=output_label)
+ ```
+ """
+-    galaxy_markdown = resolved_markdown(workflow_markdown)
++    galaxy_markdown = populate_markdown(workflow_markdown)
++    assert "```galaxy\nhistory_dataset_as_image(invocation_id=44, output=output_label)\n```" in galaxy_markdown
++    galaxy_markdown = resolve_markdown(galaxy_markdown)
+     assert "```galaxy\nhistory_dataset_as_image(history_dataset_id=563)\n```" in galaxy_markdown
+ 
+ 
+-def resolved_markdown(workflow_markdown):
+-    # Convert workflow markdown to internal Galaxy markdown with object id references
+-    # and with sections expanded.
++def populate_markdown(workflow_markdown):
++    # Add invocation ids to internal Galaxy markdown
++    trans = MockTrans()
++    validate_galaxy_markdown(workflow_markdown)
++    galaxy_markdown = populate_invocation_markdown(trans, example_invocation(trans), workflow_markdown)
++    return galaxy_markdown
++
++
++def resolve_markdown(workflow_markdown):
++    # Convert internal Galaxy markdown with invocation ids and labels
++    # to object id references and expanded sections.
+     trans = MockTrans()
+     validate_galaxy_markdown(workflow_markdown)
+-    galaxy_markdown = resolve_invocation_markdown(trans, example_invocation(trans), workflow_markdown)
++    trans.app.workflow_manager = mock.MagicMock()
++    invocation = example_invocation(trans)
++    trans.app.workflow_manager.get_invocation.side_effect = [invocation, invocation]
++    galaxy_markdown = resolve_invocation_markdown(trans, workflow_markdown)
+     return galaxy_markdown
+ 
+ 
