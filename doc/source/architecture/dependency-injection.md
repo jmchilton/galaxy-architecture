@@ -200,8 +200,6 @@ We went with **Lagom**, but we've built abstractions that would make it very eas
 
 ## DI in FastAPI Controllers
 
-### Old FastAPI Pattern
-
 ```python
 def get_tags_manager() -> TagsManager:
     return TagsManager()
@@ -273,8 +271,6 @@ Building dependency injection into our application and not relying on FastAPI al
 
 ## DI in Celery Tasks
 
-### Framework Setup
-
 From `lib/galaxy/celery/tasks.py`:
 
 ```python
@@ -294,7 +290,6 @@ def galaxy_task(func):
 
 ## DI in Celery Tasks - Examples
 
-### Simple Task
 
 ```python
 @celery_app.task(ignore_result=True)
@@ -303,8 +298,6 @@ def purge_hda(hda_manager: HDAManager, hda_id):
     hda = hda_manager.by_id(hda_id)
     hda_manager._purge(hda)
 ```
-
-### Task with Multiple Dependencies
 
 ```python
 @celery_app.task

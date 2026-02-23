@@ -1,4 +1,4 @@
-skinparam handwritten true
+!option handwritten true
 ' skinparam roundcorner 20
 
 skinparam class {

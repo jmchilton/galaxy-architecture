@@ -1,7 +1,7 @@
 topic_id: file-sources
 title: Galaxy File Sources Architecture
 training:
-  tutorial_number: 14
+  tutorial_number: 10
   subtitle: The architecture of pluggable file sources in Galaxy
   questions:
   - What are File Sources in Galaxy?
@@ -18,7 +18,8 @@ training:
   - fsspec enables easy integration of 40+ storage backends
   - OAuth 2.0 supports seamless cloud service authentication
   time_estimation: 20m
-  previous_to: production
+  continues_to: markdown
+  previous_to: plugins
 sphinx:
   section: Architecture
   subsection: File Sources

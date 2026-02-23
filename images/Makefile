@@ -24,7 +24,7 @@ $(PLANTUML_OUTPUTS): $(ALL_PLANTUML_INPUTS)
 	java -jar plantuml.jar -c plantuml_options.txt -tsvg $(ALL_PLANTUML_INPUTS)
 
 plantuml.jar:
-	wget http://jaist.dl.sourceforge.net/project/plantuml/plantuml.jar || curl --output plantuml.jar http://jaist.dl.sourceforge.net/project/plantuml/plantuml.jar
+	wget https://github.com/plantuml/plantuml/releases/download/v1.2026.0/plantuml-1.2026.0.jar -O plantuml.jar || curl -L --output plantuml.jar https://github.com/plantuml/plantuml/releases/download/v1.2026.0/plantuml-1.2026.0.jar
 
 # Mermaid targets
 # Prefer local node_modules install, fall back to global
@@ -45,6 +45,7 @@ $(MERMAID_OUTPUTS): %.mermaid.svg: %.mermaid.txt
 		$(MMDC) -i $< -o $@ -b transparent; \
 	else \
 		echo "Skipping $@ (mermaid-cli not installed)"; \
+		echo "  Install with: npm install -g @mermaid-js/mermaid-cli"; \
 	fi
 
 clean:

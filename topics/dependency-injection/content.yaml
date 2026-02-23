@@ -245,8 +245,6 @@
   id: di_fastapi_controllers
   heading: "DI in FastAPI Controllers"
   content: |
-    ### Old FastAPI Pattern
-
     ```python
     def get_tags_manager() -> TagsManager:
         return TagsManager()
@@ -322,8 +320,6 @@
   id: di_celery_setup
   heading: "DI in Celery Tasks"
   content: |
-    ### Framework Setup
-
     From `lib/galaxy/celery/tasks.py`:
 
     ```python
@@ -345,7 +341,6 @@
   heading: "DI in Celery Tasks - Examples"
   class: reduce70
   content: |
-    ### Simple Task
 
     ```python
     @celery_app.task(ignore_result=True)
@@ -354,8 +349,6 @@
         hda = hda_manager.by_id(hda_id)
         hda_manager._purge(hda)
     ```
-
-    ### Task with Multiple Dependencies
 
     ```python
     @celery_app.task

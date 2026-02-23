@@ -1,7 +1,7 @@
 topic_id: production
 title: Galaxy Production Deployment
 training:
-  tutorial_number: 13
+  tutorial_number: 15
   subtitle: The architecture of Galaxy's production deployment
   questions:
   - How is Galaxy deployed in production?
@@ -19,6 +19,7 @@ training:
   - usegalaxy.org runs across multiple servers and clusters
   time_estimation: 10m
   previous_to: startup
+  continues_to: tests
 sphinx:
   section: Architecture
   subsection: Production

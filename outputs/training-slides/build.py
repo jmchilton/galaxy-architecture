@@ -120,24 +120,29 @@ def process_code_wrappers(text):
 
 def markdown_to_slides(markdown_text):
     """Convert markdown to Remark.js slides.
-    
+
     Splits on ## headings or --- separators.
     Each section becomes a slide.
     Supports layout classes via `class:` directive.
-    
+
     Returns list of dicts with 'content' and 'class' keys.
     """
     slides = []
     current_slide = []
     pending_class = None
+    in_code_block = False
 
     lines = markdown_text.split('\n')
     i = 0
     while i < len(lines):
         line = lines[i]
-        
+
+        # Track code block state (``` fences)
+        if line.strip().startswith('```'):
+            in_code_block = not in_code_block
+
         # Check if this is a slide separator
-        if line.strip() == '---':
+        if line.strip() == '---' and not in_code_block:
             # Only create slide if we have non-blank content
             if current_slide and any(l.strip() for l in current_slide):
                 slides.append({
@@ -147,10 +152,11 @@ def markdown_to_slides(markdown_text):
             current_slide = []
             # Don't reset pending_class here - it might apply to next slide
         # Check if this is a class directive - store for next slide (don't add to content yet)
-        elif line.strip().startswith('class:'):
+        # Only check outside code blocks to avoid matching YAML like "class: GalaxyWorkflow"
+        elif line.strip().startswith('class:') and not in_code_block:
             pending_class = line.strip()
         # Check if this is a new slide heading (##)
-        elif line.startswith('## '):
+        elif line.startswith('## ') and not in_code_block:
             # End previous slide if it has content
             if current_slide and any(l.strip() for l in current_slide):
                 slides.append({

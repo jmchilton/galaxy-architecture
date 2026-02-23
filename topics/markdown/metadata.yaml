@@ -1,7 +1,7 @@
 topic_id: markdown
 title: Galaxy Markdown Architecture
 training:
-  tutorial_number: 7
+  tutorial_number: 11
   subtitle: Portable, reproducible documentation with embedded Galaxy objects.
   questions:
     - What is Galaxy Markdown and how does it differ from regular HTML?
@@ -21,8 +21,8 @@ training:
     - "27+ directives for embedding Galaxy objects"
     - "Frontend uses store-centric data flow for caching"
   time_estimation: 30m
-  previous_to: null
-  continues_to: null
+  previous_to: file-sources
+  continues_to: client
   prerequisites: []
 
 # Sphinx documentation metadata

@@ -19,7 +19,7 @@ training:
   - Visualization and workflow modules extend functionality
   time_estimation: 15m
   previous_to: application-components
-  continues_to: client
+  continues_to: file-sources
 sphinx:
   section: Architecture
   subsection: Plugins

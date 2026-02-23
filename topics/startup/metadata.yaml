@@ -1,7 +1,7 @@
 topic_id: startup
 title: Galaxy Startup Process
 training:
-  tutorial_number: 12
+  tutorial_number: 14
   subtitle: The architecture of Galaxy's initialization
   questions:
   - What happens when Galaxy starts?

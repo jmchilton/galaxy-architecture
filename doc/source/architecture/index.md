@@ -15,11 +15,11 @@ dependency-injection
 tasks
 application-components
 plugins
+file-sources
+markdown
 client
 dependencies
 startup
 production
-file-sources
-markdown
 tests
 ```

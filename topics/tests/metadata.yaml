@@ -1,7 +1,7 @@
 topic_id: tests
 title: Galaxy Testing
 training:
-  tutorial_number: 15
+  tutorial_number: 16
   subtitle: The architecture of Galaxy testing
   questions:
   - Where should I put a new test?
@@ -27,6 +27,8 @@ training:
   time_estimation: 45m
   prerequisites:
   - project-management
+  previous_to: production
+  continues_to: null
 sphinx:
   section: Architecture
   subsection: Testing

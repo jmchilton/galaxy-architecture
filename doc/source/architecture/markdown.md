@@ -96,14 +96,14 @@ resolution logic stays in the util module.
 ## Directive Syntax
 
 **Block directive:**
-```markdown
+````
 ```galaxy
 history_dataset_as_table(history_dataset_id=12345, title="Results")
 ```
-```
+````
 
 **Inline directive:**
-```markdown
+```
 Text with ${galaxy history_dataset_name(output="results")} embedded.
 ```
 
