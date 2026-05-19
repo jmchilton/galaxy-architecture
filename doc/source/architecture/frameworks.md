@@ -500,8 +500,6 @@ Declared `async`, but `session` is a **synchronous** SQLAlchemy `Session` —
 - A blocking call inside `async def` stalls *every* concurrent request — not just the caller.
 - Sync `def` is dispatched to a threadpool, leaving the loop free.
 
-> A blocking call in an `async def` is an event-loop hazard — fix it, don't merge it.
-
 ## Convention: Default to Sync `def`
 
 ```diff

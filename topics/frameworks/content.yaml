@@ -571,8 +571,6 @@
     - One ASGI event loop per worker; `async def` runs *on* it.
     - A blocking call inside `async def` stalls *every* concurrent request — not just the caller.
     - Sync `def` is dispatched to a threadpool, leaving the loop free.
-
-    > A blocking call in an `async def` is an event-loop hazard — fix it, don't merge it.
   class: enlarge150
 - type: slide
   id: galaxy-async-sync-convention
