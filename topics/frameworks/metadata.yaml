@@ -20,6 +20,7 @@ training:
   - Routing maps URLs to controllers
   - 'Three types of controllers: FastAPI, WSGI API, legacy web'
   - '`async def` must not do blocking sync I/O — default to sync `def`'
+  - Exercise new async code paths with API/integration tests — untested async I/O is unverified
   time_estimation: 25m
   previous_to: files
   continues_to: dependency-injection

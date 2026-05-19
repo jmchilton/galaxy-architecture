@@ -512,6 +512,7 @@ Declared `async`, but `session` is a **synchronous** SQLAlchemy `Session` —
 
 - DB-bound service/handler code: plain `def` — FastAPI runs it in a threadpool.
 - Use `async def` *only* for genuine async I/O (httpx, websockets, anyio).
+- Exercise every new async path with an API/integration test — untested async I/O is unverified.
 - Must call blocking code from `async`? Offload it:
 
 ```python
@@ -640,3 +641,4 @@ class RoleAPIController(BaseGalaxyAPIController):
 - Routing maps URLs to controllers
 - Three types of controllers: FastAPI, WSGI API, legacy web
 - `async def` must not do blocking sync I/O — default to sync `def`
+- Exercise new async code paths with API/integration tests — untested async I/O is unverified
