@@ -29,7 +29,8 @@ Galaxy's database layer uses a synchronous `sqlalchemy.orm.Session`, so
 blocking calls. Doing any of them from an `async def` without offloading is an
 event-loop hazard.
 
-Real example surfaced in review of `galaxyproject/galaxy#22361`:
+Canonical anti-pattern — declared `async`, but the body only does blocking
+sync `Session` work:
 
 ```python
 # ANTI-PATTERN: async, but session is a sync Session — this blocks the loop
@@ -42,7 +43,7 @@ async def list_history_items(session: Session, history_id: int) -> str:
     ...
 ```
 
-Reviewer verdict: *"This is a must before merging, this would block the event loop."*
+This blocks the event loop and must be fixed, not merged.
 
 ## Review Criteria
 
@@ -101,14 +102,18 @@ genuinely async. Rare in Galaxy; do not introduce it casually.
 Galaxy ships an `aiocop` integration
 (`lib/galaxy/web/framework/middleware/aiocop_integration.py`, opt-in via the
 `GALAXY_TEST_AIOCOP` environment variable) that installs `sys.audit` hooks to
-catch blocking syscalls from inside async tasks and surfaces them on an
-`X-Aiocop-Violations` response header so the harness can fail offending requests
-(see `test/integration/test_event_loop_blocking.py`).
+catch specific blocking syscalls (`socket.connect`, `open`, `subprocess.Popen`,
+…) from inside async tasks and surfaces per-request violations on an
+`X-Aiocop-Violations` header; the API test interactor fails any request whose
+severity reaches aiocop's high threshold (see
+`test/integration/test_event_loop_blocking.py` and
+`galaxy_test.base.api._check_aiocop_violations`).
 
-The guard only fires on code paths actually exercised under tests with aiocop
-enabled. An `async def` helper with no integration coverage slips straight
-through. Therefore: review the declaration intent directly — do not assume the
-guard will catch it — and check that new async code has tests that run it.
+It is a *runtime* audit hook, not a static check — it only fires on code paths
+actually executed under the suite with aiocop enabled. An `async def` with no
+integration coverage (or a sub-threshold blocking call) slips straight through.
+Therefore: review the declaration intent directly — do not assume the guard
+will catch it — and check that new async code has tests that run it.
 
 ## Related Code Paths
 

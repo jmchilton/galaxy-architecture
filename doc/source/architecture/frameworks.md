@@ -477,7 +477,7 @@ class FastAPIRoles:
 
 ## Pitfall: `async def` Doing Blocking I/O
 
-Spotted in review of `galaxyproject/galaxy#22361`:
+A common mistake — a helper declared `async` that only does blocking work:
 
 ```python
 async def list_history_items(session: Session, history_id: int) -> str:
@@ -500,8 +500,7 @@ Declared `async`, but `session` is a **synchronous** SQLAlchemy `Session` —
   concurrent request on that worker, not just the caller.
 - Galaxy's `Session` is synchronous, so `session.execute(...)` blocks.
 
-> "This is a must before merging, this would block the event loop."
-> — review of `galaxyproject/galaxy#22361`
+> A blocking call in an `async def` is an event-loop hazard — fix it, don't merge it.
 
 ## Convention: Default to Sync `def`
 
@@ -523,20 +522,28 @@ rows = await anyio.to_thread.run_sync(partial(list_history_items, session, histo
 
 Galaxy ships an `aiocop` integration
 (`lib/galaxy/web/framework/middleware/aiocop_integration.py`, opt-in via the
-`GALAXY_TEST_AIOCOP` environment variable) that installs `sys.audit` hooks to
-catch blocking syscalls made from inside async tasks. Violations are surfaced
-on an `X-Aiocop-Violations` response header so the test harness can fail
-requests that block the event loop (see
-`test/integration/test_event_loop_blocking.py`).
+`GALAXY_TEST_AIOCOP` environment variable). aiocop installs `sys.audit`
+hooks that catch specific blocking syscalls — `socket.connect`, `open`,
+`subprocess.Popen`, and similar — when they run inside an async task, and
+records the offending call site. Galaxy wraps this in an ASGI middleware
+that attaches any per-request violations to an `X-Aiocop-Violations`
+response header (`count=…;severity=…;first=…`); the API test interactor
+fails any request whose maximum severity reaches aiocop's high threshold
+(see `test/integration/test_event_loop_blocking.py` and
+`galaxy_test.base.api._check_aiocop_violations`). It is a test-only
+dependency — not imported by production servers.
 
-The reviewer's question on `galaxyproject/galaxy#22361` — *"Our aiocop
-integration should have flagged this, is this executed in our test suite?"* —
-is the real lesson. The audit hook only fires on code paths actually
-exercised under tests with aiocop enabled. An `async def` helper with no
-integration coverage slips straight through the guard. So new async
-endpoints and helpers need test coverage that exercises them, and code
-review must check the declaration intent directly — whether a coroutine
-genuinely does async I/O — rather than trusting the guard to catch it.
+The limitation that matters: aiocop is a *runtime* audit hook, not a static
+check. It only observes a blocking call on a code path that is actually
+executed while aiocop is active — i.e. under the integration suite with
+`GALAXY_TEST_AIOCOP` set. An `async def` that does synchronous I/O but is
+never exercised by such a test slips straight through; so does one whose
+blocking call stays below the severity threshold. The guard is a safety net
+for covered paths, not a substitute for getting the declaration right.
+Treat sync-vs-async correctness as a code-review responsibility — check
+whether a coroutine genuinely awaits async I/O — and give new async
+endpoints and helpers integration coverage that runs them so the guard can
+see them.
 
 ## FastAPI and Pydantic
 
