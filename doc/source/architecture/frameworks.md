@@ -12,6 +12,7 @@
 - Learn about ASGI, Starlette, and FastAPI
 - Understand WSGI and legacy routing
 - Learn about middleware layers
+- Avoid blocking the ASGI event loop from async handlers
 
 ![Client-Server Communications](../_images/server_client_vuejs.plantuml.svg)
 
@@ -474,6 +475,69 @@ class FastAPIRoles:
         return role_to_model(trans, role)
 ```
 
+## Pitfall: `async def` Doing Blocking I/O
+
+Spotted in review of `galaxyproject/galaxy#22361`:
+
+```python
+async def list_history_items(session: Session, history_id: int) -> str:
+    hda_rows = session.execute(
+        select(HDA.id, HDA.hid, HDA.name)
+        .join(Dataset, HDA.dataset_id == Dataset.id)
+        .where(HDA.history_id == history_id)
+    ).all()
+    ...
+```
+
+Declared `async`, but `session` is a **synchronous** SQLAlchemy `Session` —
+`session.execute(...)` is a blocking call.
+
+## Why This Breaks Galaxy
+
+- Galaxy serves FastAPI on a single ASGI event loop (uvicorn).
+- `async def` runs *on* the loop; sync `def` runs in a threadpool.
+- A blocking call inside `async def` freezes the loop — stalling *every*
+  concurrent request on that worker, not just the caller.
+- Galaxy's `Session` is synchronous, so `session.execute(...)` blocks.
+
+> "This is a must before merging, this would block the event loop."
+> — review of `galaxyproject/galaxy#22361`
+
+## Convention: Default to Sync `def`
+
+```diff
+-async def list_history_items(session: Session, history_id: int) -> str:
++def list_history_items(session: Session, history_id: int) -> str:
+     rows = session.execute(select(...)).all()
+```
+
+- DB-bound service/handler code: plain `def` — FastAPI runs it in a threadpool.
+- Use `async def` *only* for genuine async I/O (httpx, websockets, anyio).
+- Must call blocking code from `async`? Offload it:
+
+```python
+rows = await anyio.to_thread.run_sync(partial(list_history_items, session, history_id))
+```
+
+## The Guard Only Catches Tested Code
+
+Galaxy ships an `aiocop` integration
+(`lib/galaxy/web/framework/middleware/aiocop_integration.py`, opt-in via the
+`GALAXY_TEST_AIOCOP` environment variable) that installs `sys.audit` hooks to
+catch blocking syscalls made from inside async tasks. Violations are surfaced
+on an `X-Aiocop-Violations` response header so the test harness can fail
+requests that block the event loop (see
+`test/integration/test_event_loop_blocking.py`).
+
+The reviewer's question on `galaxyproject/galaxy#22361` — *"Our aiocop
+integration should have flagged this, is this executed in our test suite?"* —
+is the real lesson. The audit hook only fires on code paths actually
+exercised under tests with aiocop enabled. An `async def` helper with no
+integration coverage slips straight through the guard. So new async
+endpoints and helpers need test coverage that exercises them, and code
+review must check the declaration intent directly — whether a coroutine
+genuinely does async I/O — rather than trusting the guard to catch it.
+
 ## FastAPI and Pydantic
 
 ```python
@@ -568,3 +632,4 @@ class RoleAPIController(BaseGalaxyAPIController):
 - Middleware handles cross-cutting concerns
 - Routing maps URLs to controllers
 - Three types of controllers: FastAPI, WSGI API, legacy web
+- `async def` must not do blocking sync I/O — default to sync `def`

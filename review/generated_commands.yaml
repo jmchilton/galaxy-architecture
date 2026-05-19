@@ -12,4 +12,7 @@ commands:
   - source: client-review-ui-components.md
     target: gx-review-ui-components.md
 
+  - source: frameworks-review-async-sync.md
+    target: gx-review-async-sync.md
+
 
