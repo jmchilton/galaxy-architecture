@@ -605,6 +605,8 @@
 
     `lib/galaxy/web/framework/middleware/aiocop_integration.py` ·
     `test/integration/test_event_loop_blocking.py`
+
+    https://github.com/galaxyproject/galaxy/pull/22207
   class: enlarge120
 - type: prose
   id: aiocop-guard-explanation

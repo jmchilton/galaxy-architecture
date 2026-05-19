@@ -530,6 +530,8 @@ syscalls inside async tasks and tag the response with
 `lib/galaxy/web/framework/middleware/aiocop_integration.py` ·
 `test/integration/test_event_loop_blocking.py`
 
+[https://github.com/galaxyproject/galaxy/pull/22207](https://github.com/galaxyproject/galaxy/pull/22207)
+
 Galaxy's `aiocop` integration
 (`lib/galaxy/web/framework/middleware/aiocop_integration.py`) installs
 `sys.audit` hooks that catch specific blocking syscalls — `socket.connect`,
