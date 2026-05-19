@@ -38,8 +38,8 @@ related_code_paths:
   - path: lib/galaxy/webapps/galaxy/api/chat.py
     note: Correct anyio.to_thread.run_sync offload pattern from async endpoints
 related_pull_requests:
-  - pull_request: galaxyproject/galaxy#22361
-    note: Review that surfaced async-declared helpers doing blocking sync DB I/O
+- note: Review surfaced async-declared helpers doing blocking sync DB I/O
+  pull_request: https://github.com/galaxyproject/galaxy/pull/22361
 agentic_operations:
   - name: review-async-sync
     prompt: |

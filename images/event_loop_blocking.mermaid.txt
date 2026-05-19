@@ -1,0 +1,27 @@
+%%{init: {'theme': 'base', 'themeVariables': { 'fontSize': '14px' }}}%%
+flowchart LR
+    subgraph BAD["❌ async def with blocking I/O"]
+        direction TB
+        BA[Request A] --> BEL((Event Loop))
+        BB[Request B] -. waiting .-> BEL
+        BC[Request C] -. waiting .-> BEL
+        BEL --> BH["blocking I/O<br/>freezes the loop"]
+    end
+
+    subgraph GOOD["✅ sync def → threadpool"]
+        direction TB
+        GA[Request A] --> GEL((Event Loop))
+        GB[Request B] --> GEL
+        GC[Request C] --> GEL
+        GEL --> GW1[Thread 1]
+        GEL --> GW2[Thread 2]
+        GEL --> GW3[Thread 3]
+    end
+
+    classDef blocked fill:#ffcdd2,stroke:#b71c1c
+    classDef ok fill:#c8e6c9,stroke:#2e7d32
+    classDef loop fill:#e1f5fe,stroke:#01579b
+
+    class BH blocked
+    class GW1,GW2,GW3 ok
+    class BEL,GEL loop

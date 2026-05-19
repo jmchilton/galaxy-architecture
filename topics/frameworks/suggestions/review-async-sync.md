@@ -1,36 +1,77 @@
-# Content Suggestions: review-async-sync
+# Improvement Suggestions for `review-async-sync` Operation
 
-Ideas to make the generated `review-async-sync` command more effective by
-enriching `topics/frameworks/content.yaml`.
+Suggestions for enhancing `topics/frameworks/content.yaml` to make the
+`review-async-sync` code review operation more effective.
 
-## Strong additions
+## Content Gaps Identified
 
-- **A worked "good" controller slide** showing a sync `def` endpoint that calls
-  a manager doing DB work, side by side with the offload variant. The command
-  currently describes the fixes; a canonical positive example from Galaxy would
-  let the reviewer pattern-match instead of reason from rules.
-- **Lazy-load trap example** — a slide showing an `async def` that returns fast
-  but triggers a blocking query via lazy relationship access
-  (`hdca.collection.elements`). This is the subtlest red flag and deserves its
-  own concrete example; it overlaps with the PR #22361 memory comments.
-- **aiocop output sample** — show an actual `X-Aiocop-Violations` header / log
-  line so the command can teach the agent to recognize guard output in test
-  logs and CI, not just reason about source.
+### 1. Missing: Canonical "good" controller example
 
-## Medium additions
+**Problem:** Current async/sync content shows the anti-pattern and the fix
+diff, but no end-to-end positive example. The generated command had to
+synthesize the good path from references to `roles.py` and `chat.py`
+rather than from topic content.
 
-- **WSGI vs ASGI contrast** — a note that legacy WSGI controllers do not have
-  this hazard (each request is its own thread), so the rule is specific to the
-  FastAPI/ASGI path. Prevents false positives on legacy code.
-- **`run_in_threadpool` vs `anyio.to_thread.run_sync`** — a one-line note on
-  when each is idiomatic in Galaxy, so recommendations are consistent.
+**Suggestion:** Add a slide pairing a sync `def` endpoint with the manager
+it calls (DB-bound), and a second showing the same flow with an
+`anyio.to_thread.run_sync` offload when the caller must stay `async`.
+Reviewers can then pattern-match instead of reasoning from rules.
 
-## Content gaps observed while generating
+### 2. Missing: Lazy ORM load trap
 
-- `content.yaml` has no positive/"good" full example for this section — only the
-  anti-pattern and the diff. The command had to synthesize the good path from
-  `roles.py` and `chat.py` references rather than from topic content.
-- No coverage of how to *test* an async path under aiocop locally (the env var
-  and the integration test exist but the invocation recipe is not in content).
-  A short prose block with the local repro command would let the command give
-  actionable test guidance.
+**Problem:** The subtlest red flag is an `async def` that returns fast but
+triggers a blocking query via lazy relationship access
+(`hdca.collection.elements`, attribute autoloads). This kind of block
+doesn't look like a query in the source.
+
+**Suggestion:** A dedicated slide showing a lazy-load chain inside `async
+def` and the diff to either eager-load (`selectinload`) or sync-ify the
+helper. Worth its own block because it's not visible by grep.
+
+### 3. Missing: WSGI-vs-ASGI scope clarification
+
+**Problem:** The rule "default to sync `def`" is specific to the ASGI/
+FastAPI path. Legacy WSGI controllers do not have this hazard — each
+request is its own thread. Without this scope statement the review command
+risks false positives on legacy code.
+
+**Suggestion:** Short prose block (or bullet on the convention slide)
+stating that the rule applies to FastAPI/ASGI handlers and async tasks;
+WSGI controllers are unaffected.
+
+### 4. Missing: aiocop output sample
+
+**Problem:** The aiocop slide and prose describe the `X-Aiocop-Violations`
+header abstractly. Reviewing CI/test output requires recognizing the actual
+log line and header format.
+
+**Suggestion:** Add a small inline sample of the log message and the
+header string so the command can teach the agent to spot guard output in
+test logs, not just reason about source.
+
+### 5. Missing: Local aiocop repro recipe
+
+**Problem:** The env var and the integration test exist but the invocation
+recipe is not in the topic content. Reviewers can't easily tell a
+contributor *how* to run their new async path under the guard locally.
+
+**Suggestion:** Short prose block with the local repro command (env var +
+`pytest` invocation) so the command can give actionable test guidance.
+
+## Specific Content Additions
+
+### Add: `run_in_threadpool` vs `anyio.to_thread.run_sync` idiom
+
+The convention slide shows `anyio.to_thread.run_sync` (matching
+`api/chat.py`). FastAPI also offers `starlette.concurrency.run_in_threadpool`.
+A one-line note on which Galaxy prefers and why would let recommendations
+stay consistent across reviewers.
+
+## Priority Ranking
+
+1. **High:** Lazy ORM load trap — subtlest red flag; deserves an explicit example.
+2. **High:** Canonical "good" controller example — command currently synthesizes from outside references.
+3. **Medium:** WSGI-vs-ASGI scope clarification — prevents false positives on legacy code.
+4. **Medium:** aiocop output sample — teaches log/header recognition in CI.
+5. **Low:** Offload-utility idiom note — small consistency win.
+6. **Low:** Local aiocop repro recipe — useful but covered elsewhere in Galaxy docs.

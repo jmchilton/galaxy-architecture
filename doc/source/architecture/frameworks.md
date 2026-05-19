@@ -492,13 +492,13 @@ async def list_history_items(session: Session, history_id: int) -> str:
 Declared `async`, but `session` is a **synchronous** SQLAlchemy `Session` —
 `session.execute(...)` is a blocking call.
 
+![Event Loop Blocking vs Threadpool](../_images/event_loop_blocking.mermaid.svg)
+
 ## Why This Breaks Galaxy
 
-- Galaxy serves FastAPI on a single ASGI event loop (uvicorn).
-- `async def` runs *on* the loop; sync `def` runs in a threadpool.
-- A blocking call inside `async def` freezes the loop — stalling *every*
-  concurrent request on that worker, not just the caller.
-- Galaxy's `Session` is synchronous, so `session.execute(...)` blocks.
+- One ASGI event loop per worker; `async def` runs *on* it.
+- A blocking call inside `async def` stalls *every* concurrent request — not just the caller.
+- Sync `def` is dispatched to a threadpool, leaving the loop free.
 
 > A blocking call in an `async def` is an event-loop hazard — fix it, don't merge it.
 
@@ -519,32 +519,40 @@ Declared `async`, but `session` is a **synchronous** SQLAlchemy `Session` —
 rows = await anyio.to_thread.run_sync(partial(list_history_items, session, history_id))
 ```
 
-## The Guard Only Catches Tested Code
+## The aiocop Guard
 
-Galaxy ships an `aiocop` integration
-(`lib/galaxy/web/framework/middleware/aiocop_integration.py`, opt-in via the
-`GALAXY_TEST_AIOCOP` environment variable). aiocop installs `sys.audit`
-hooks that catch specific blocking syscalls — `socket.connect`, `open`,
-`subprocess.Popen`, and similar — when they run inside an async task, and
-records the offending call site. Galaxy wraps this in an ASGI middleware
-that attaches any per-request violations to an `X-Aiocop-Violations`
-response header (`count=…;severity=…;first=…`); the API test interactor
-fails any request whose maximum severity reaches aiocop's high threshold
-(see `test/integration/test_event_loop_blocking.py` and
-`galaxy_test.base.api._check_aiocop_violations`). It is a test-only
-dependency — not imported by production servers.
+Opt-in via `GALAXY_TEST_AIOCOP=1` — `sys.audit` hooks catch blocking
+syscalls inside async tasks and tag the response with
+`X-Aiocop-Violations`; the test interactor fails any high-severity hit.
+
+- Runtime audit hook, **not** a static check.
+- Only sees code paths a test actually executes.
+- Untested `async def` slips through — declaration intent is on review.
+
+`lib/galaxy/web/framework/middleware/aiocop_integration.py` ·
+`test/integration/test_event_loop_blocking.py`
+
+Galaxy's `aiocop` integration
+(`lib/galaxy/web/framework/middleware/aiocop_integration.py`) installs
+`sys.audit` hooks that catch specific blocking syscalls — `socket.connect`,
+`open`, `subprocess.Popen`, and similar — when they run inside an async
+task, and records the offending call site. Galaxy wraps this in an ASGI
+middleware that attaches any per-request violations to an
+`X-Aiocop-Violations` response header
+(`count=…;severity=…;first=…`); the API test interactor
+(`galaxy_test.base.api._check_aiocop_violations`) fails any request whose
+maximum severity reaches aiocop's high threshold. It is a test-only
+dependency, opt-in via `GALAXY_TEST_AIOCOP`, and is not imported by
+production servers.
 
 The limitation that matters: aiocop is a *runtime* audit hook, not a static
 check. It only observes a blocking call on a code path that is actually
-executed while aiocop is active — i.e. under the integration suite with
-`GALAXY_TEST_AIOCOP` set. An `async def` that does synchronous I/O but is
-never exercised by such a test slips straight through; so does one whose
-blocking call stays below the severity threshold. The guard is a safety net
-for covered paths, not a substitute for getting the declaration right.
-Treat sync-vs-async correctness as a code-review responsibility — check
-whether a coroutine genuinely awaits async I/O — and give new async
-endpoints and helpers integration coverage that runs them so the guard can
-see them.
+executed while aiocop is active. An `async def` that does synchronous I/O
+but is never exercised by such a test slips straight through; so does one
+whose blocking call stays below the severity threshold. The guard is a
+safety net for covered paths, not a substitute for getting the declaration
+right — treat sync-vs-async correctness as a code-review responsibility and
+give new async endpoints integration coverage that runs them.
 
 ## FastAPI and Pydantic
 
