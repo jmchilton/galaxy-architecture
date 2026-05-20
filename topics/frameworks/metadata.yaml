@@ -12,12 +12,15 @@ training:
   - Learn about ASGI, Starlette, and FastAPI
   - Understand WSGI and legacy routing
   - Learn about middleware layers
+  - Avoid blocking the ASGI event loop from async handlers
   key_points:
   - FastAPI (ASGI) for new API endpoints
   - WSGI for legacy endpoints
   - Middleware handles cross-cutting concerns
   - Routing maps URLs to controllers
   - 'Three types of controllers: FastAPI, WSGI API, legacy web'
+  - '`async def` must not do blocking sync I/O — default to sync `def`'
+  - Exercise new async code paths with API/integration tests — untested async I/O is unverified
   time_estimation: 25m
   previous_to: files
   continues_to: dependency-injection
@@ -27,4 +30,50 @@ sphinx:
 contributors:
   - jmchilton
 related_topics: []
-related_code_paths: []
+related_code_paths:
+  - path: lib/galaxy/web/framework/middleware/aiocop_integration.py
+    note: aiocop integration that audits blocking syscalls in async tasks
+  - path: test/integration/test_event_loop_blocking.py
+    note: Integration test exercising the aiocop blocking-I/O guard
+  - path: lib/galaxy/webapps/galaxy/api/chat.py
+    note: Correct anyio.to_thread.run_sync offload pattern from async endpoints
+related_pull_requests:
+- note: Introduced the aiocop event-loop blocking-I/O guard
+  pull_request: https://github.com/galaxyproject/galaxy/pull/22207
+- note: Review surfaced async-declared helpers doing blocking sync DB I/O
+  pull_request: https://github.com/galaxyproject/galaxy/pull/22361
+agentic_operations:
+  - name: review-async-sync
+    prompt: |
+      Perform a Python code review on the provided Galaxy code. Accept input in any of the following forms:
+      1. A working directory path (analyze git diff in that directory)
+      2. A Git commit reference (analyze changes in that commit)
+      3. A PR reference (analyze changes in that pull request)
+      4. A list of Python file paths (analyze those files)
+      5. A planning document (analyze the Python files in the plan)
+
+      ## Who you are
+
+      - You are an expert in Python asyncio and ASGI (Starlette/FastAPI/uvicorn).
+      - You understand that Galaxy serves FastAPI on a single event loop and that
+        Galaxy's SQLAlchemy `Session` is synchronous.
+      - You are a senior engineer who cares about not stalling concurrent
+        requests for every user on a worker.
+
+      ## What to do
+
+      - Review the Async/Sync Review Red Flags best practices below.
+      - Flag every `async def` (endpoint, dependency, manager/service helper)
+        whose body performs blocking synchronous I/O — sync `Session` queries,
+        lazy ORM attribute/relationship access, filesystem, subprocess, or
+        blocking HTTP — without offloading via `anyio.to_thread.run_sync` /
+        `run_in_threadpool`.
+      - For each finding, recommend the concrete fix: drop `async` (let FastAPI
+        use its threadpool), offload the blocking call, or move to a true async
+        adapter — and explain the tradeoff.
+      - Flag `async def` functions that never `await` anything.
+      - Check whether new async endpoints/helpers have integration test coverage
+        that would exercise them under the aiocop guard; note that the guard
+        cannot catch untested paths.
+      - Be concrete: cite file:line, the blocking call, and the recommended fix.
+    type: claude-slash-command

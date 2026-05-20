@@ -542,6 +542,145 @@
     ```
   class: reduce70
 - type: slide
+  id: async-def-blocking-pitfall
+  heading: 'Pitfall: `async def` Doing Blocking I/O'
+  content: |-
+    A common mistake — a helper declared `async` that only does blocking work:
+
+    ```python
+    async def list_history_items(session: Session, history_id: int) -> str:
+        hda_rows = session.execute(
+            select(HDA.id, HDA.hid, HDA.name)
+            .join(Dataset, HDA.dataset_id == Dataset.id)
+            .where(HDA.history_id == history_id)
+        ).all()
+        ...
+    ```
+
+    Declared `async`, but `session` is a **synchronous** SQLAlchemy `Session` —
+    `session.execute(...)` is a blocking call.
+  class: reduce70
+- type: slide
+  id: event-loop-blocking-diagram
+  class: center
+  content: '![Event Loop Blocking vs Threadpool](../../images/event_loop_blocking.mermaid.svg)'
+- type: slide
+  id: why-event-loop-blocking
+  heading: Why This Breaks Galaxy
+  content: |-
+    - One ASGI event loop per worker; `async def` runs *on* it.
+    - A blocking call inside `async def` stalls *every* concurrent request — not just the caller.
+    - Sync `def` is dispatched to a threadpool, leaving the loop free.
+  class: enlarge150
+- type: slide
+  id: galaxy-async-sync-convention
+  heading: 'Convention: Default to Sync `def`'
+  content: |-
+    ```diff
+    -async def list_history_items(session: Session, history_id: int) -> str:
+    +def list_history_items(session: Session, history_id: int) -> str:
+         rows = session.execute(select(...)).all()
+    ```
+
+    - DB-bound service/handler code: plain `def` — FastAPI runs it in a threadpool.
+    - Use `async def` *only* for genuine async I/O (httpx, websockets, anyio).
+    - Exercise every new async path with an API/integration test — untested async I/O is unverified.
+    - Must call blocking code from `async`? Offload it:
+
+    ```python
+    rows = await anyio.to_thread.run_sync(partial(list_history_items, session, history_id))
+    ```
+  class: reduce90
+- type: slide
+  id: aiocop-guard
+  heading: The aiocop Guard
+  content: |-
+    Opt-in via `GALAXY_TEST_AIOCOP=1` — `sys.audit` hooks catch blocking
+    syscalls inside async tasks and tag the response with
+    `X-Aiocop-Violations`; the test interactor fails any high-severity hit.
+
+    - Runtime audit hook, **not** a static check.
+    - Only sees code paths a test actually executes.
+    - Untested `async def` slips through — declaration intent is on review.
+
+    `lib/galaxy/web/framework/middleware/aiocop_integration.py` ·
+    `test/integration/test_event_loop_blocking.py`
+
+    https://github.com/galaxyproject/galaxy/pull/22207
+  class: enlarge120
+- type: prose
+  id: aiocop-guard-explanation
+  content: |-
+    Galaxy's `aiocop` integration
+    (`lib/galaxy/web/framework/middleware/aiocop_integration.py`) installs
+    `sys.audit` hooks that catch specific blocking syscalls — `socket.connect`,
+    `open`, `subprocess.Popen`, and similar — when they run inside an async
+    task, and records the offending call site. Galaxy wraps this in an ASGI
+    middleware that attaches any per-request violations to an
+    `X-Aiocop-Violations` response header
+    (`count=…;severity=…;first=…`); the API test interactor
+    (`galaxy_test.base.api._check_aiocop_violations`) fails any request whose
+    maximum severity reaches aiocop's high threshold. It is a test-only
+    dependency, opt-in via `GALAXY_TEST_AIOCOP`, and is not imported by
+    production servers.
+
+    The limitation that matters: aiocop is a *runtime* audit hook, not a static
+    check. It only observes a blocking call on a code path that is actually
+    executed while aiocop is active. An `async def` that does synchronous I/O
+    but is never exercised by such a test slips straight through; so does one
+    whose blocking call stays below the severity threshold. The guard is a
+    safety net for covered paths, not a substitute for getting the declaration
+    right — treat sync-vs-async correctness as a code-review responsibility and
+    give new async endpoints integration coverage that runs them.
+- type: agent-context
+  id: async-sync-review-red-flags
+  heading: Async/Sync Review Red Flags
+  content: |-
+    When reviewing Galaxy Python changes for event-loop safety:
+
+    **Red flags**
+
+    1. `async def` whose body does synchronous DB work — `session.execute(...)`,
+       `session.scalars(...)`, `.all()`, `.scalar_one_or_none()`, lazy ORM
+       attribute/relationship access that triggers a query — on a synchronous
+       `sqlalchemy.orm.Session`.
+    2. `async def` calling blocking Galaxy managers/services that themselves do
+       sync DB or filesystem I/O, without `anyio.to_thread.run_sync` /
+       `run_in_threadpool`.
+    3. `async def` doing blocking filesystem or subprocess work (`open(...)`,
+       `os.stat`, `shutil`, `subprocess.run`, `requests`/`urllib`) instead of
+       async equivalents.
+    4. A coroutine declared `async` that never `await`s anything — a strong
+       signal it should just be `def`.
+    5. New `async def` endpoints/helpers with no integration test that exercises
+       them under `GALAXY_TEST_AIOCOP` (the guard cannot catch untested paths).
+
+    **Decision tree**
+
+    - Does the function perform real async I/O (httpx, websockets, anyio,
+      `AsyncSession`)? → `async def` is appropriate.
+    - Does it touch the sync `Session` or other blocking I/O and is it called
+      as a FastAPI endpoint/dependency? → make it plain `def`; FastAPI runs it
+      in a threadpool.
+    - Must blocking code be invoked from an existing `async def`? → wrap it:
+      `await anyio.to_thread.run_sync(partial(fn, *args))`.
+
+    **Fix recipes**
+
+    - Drop the `async` keyword and let FastAPI's threadpool handle it (preferred
+      for DB-bound work; matches existing sync `def` controllers like
+      `lib/galaxy/webapps/galaxy/controllers/api/roles.py`).
+    - Offload at the call site with `anyio.to_thread.run_sync` (pattern already
+      used in `lib/galaxy/webapps/galaxy/api/chat.py`).
+    - Only convert to a true async DB adapter / `AsyncSession` when the
+      surrounding stack is genuinely async (rare in Galaxy).
+
+    **Reference paths**
+
+    - `lib/galaxy/web/framework/middleware/aiocop_integration.py` — the guard.
+    - `test/integration/test_event_loop_blocking.py` — how it is exercised.
+    - `lib/galaxy/webapps/galaxy/api/chat.py` — correct `anyio.to_thread.run_sync` usage.
+- type: slide
   id: fastapi-and-pydantic
   heading: FastAPI and Pydantic
   content: |-
