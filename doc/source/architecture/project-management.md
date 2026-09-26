@@ -136,7 +136,7 @@ However, Marius has assembled some documentation on debugging the [Galaxy server
 
 ## Development Environment - Gitpod
 
-Galaxy does have a Gitpod configuration that is enabled to allow editing and testing PRs [https://www.gitpod.io/.](https://www.gitpod.io/.)
+Galaxy does have a Gitpod configuration that is enabled to allow editing and testing PRs [https://www.gitpod.io/](https://www.gitpod.io/).
 
 Video from Marius presenting Gitpod at the Galaxy Developer Roundtable ([https://www.youtube.com/watch?v=3e71DFg3gsw#t=39m0s](https://www.youtube.com/watch?v=3e71DFg3gsw#t=39m0s))
 

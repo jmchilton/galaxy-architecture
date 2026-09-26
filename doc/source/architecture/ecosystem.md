@@ -47,7 +47,7 @@ More links we'll mention as we go through the slides:
 - [https://matrix.to/#/#biocontainers_Lobby:gitter.im](https://matrix.to/#/#biocontainers_Lobby:gitter.im)
 - [https://matrix.to/#/#bioconda_Lobby:gitter.im](https://matrix.to/#/#bioconda_Lobby:gitter.im)
 
-Working group chats linked at [https://galaxyproject.org/community/wg/.](https://galaxyproject.org/community/wg/.)
+Working group chats linked at [https://galaxyproject.org/community/wg/](https://galaxyproject.org/community/wg/).
 
 **User-Facing Applications**
 
@@ -65,7 +65,7 @@ Also includes other web applications including the **ToolShed**.
 
 ![logo](../_images/GTNLogo1000.png)
 
-Galaxy training material for scientists, developers, and admins. Powers *[https://training.galaxyproject.org/*.](https://training.galaxyproject.org/*.)
+Galaxy training material for scientists, developers, and admins. Powers *[https://training.galaxyproject.org/](https://training.galaxyproject.org/)*.
 
 **Resources:** [README](https://github.com/galaxyproject/training-material#readme) | [Issues](https://github.com/galaxyproject/training-material/issues) | **License:** [MIT](https://github.com/galaxyproject/training-material/blob/main/LICENSE)
 
@@ -73,7 +73,7 @@ Galaxy training material for scientists, developers, and admins. Powers *[https:
 
 The Galaxy Hub is the community and documentation hub for the Galaxy Project. It is maintained by the community through this GitHub repository. It is a static website built using the metalsmith static site generator.
 
-Powers *[https://galaxyproject.org/*.](https://galaxyproject.org/*.)
+Powers *[https://galaxyproject.org/](https://galaxyproject.org/)*.
 
 **Resources:** [README](https://github.com/galaxyproject/galaxy-hub#readme) | [Issues](https://github.com/galaxyproject/galaxy-hub/issues)
 

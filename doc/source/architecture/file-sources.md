@@ -388,7 +388,7 @@ expanded = jinja_env.expand(template.model_dump(), context)
 - type: http
   id: internal_api
   label: Internal Data API
-  url_regex: "^[https://api\\.internal\\.org/"](https://api\\.internal\\.org/")
+  url_regex: "^https://api\\.internal\\.org/"
   http_headers:
     Authorization: "Bearer ${secrets.api_token}"
 

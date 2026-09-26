@@ -20,7 +20,7 @@
 - If `virtualenv` exists, use it. Otherwise download it as a script and setup a virtual environment using it.
 - `. "$GALAXY_VIRTUAL_ENV/bin/activate"`
 - Upgrade to latest `pip` to allow use of binary wheels.
-- `pip install -r requirements.txt --index-url [https://wheels.galaxyproject.org/simple`](https://wheels.galaxyproject.org/simple`)
+- `pip install -r requirements.txt --index-url https://wheels.galaxyproject.org/simple`
 - Install dozens of dependencies.
 
 ## Dependencies - JavaScript

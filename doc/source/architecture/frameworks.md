@@ -61,7 +61,7 @@ application with the following shell command:
 ```
 $ uvicorn example:app
 INFO: Started server process [11509]
-INFO: Uvicorn running on [http://127.0.0.1:8000](http://127.0.0.1:8000) (Press CTRL+C to quit)
+INFO: Uvicorn running on http://127.0.0.1:8000 (Press CTRL+C to quit)
 ```
 
 Example from [starlette.io](https://www.starlette.io/).
@@ -343,7 +343,7 @@ This effectively provides a fallback to our legacy WSGI application.
 
 ## WSGI
 
-- Python interface for web servers defined by PEP 333 - [https://www.python.org/dev/peps/pep-0333/.](https://www.python.org/dev/peps/pep-0333/.)
+- Python interface for web servers defined by PEP 333 - [https://www.python.org/dev/peps/pep-0333/](https://www.python.org/dev/peps/pep-0333/).
 - Galaxy tends to favor uWSGI, but other options such as Gunicorn and Paste can be used to host the application.
   - [https://uwsgi-docs.readthedocs.io/](https://uwsgi-docs.readthedocs.io/) (a million bells and whistles, highly performant, a bit brittle)
   - [https://gunicorn.org/](https://gunicorn.org/) (simpler, more standard Python 3 WSGI server)

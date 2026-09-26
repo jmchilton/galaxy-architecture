@@ -16,7 +16,7 @@
 ## Cloning Galaxy
 
 ```bash
-$ git clone [https://github.com/galaxyproject/galaxy.git](https://github.com/galaxyproject/galaxy.git) galaxy
+$ git clone https://github.com/galaxyproject/galaxy.git galaxy
 Cloning into 'galaxy'...
 remote: Counting objects: 173809, done.
 remote: Total 173809 (delta 0), reused 0 (delta 0), pack-reused 173809
@@ -66,15 +66,15 @@ Successfully installed pip-8.1.2
 
 ```
 Collecting bx-python==0.7.3 (from -r requirements.txt (line 2))
-  Downloading [https://wheels.galaxyproject.org/packages/bx_python-0.7.3-cp27-cp27mu-manylinux1_x86_64.whl](https://wheels.galaxyproject.org/packages/bx_python-0.7.3-cp27-cp27mu-manylinux1_x86_64.whl) (2.1MB)
+  Downloading https://wheels.galaxyproject.org/packages/bx_python-0.7.3-cp27-cp27mu-manylinux1_x86_64.whl (2.1MB)
 Collecting MarkupSafe==0.23 (from -r requirements.txt (line 3))
-  Downloading [https://wheels.galaxyproject.org/packages/MarkupSafe-0.23-cp27-cp27mu-manylinux1_x86_64.whl](https://wheels.galaxyproject.org/packages/MarkupSafe-0.23-cp27-cp27mu-manylinux1_x86_64.whl)
+  Downloading https://wheels.galaxyproject.org/packages/MarkupSafe-0.23-cp27-cp27mu-manylinux1_x86_64.whl
 Collecting PyYAML==3.11 (from -r requirements.txt (line 4))
-  Downloading [https://wheels.galaxyproject.org/packages/PyYAML-3.11-cp27-cp27mu-manylinux1_x86_64.whl](https://wheels.galaxyproject.org/packages/PyYAML-3.11-cp27-cp27mu-manylinux1_x86_64.whl) (367kB)
+  Downloading https://wheels.galaxyproject.org/packages/PyYAML-3.11-cp27-cp27mu-manylinux1_x86_64.whl (367kB)
 Collecting SQLAlchemy==1.0.8 (from -r requirements.txt (line 5))
-  Downloading [https://wheels.galaxyproject.org/packages/SQLAlchemy-1.0.8-cp27-cp27mu-manylinux1_x86_64.whl](https://wheels.galaxyproject.org/packages/SQLAlchemy-1.0.8-cp27-cp27mu-manylinux1_x86_64.whl) (1.0MB)
+  Downloading https://wheels.galaxyproject.org/packages/SQLAlchemy-1.0.8-cp27-cp27mu-manylinux1_x86_64.whl (1.0MB)
 Collecting mercurial==3.7.3 (from -r requirements.txt (line 6))
-  Downloading [https://wheels.galaxyproject.org/packages/mercurial-3.7.3-cp27-cp27mu-manylinux1_x86_64.whl](https://wheels.galaxyproject.org/packages/mercurial-3.7.3-cp27-cp27mu-manylinux1_x86_64.whl) (1.5MB)
+  Downloading https://wheels.galaxyproject.org/packages/mercurial-3.7.3-cp27-cp27mu-manylinux1_x86_64.whl (1.5MB)
 ...
 ...
 Building wheels for collected packages: repoze.lru
@@ -176,7 +176,6 @@ galaxy.datatypes.registry DEBUG 2016-06-23 19:13:35,826 Loaded sniffer for datat
 galaxy.datatypes.registry DEBUG 2016-06-23 19:13:35,826 Loaded sniffer for datatype 'galaxy.datatypes.binary:GeminiSQLite'
 galaxy.datatypes.registry DEBUG 2016-06-23 19:13:35,833 Loaded sniffer for datatype 'galaxy.datatypes.binary:OxliGraphLabels'
 ```
-
 
 ## Loading Build Sites
 
@@ -342,7 +341,7 @@ galaxy.webapps.galaxy.buildapp DEBUG 2016-06-23 19:13:39,049 added url, path to 
 ```
 galaxy.queue_worker INFO 2016-06-23 19:13:39,049 Binding and starting galaxy control worker for main
 Starting server in PID 21102.
-serving on [http://127.0.0.1:8080](http://127.0.0.1:8080)
+serving on http://127.0.0.1:8080
 ```
 
 ## Key Takeaways

@@ -6,10 +6,11 @@ Usage:
     python outputs/sphinx-docs/build.py all
 """
 
+import re
 import sys
 import shutil
 from pathlib import Path
-from typing import Optional
+from typing import Callable, Optional
 
 # Add scripts to path so we can import models
 sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
@@ -17,10 +18,91 @@ sys.path.insert(0, str(Path(__file__).parent.parent.parent / "scripts"))
 from models import load_metadata, load_content, ContentBlockType
 
 
+GTN_BASE_URL = "https://training.galaxyproject.org/training-material/"
+
+FENCE_OPEN_RE = re.compile(r'^[ \t]*(`{3,}|~{3,})')
+INLINE_CODE_RE = re.compile(r'(`+)(?:(?!\1).)+?\1', re.DOTALL)
+SPEAKER_NOTES_RE = re.compile(r'^[ \t]*\?\?\?[ \t]*$')
+MARKDOWN_LINK_RE = re.compile(r'\[[^\]\n]*\]\([^)\n]*\)')
+BARE_URL_RE = re.compile(r'https?://[^\s)<>"\']+')
+URL_TRAILING_PUNCTUATION = '.,;:!?*`'
+LIQUID_LINK_RE = re.compile(r'\{%\s*link\s+(\S+?)\s*%\}')
+
+
+def separate_fences_from_directives(markdown: str) -> str:
+    """Put code fences glued to directive brackets (``.strike[```python``, `````]``) on their own lines."""
+    markdown = re.sub(r'(\.\w+\[)(`{3,}|~{3,})', r'\1\n\2', markdown)
+    return re.sub(r'^([ \t]*(?:`{3,}|~{3,}))\]', r'\1\n]', markdown, flags=re.M)
+
+
+def split_fenced_code(markdown: str) -> list[tuple[bool, str]]:
+    """Split markdown into (is_fenced_code, text) segments, preserving all text."""
+    segments: list[tuple[bool, str]] = []
+    current: list[str] = []
+    fence: Optional[str] = None
+    for line in markdown.splitlines(keepends=True):
+        if fence is None:
+            match = FENCE_OPEN_RE.match(line)
+            if match:
+                if current:
+                    segments.append((False, "".join(current)))
+                current = [line]
+                fence = match.group(1)
+            else:
+                current.append(line)
+        else:
+            current.append(line)
+            stripped = line.strip()
+            if stripped.startswith(fence[0] * len(fence)) and stripped.strip(fence[0]) == "":
+                segments.append((True, "".join(current)))
+                current = []
+                fence = None
+    if current:
+        segments.append((fence is not None, "".join(current)))
+    return segments
+
+
+def map_outside_code(markdown: str, transform: Callable[[str], str]) -> str:
+    """Apply transform to text outside fenced blocks and inline code spans."""
+    parts = []
+    for is_code, segment in split_fenced_code(markdown):
+        if is_code:
+            parts.append(segment)
+            continue
+        pos = 0
+        for match in INLINE_CODE_RE.finditer(segment):
+            parts.append(transform(segment[pos:match.start()]))
+            parts.append(match.group())
+            pos = match.end()
+        parts.append(transform(segment[pos:]))
+    return "".join(parts)
+
+
+def code_spans(markdown: str) -> list[tuple[int, int]]:
+    """Return (start, end) offsets of fenced blocks and inline code spans."""
+    spans = []
+    offset = 0
+    for is_code, segment in split_fenced_code(markdown):
+        if is_code:
+            spans.append((offset, offset + len(segment)))
+        else:
+            spans.extend((offset + m.start(), offset + m.end()) for m in INLINE_CODE_RE.finditer(segment))
+        offset += len(segment)
+    return spans
+
+
 def strip_speaker_notes(markdown: str) -> str:
-    """Strip speaker notes (everything after ???) from markdown block."""
-    if '???' in markdown:
-        return markdown.split('???')[0].rstrip()
+    """Strip speaker notes (from a line containing only ??? onward) from a markdown block."""
+    markdown = separate_fences_from_directives(markdown)
+    offset = 0
+    for is_code, segment in split_fenced_code(markdown):
+        if not is_code:
+            line_offset = offset
+            for line in segment.splitlines(keepends=True):
+                if SPEAKER_NOTES_RE.match(line):
+                    return markdown[:line_offset].rstrip()
+                line_offset += len(line)
+        offset += len(segment)
     return markdown
 
 
@@ -68,8 +150,6 @@ def _process_pull_directives(markdown: str) -> str:
     Extracts both directives and formats them as:
     LEFT_CONTENT | RIGHT_CONTENT
     """
-    import re
-
     # Look for .pull-left[ and .pull-right[ patterns
     left_match = re.search(r'\.pull-left\[', markdown)
     right_match = re.search(r'\.pull-right\[', markdown)
@@ -112,16 +192,35 @@ def _process_pull_directives(markdown: str) -> str:
     return before + replacement + after
 
 
+def _next_directive_outside_code(markdown: str) -> Optional[re.Match]:
+    spans = code_spans(markdown)
+    for match in re.finditer(r'\.(\w+)\[', markdown):
+        if not any(start <= match.start() < end for start, end in spans):
+            return match
+    return None
+
+
+def _render_directive(name: str, content: str) -> str:
+    if name == "strike":
+        if "\n" in content.strip():
+            return f"\n:::{{admonition}} Deprecated\n:class: warning\n\n{content.strip()}\n:::\n"
+        return f"<del>{content}</del>"
+    # Undo the line breaks added by separate_fences_from_directives
+    content = re.sub(r'^\n(?=[ \t]*(?:`{3,}|~{3,}))', '', content)
+    return re.sub(r'((?:`{3,}|~{3,}))\n$', r'\1', content)
+
+
 def _unwrap_remark_directives(markdown: str) -> str:
     """Unwrap remaining Remark.js directives like .code[...], .reduce70[...], etc.
 
     Uses bracket counting to handle multi-line content and nested brackets.
+    Directive-like text inside code (e.g. ``foo.bar[0]``) is left alone.
     """
-    import re
+    markdown = separate_fences_from_directives(markdown)
 
     while True:
         # Find the next directive
-        match = re.search(r'\.(\w+)\[', markdown)
+        match = _next_directive_outside_code(markdown)
         if not match:
             break
 
@@ -135,8 +234,8 @@ def _unwrap_remark_directives(markdown: str) -> str:
             # Malformed directive, skip it
             break
 
-        # Replace directive with just its content
-        markdown = markdown[:directive_start] + content + markdown[end_pos:]
+        # Replace directive with its rendered content
+        markdown = markdown[:directive_start] + _render_directive(match.group(1), content) + markdown[end_pos:]
 
     return markdown
 
@@ -152,8 +251,6 @@ def process_markdown_for_sphinx(markdown: str, topic_id: str) -> str:
 
     Note: Speaker notes should be stripped per-block before this is called.
     """
-    import re
-
     # Handle .pull-left and .pull-right directives specially
     # Convert them to a two-column layout for Sphinx
     markdown = _process_pull_directives(markdown)
@@ -170,30 +267,37 @@ def process_markdown_for_sphinx(markdown: str, topic_id: str) -> str:
     # Fix asset paths: {{ site.baseurl }}/assets/images/ becomes ../_images/
     markdown = markdown.replace("{{ site.baseurl }}/assets/images/", "../_images/")
 
-    # Convert bare URLs to markdown links
-    # First, protect URLs that are already in markdown links [text](url)
-    protected_pattern = r'\]\(https?://[^\)]+\)'
-    protected = []
+    # Resolve GTN Liquid links to absolute training-material URLs
+    markdown = map_outside_code(markdown, resolve_liquid_links)
 
-    def protect_match(m):
-        protected.append(m.group())
-        return f'__PROTECTED_{len(protected)-1}__'
+    # Convert bare URLs (outside code and existing links) to markdown links
+    return map_outside_code(markdown, linkify_bare_urls)
 
-    markdown = re.sub(protected_pattern, protect_match, markdown)
 
-    # Now convert bare URLs to markdown links
-    # Matches URLs not inside markdown link syntax
-    markdown = re.sub(
-        r'(https?://[^\s\)]+)',
-        r'[\1](\1)',
-        markdown
-    )
+def resolve_liquid_links(text: str) -> str:
+    """Replace ``{% link topics/... %}`` with the absolute GTN URL."""
+    return LIQUID_LINK_RE.sub(lambda m: GTN_BASE_URL + m.group(1).lstrip("/"), text)
 
-    # Restore protected URLs
-    for i, url_part in enumerate(protected):
-        markdown = markdown.replace(f'__PROTECTED_{i}__', url_part)
 
-    return markdown
+def _linkify(text: str) -> str:
+    def replace(match: re.Match) -> str:
+        url = match.group()
+        stripped = url.rstrip(URL_TRAILING_PUNCTUATION)
+        return f"[{stripped}]({stripped}){url[len(stripped):]}"
+
+    return BARE_URL_RE.sub(replace, text)
+
+
+def linkify_bare_urls(text: str) -> str:
+    """Convert bare URLs to markdown links, leaving existing markdown links alone."""
+    parts = []
+    pos = 0
+    for match in MARKDOWN_LINK_RE.finditer(text):
+        parts.append(_linkify(text[pos:match.start()]))
+        parts.append(match.group())
+        pos = match.end()
+    parts.append(_linkify(text[pos:]))
+    return "".join(parts)
 
 
 def rewrite_image_paths_for_sphinx(markdown: str) -> str:
@@ -212,8 +316,6 @@ def rewrite_image_paths_for_sphinx(markdown: str) -> str:
     - Builds to: doc/build/html/architecture/file.html with src="../../images/img.svg"
     - Resolves to: doc/build/html/images/img.svg ✓
     """
-    import re
-
     # Handle shared images: ../../../../shared/images/ → ../../images/
     markdown = re.sub(
         r'(\[.*?\])\(../../../../shared/images/',

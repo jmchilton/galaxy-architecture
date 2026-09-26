@@ -103,7 +103,7 @@ Lots of active development and complexity around Viz plugins and dependencies fo
 
 The client is built from JavaScript source files. We use ES6 JavaScript.
 
-A tutorial to help learn JavaScript generally might be [https://www.w3schools.com/js/.](https://www.w3schools.com/js/.)
+A tutorial to help learn JavaScript generally might be [https://www.w3schools.com/js/](https://www.w3schools.com/js/).
 
 For someone familiar with JavaScript but that wants a primer on the new language features in ES6,
 [https://www.w3schools.com/js/js_es6.asp](https://www.w3schools.com/js/js_es6.asp) may be more appropriate.
@@ -155,7 +155,7 @@ Webhooks is a system in Galaxy which can be used to write small JS and/or Python
 In short: A plugin infrastructure for the Galaxy UI
 
 
-You can learn more about webhooks using our webhook [training]({% link topics/dev/tutorials/webhooks/slides.html %}).
+You can learn more about webhooks using our webhook [training](https://training.galaxyproject.org/training-material/topics/dev/tutorials/webhooks/slides.html).
 
 ## Webhook masthead example
 
@@ -163,7 +163,7 @@ You can learn more about webhooks using our webhook [training]({% link topics/de
 
 At the header menu: Enabling the overlay search, link to communities ...
 
-You can learn more about webhooks using our webhook [training]({% link topics/dev/tutorials/webhooks/slides.html %}).
+You can learn more about webhooks using our webhook [training](https://training.galaxyproject.org/training-material/topics/dev/tutorials/webhooks/slides.html).
 
 ## Webhook tool/workflow example
 
@@ -171,7 +171,7 @@ You can learn more about webhooks using our webhook [training]({% link topics/de
 
 Shown after tool or workflow execution. Comics, citations, support ...
 
-You can learn more about webhooks using our webhook [training]({% link topics/dev/tutorials/webhooks/slides.html %}).
+You can learn more about webhooks using our webhook [training](https://training.galaxyproject.org/training-material/topics/dev/tutorials/webhooks/slides.html).
 
 ## Webhook history-menu example
 
