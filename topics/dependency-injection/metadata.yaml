@@ -28,13 +28,6 @@ training:
 sphinx:
   section: Architecture
   subsection: Core Patterns
-  level: intermediate  # beginner | intermediate | advanced
-  toc_depth: 2
-
-# Galaxy Hub metadata
-hub:
-  audience: [developers, contributors]
-  tags: [architecture, design-patterns, dependency-injection]
 
 # Cross-references
 # Note: Some related topics may not exist yet (e.g., application-components, frameworks)
@@ -72,11 +65,3 @@ agentic_operations:
       3. Avoid creation of properties on ``app`` if possible.
 
     type: claude-slash-command
-
-# Claude context
-claude:
-  priority: high  # How important for dev questions
-  focus_areas:
-    - Dependency injection patterns
-    - Manager initialization
-    - Testing with injected dependencies

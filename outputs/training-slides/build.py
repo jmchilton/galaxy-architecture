@@ -207,11 +207,11 @@ def generate_slides(topic_name):
                 markdown = f"### {block.heading}\n\n{markdown}"
             if markdown.strip():
                 slides = markdown_to_slides(markdown)
-                # Apply block-level layout reference and CSS classes to all slides from this block
-                if block.slides.layout_name:
+                # Apply block-level template and CSS classes to all slides from this block
+                if block.slides.template:
                     for slide in slides:
-                        if not slide.get('layout_ref'):
-                            slide['layout_ref'] = block.slides.layout_name
+                        if not slide.get('template'):
+                            slide['template'] = block.slides.template
                 if block.slides.class_:
                     for slide in slides:
                         # Only set class if the slide doesn't already have one from its markdown
@@ -227,12 +227,12 @@ def generate_slides(topic_name):
         # Process .code[] wrapper syntax: {.code} before code block becomes .code[```...```]
         slide_content = process_code_wrappers(slide_content)
 
-        # Build slide directives (layout reference and/or class)
+        # Build slide directives (template and/or class)
         directives = []
 
-        # Add layout reference if present
-        if slide.get('layout_ref'):
-            directives.append(f"layout: {slide['layout_ref']}")
+        # Add template reference if present
+        if slide.get('template'):
+            directives.append(f"template: {slide['template']}")
 
         # Add class directive if present (unless already in content)
         lines = slide_content.split('\n')
