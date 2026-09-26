@@ -25,6 +25,28 @@ See [docs/GITHUB_PAGES_QUICKSTART.md](docs/GITHUB_PAGES_QUICKSTART.md) for setup
 
 ## Why This Belongs in Galaxy
 
+### Code is cheap; understanding is the bottleneck
+
+With coding agents, 4,000-line Galaxy PRs are now routine - all four below landed or opened in 2026. Reviewers still have to understand them. The design knowledge those reviews need lives in maintainers' heads and in PR descriptions that vanish into history at merge. Recent PRs show it:
+
+- **[#22513](https://github.com/galaxyproject/galaxy/pull/22513), Server-Sent Events (+5.2k lines, 77 files).** The first review: "nothing is too scary other than just the vastness of how much of it I don't understand but wish I did", asking for the admin and architecture story. The author had it already, in private markdown files: "I am still iterating on how it'll look like in the end and where to put these." The author also noted "it's so cheap these days to explore alternative architectures." After merge: "We really do need a place to capture this architecture stuff close to the code."
+- **[#22860](https://github.com/galaxyproject/galaxy/pull/22860), notebook workflow extraction (+4.2k lines, 40 files).** The design is an 841-line PR description. Once merged, nothing links it to the code it explains.
+- **[#23676](https://github.com/galaxyproject/galaxy/pull/23676), subworkflow mapping (+4.3k lines).** Its own author writes: "***I just don't understand this PR***. I don't know how to make it understandable."
+- **[#22752](https://github.com/galaxyproject/galaxy/pull/22752), History Graph UI (+4.6k lines, 84 files).** Review leaned on an AI assistant ("My Claude caught...", "Claude thinks this watch is redundant"). Assistants review as well as the context they get, and today Galaxy gives them no architecture docs to read.
+
+Architecture docs in the repository answer all four: reviewers get a map, authors get a place to put the design story, and coding agents get context that is versioned with the code they change.
+
+This is not a Galaxy quirk. In 2026:
+
+- "We made writing cheap, and understanding stayed exactly as expensive as it has always been." Review now means "reconstructing intent that never got written down, which is harder and slower." — Addy Osmani, [Agentic Code Review](https://addyosmani.com/blog/agentic-code-review/) (June 2026)
+- "Comprehension debt is the growing gap between how much code exists in your system and how much of it any human being genuinely understands." — Addy Osmani, [Comprehension Debt](https://addyosmani.com/blog/comprehension-debt/) (March 2026)
+- "Delivering new code has dropped in price to almost free... but delivering good code remains significantly more expensive than that." Good code is "documented at an appropriate level, and that documentation reflects the current state of the system." — Simon Willison, [Writing code is cheap now](https://simonwillison.net/guides/agentic-engineering-patterns/code-is-cheap/) (February 2026)
+- Teams found "the theory of the system, their shared understanding, had fragmented or disappeared entirely"; "velocity without understanding is not sustainable." — Margaret-Anne Storey, [Cognitive Debt](https://margaretstorey.com/blog/2026/02/09/cognitive-debt/) (February 2026)
+- "Many of the things we advocate for developers also enable LLMs to work more effectively too." — Martin Fowler, [Fragments: February 13](https://martinfowler.com/fragments/2026-02-13.html) (February 2026)
+- Of Ghostty's agent context file: "Each line in that file is based on a bad agent behavior, and it almost completely resolved them all." — Mitchell Hashimoto, [My AI Adoption Journey](https://mitchellh.com/writing/my-ai-adoption-journey) (February 2026)
+
+### The gap
+
 Galaxy's developer docs have no architecture reference. `doc/source/dev/index.rst`, `CONTRIBUTING.md` and `doc/source/dev/writing_tests.md` link to a GTN slides URL that now redirects to the first of 16 decks. Core subsystems - dependency injection, Celery tasks, app startup, repository layout, client build, Galaxy Markdown - have no dedicated dev-doc page.
 
 The goal of this repository is to move that content into `galaxyproject/galaxy`:
@@ -36,6 +58,8 @@ The goal of this repository is to move that content into `galaxyproject/galaxy`:
 - **More than one maintainer.** Today this is a single-author repository outside the org; in Galaxy, subsystem owners review the topics for their code.
 
 **Didn't Galaxy try this before?** Yes: Remark architecture slides lived in `doc/source/slideshow/` from 2016 (galaxyproject/galaxy#2244) until 2019, when they were removed because GTN hosted them. That was a second copy of a slideshow with its own HTML/JS toolchain. This is reference prose Galaxy lacks, built by Galaxy's existing Sphinx setup, with GTN remaining the home for slides.
+
+**Why not generate diagrams with a tool like [Archify](https://github.com/tt-a1i/archify)?** Archify is impressive: an agent writes a typed JSON spec, and a deterministic renderer turns it into a polished, interactive diagram with source links pinned to a commit. But it does not fit how Galaxy distributes docs. Galaxy docs are text in the repository, built by Sphinx per release branch into static HTML on docs.galaxyproject.org, read as plain Markdown on GitHub, and reused as static images in GTN Remark slides. Archify's output is an ~800 KB self-contained HTML app per diagram, with no command-line export to SVG. That renders in none of those places (at best an iframe in Sphinx), would add a Node toolchain to docs CI, and bloats the repository across dozens of diagrams. Its node positions are hand-placed coordinates, so reviewers would diff numbers rather than meaning. Its "verified source" badges only check that a file and line range exist, not that the diagram is right. PlantUML text next to a committed SVG, the pattern `doc/source/dev/` already uses, diffs cleanly and renders everywhere. Archify's authoring rules (at most ~12 nodes, one main path, detail in cards) are worth borrowing. The tool is not.
 
 ## Quick Links
 
