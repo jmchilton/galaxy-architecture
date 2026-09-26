@@ -23,16 +23,19 @@ The documentation is automatically built and published to GitHub Pages on every 
 
 See [docs/GITHUB_PAGES_QUICKSTART.md](docs/GITHUB_PAGES_QUICKSTART.md) for setup details.
 
-## Why This Exists
+## Why This Belongs in Galaxy
 
-Architecture knowledge was previously locked in presentation slides within the GTN repository. This creates several problems:
+Galaxy's developer docs have no architecture reference. `doc/source/dev/index.rst`, `CONTRIBUTING.md` and `doc/source/dev/writing_tests.md` link to a GTN slides URL that now redirects to the first of 16 decks. Core subsystems - dependency injection, Celery tasks, app startup, repository layout, client build, Galaxy Markdown - have no dedicated dev-doc page.
 
-- ❌ Single format limitation (hard to reuse for docs/articles)
-- ❌ Maintenance burden (editing presentation markup)
-- ❌ Poor AI context (monolithic slides)
-- ❌ Wrong location (docs should live with code)
+The goal of this repository is to move that content into `galaxyproject/galaxy`:
 
-**Solution**: Structured content that generates multiple formats, eventually living in the Galaxy repository.
+- **Versioned with the code.** docs.galaxyproject.org already builds per release, so architecture pages would describe the release you run, and a PR that changes the architecture can update its docs in the same diff.
+- **Checked against the code.** Topics name the files they describe (`related_code_paths`, file-structure mindmaps). Inside Galaxy, a test can fail when those paths move; out here, ~40 went stale unnoticed.
+- **No new tooling.** Galaxy's Sphinx build already uses `myst_parser` and `sphinx_rtd_theme`, already generates pages from YAML at build time (`doc/gen_authoring_doc.py`), and already commits rendered PlantUML SVGs. These pages render unchanged under Galaxy's pins, with no Java or Node in docs CI.
+- **One source, GTN still served.** Reference prose lives in Sphinx; GTN slides are exported from the same source, so the two stop drifting apart.
+- **More than one maintainer.** Today this is a single-author repository outside the org; in Galaxy, subsystem owners review the topics for their code.
+
+**Didn't Galaxy try this before?** Yes: Remark architecture slides lived in `doc/source/slideshow/` from 2016 (galaxyproject/galaxy#2244) until 2019, when they were removed because GTN hosted them. That was a second copy of a slideshow with its own HTML/JS toolchain. This is reference prose Galaxy lacks, built by Galaxy's existing Sphinx setup, with GTN remaining the home for slides.
 
 ## Quick Links
 
@@ -263,14 +266,6 @@ This virtuous cycle means:
 
 See `review/galaxy-plugins/plugins/gx-arch-review/README.md` for the complete command list.
 
-## Philosophy
-
-- **Clean Content First**: Source of truth is markdown, not presentation markup
-- **Generate, Don't Maintain**: Multiple formats from single source
-- **Co-location**: Documentation should live with code (migration planned)
-- **Validation**: Automated checks ensure quality and consistency
-- **Iteration**: Experiment and improve before organizational adoption
-
 ## Ongoing Maintenance
 
 Regular tasks to keep the repository healthy:
@@ -314,11 +309,10 @@ To add or update topics:
 
 ## Migration Plan
 
-Long-term goal: Move into Galaxy repository for co-location with code. Current approach:
-- Content maintained in this repo as single source of truth
-- Slides synced to training-material via `make sync-to-training`
-- Sphinx docs published to GitHub Pages
-- Future: Integrate into Galaxy's main documentation
+1. Stabilize and simplify this repository (in progress).
+2. Refresh stale topics; restructure pages to read as reference docs rather than slides.
+3. Propose to Galaxy: a first batch of topics under `doc/source/dev/architecture/` plus a code-path existence test.
+4. Export GTN slides from Galaxy; redirect this site to docs.galaxyproject.org and archive the repository.
 
 ## License
 
