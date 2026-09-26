@@ -36,7 +36,6 @@ images/*.mermaid.svg
 
 # Node.js / npm
 node_modules/
-package-lock.json
 
 # IDE
 .vscode/

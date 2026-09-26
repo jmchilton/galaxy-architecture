@@ -14,6 +14,7 @@ Output:
     - Suggestions for fixes
 """
 
+import argparse
 import sys
 import re
 from pathlib import Path
@@ -284,8 +285,6 @@ def print_report(results: Dict, verbose: bool = False):
 
 
 def main():
-    import argparse
-
     parser = argparse.ArgumentParser(
         description="Lint Sphinx HTML output for missing images"
     )
@@ -306,7 +305,9 @@ def main():
     results = lint_sphinx_output(html_root=args.html_dir, verbose=args.verbose)
     print_report(results, verbose=args.verbose)
 
-    # Exit with error code if images are missing
+    # Exit with error code if images are missing or the build output is absent
+    if "error" in results:
+        sys.exit(1)
     sys.exit(0 if results.get("missing_count", 0) == 0 else 1)
 
 
