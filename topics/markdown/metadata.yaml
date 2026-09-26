@@ -29,13 +29,6 @@ training:
 sphinx:
   section: Architecture
   subsection: Core Systems
-  level: advanced
-  toc_depth: 2
-
-# Galaxy Hub metadata
-hub:
-  audience: [developers, contributors]
-  tags: [architecture, markdown, documentation, workflow-reports, pages]
 
 # Cross-references
 related_topics: []
@@ -51,12 +44,3 @@ related_code_paths:
 # Contributors
 contributors:
   - jmchilton
-
-# Claude context
-claude:
-  priority: medium
-  focus_areas:
-    - Galaxy Markdown directive syntax
-    - Contextual ID resolution
-    - Frontend component rendering
-    - Handler pattern for export

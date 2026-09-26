@@ -6,17 +6,23 @@ from typing import Annotated, Literal, Optional, Union
 
 from pydantic import (
     BaseModel,
+    ConfigDict,
     Field,
     field_validator,
     model_validator,
 )
 
 
+class StrictModel(BaseModel):
+    """Base model that rejects unknown keys instead of silently dropping them."""
+    model_config = ConfigDict(extra='forbid')
+
+
 # ============================================================================
 # Metadata Models
 # ============================================================================
 
-class TrainingMetadata(BaseModel):
+class TrainingMetadata(StrictModel):
     """Training slide metadata.
 
     Defines the learning objectives and structure for training materials.
@@ -32,7 +38,7 @@ class TrainingMetadata(BaseModel):
     continues_to: Annotated[Optional[str], Field(None, description="Topic ID that follows this topic in sequence")]
 
 
-class SphinxMetadata(BaseModel):
+class SphinxMetadata(StrictModel):
     """Sphinx documentation metadata.
 
     Controls how the topic appears in Galaxy's Sphinx documentation.
@@ -41,13 +47,13 @@ class SphinxMetadata(BaseModel):
     subsection: Annotated[Optional[str], Field(None, description="Subsection within the section")]
 
 
-class CodePathReference(BaseModel):
+class CodePathReference(StrictModel):
     """Detailed code path reference with contextual note."""
     path: Annotated[str, Field(description="Galaxy code path (relative)")]
     note: Annotated[str, Field(description="How this code path relates to the topic")]
 
 
-class PullRequestReference(BaseModel):
+class PullRequestReference(StrictModel):
     """Pull request reference with contextual note."""
     pull_request: Annotated[str, Field(description="GitHub PR URL or number")]
     note: Annotated[str, Field(description="How this PR relates to the topic")]
@@ -59,7 +65,7 @@ class AgenticOperationType(str, Enum):
     SKILL = "claude-skill"
 
 
-class AgenticOperation(BaseModel):
+class AgenticOperation(StrictModel):
     """Agentic operation that can be generated from topic content.
 
     Represents a development action (e.g., implement-migration, refactor-for-di)
@@ -87,7 +93,7 @@ class AgenticOperation(BaseModel):
         return v
 
 
-class TopicMetadata(BaseModel):
+class TopicMetadata(StrictModel):
     """Complete topic metadata from metadata.yaml.
 
     This is the source of truth for topic configuration across all output formats.
@@ -200,7 +206,7 @@ class ContentBlockType(str, Enum):
     AGENT_CONTEXT = "agent-context"
 
 
-class DocRenderConfig(BaseModel):
+class DocRenderConfig(StrictModel):
     """Configuration for rendering in documentation (Sphinx).
 
     Controls how content appears in continuous documentation format.
@@ -212,7 +218,7 @@ class DocRenderConfig(BaseModel):
     ]
 
 
-class SlideRenderConfig(BaseModel):
+class SlideRenderConfig(StrictModel):
     """Configuration for rendering in training slides.
 
     Controls how content appears in slide presentation format.
@@ -222,13 +228,13 @@ class SlideRenderConfig(BaseModel):
         Optional[str],
         Field(None, description="CSS classes to apply to slides (e.g., 'center', 'reduce90', 'enlarge150')")
     ]
-    layout_name: Annotated[
+    template: Annotated[
         Optional[str],
-        Field(None, description="Named layout to reference (e.g., 'left-aligned')")
+        Field(None, description="Named Remark.js slide to use as template (e.g., 'left-aligned')")
     ]
 
 
-class ContentBlock(BaseModel):
+class ContentBlock(StrictModel):
     """Single content block in content.yaml.
 
     Represents one unit of content (prose paragraph or slide) with rendering
@@ -268,6 +274,12 @@ class ContentBlock(BaseModel):
         Field(None, alias='class', description="CSS classes for slides (shorthand for slides.class_)")
     ]
 
+    # Convenience field: Remark.js template for slides (shorthand for slides.template)
+    template: Annotated[
+        Optional[str],
+        Field(None, description="Remark.js template for slides (shorthand for slides.template)")
+    ]
+
     # Rendering configuration with smart defaults
     doc: Annotated[
         DocRenderConfig,
@@ -284,6 +296,8 @@ class ContentBlock(BaseModel):
         # Propagate convenience field 'class_' to slides.class_
         if self.class_ and not self.slides.class_:
             self.slides.class_ = self.class_
+        if self.template and not self.slides.template:
+            self.slides.template = self.template
 
         if self.type == ContentBlockType.PROSE:
             # Prose: render in docs by default, NOT in slides
@@ -406,7 +420,7 @@ class ContentBlock(BaseModel):
         raise ValueError(f"Block '{self.id}': no content source specified")
 
 
-class TopicContent(BaseModel):
+class TopicContent(StrictModel):
     """Complete content sequence from content.yaml.
 
     Ordered list of content blocks that define the topic's narrative flow.
