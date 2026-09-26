@@ -131,7 +131,7 @@ All content validated with Pydantic v2 models before build.
 
 - **outputs/training-slides/generated/** - GTN-compatible Remark.js slides
 - **outputs/sphinx-docs/generated/architecture/** - Markdown for Sphinx
-- **doc/source/architecture/** - Markdown copied for local Sphinx build
+- **doc/source/architecture/** - Markdown copied for local Sphinx build (gitignored)
 - **doc/build/html/** - Built HTML documentation (published to GitHub Pages)
 
 ## Current Topics
