@@ -166,7 +166,7 @@ Research a topic using its metadata to prepare for content generation.
 Extract relevant code paths from PR diffs and add to metadata.
 - Reads `.diff` files from `notes/`
 - Identifies 8-12 architecturally significant paths (managers, APIs, core components)
-- Verifies paths exist in `~/workspace/galaxy`
+- Verifies paths exist in `$GALAXY_ROOT`
 - Appends to `related_code_paths` in metadata.yaml
 - Requires: run `/research-topic` first
 
