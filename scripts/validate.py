@@ -6,15 +6,54 @@ Checks:
 - metadata.yaml has all required fields and valid structure
 - content.yaml has valid structure and references
 - All referenced files exist
+- All referenced images exist in images/
 - Internal topic references are valid
 """
 
+import re
 import sys
 from pathlib import Path
 
 from pydantic import ValidationError
 
 from models import load_metadata, load_content, validate_topic_structure, TopicMetadata
+
+IMAGES_DIR = Path("images")
+MARKDOWN_IMAGE_RE = re.compile(r'!\[[^\]]*\]\(([^)\s]+)\)')
+# GTN-style prefixes the builders map onto images/
+IMAGE_PREFIX_RE = re.compile(
+    r'^(?:\.\./\.\./images/|\.\./\.\./\.\./\.\./shared/images/|\{\{\s*site\.baseurl\s*\}\}/assets/images/)'
+)
+EXTERNAL_PREFIXES = ('http://', 'https://', 'data:')
+# Rendered SVGs are gitignored and built by images/Makefile; accept their source
+GENERATED_IMAGE_SOURCES = (
+    ('.mindmap.plantuml.svg', '.mindmap.yml'),
+    ('.plantuml.svg', '.plantuml.txt'),
+    ('.mermaid.svg', '.mermaid.txt'),
+)
+
+
+def image_exists(name: str, images_dir: Path) -> bool:
+    """True if images_dir has the image or the diagram source it's generated from."""
+    if (images_dir / name).is_file():
+        return True
+    for rendered_suffix, source_suffix in GENERATED_IMAGE_SOURCES:
+        if name.endswith(rendered_suffix):
+            source = name[:-len(rendered_suffix)] + source_suffix
+            return (images_dir / source).is_file()
+    return False
+
+
+def find_missing_images(markdown: str, images_dir: Path = IMAGES_DIR) -> list[str]:
+    """Return image references in markdown that don't resolve to a file in images_dir."""
+    missing = []
+    for ref in MARKDOWN_IMAGE_RE.findall(markdown):
+        if ref.startswith(EXTERNAL_PREFIXES):
+            continue
+        match = IMAGE_PREFIX_RE.match(ref)
+        if not match or not image_exists(ref[match.end():], images_dir):
+            missing.append(ref)
+    return missing
 
 
 def validate_tutorial_chain(all_metadata: dict[str, TopicMetadata]) -> list[str]:
@@ -129,6 +168,10 @@ def validate_topic(topic_dir: Path) -> tuple[list[str], list[str]]:
     except ValueError as e:
         errors.append(str(e))
         return errors, warnings
+
+    for block in content:
+        for ref in find_missing_images(block.resolve_content(topic_dir)):
+            errors.append(f"{block.id}: Missing image {ref}")
 
     # Validate agentic operations
     if metadata.agentic_operations:

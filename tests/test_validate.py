@@ -14,7 +14,7 @@ import sys
 # Add scripts directory to path
 sys.path.insert(0, str(Path(__file__).parent.parent / "scripts"))
 
-from validate import validate_topic, validate_all
+from validate import find_missing_images, validate_topic, validate_all
 
 
 class TestMetadataValidation:
@@ -90,3 +90,48 @@ class TestTopicStructure:
 if __name__ == "__main__":
     pytest.main([__file__, "-v"])
 
+
+
+class TestImageReferences:
+    """Test that image references in content resolve to files in images/."""
+
+    def test_reports_missing_image(self, tmp_path):
+        (tmp_path / "present.svg").write_text("<svg/>")
+        markdown = "![Present](../../images/present.svg)\n![Gone](../../images/gone.png)"
+        assert find_missing_images(markdown, tmp_path) == ["../../images/gone.png"]
+
+    def test_resolves_gtn_prefixes_to_images_dir(self, tmp_path):
+        (tmp_path / "logo.png").write_text("")
+        markdown = (
+            "![A](../../images/logo.png) "
+            "![B](../../../../shared/images/logo.png) "
+            "![C]({{ site.baseurl }}/assets/images/logo.png)"
+        )
+        assert find_missing_images(markdown, tmp_path) == []
+
+    def test_generated_svg_resolves_to_diagram_source(self, tmp_path):
+        (tmp_path / "seq.plantuml.txt").write_text("@startuml\n@enduml")
+        (tmp_path / "tree.mindmap.yml").write_text("label: root")
+        (tmp_path / "flow.mermaid.txt").write_text("graph TD")
+        markdown = (
+            "![S](../../images/seq.plantuml.svg) "
+            "![T](../../images/tree.mindmap.plantuml.svg) "
+            "![F](../../images/flow.mermaid.svg) "
+            "![N](../../images/nosource.plantuml.svg)"
+        )
+        assert find_missing_images(markdown, tmp_path) == ["../../images/nosource.plantuml.svg"]
+
+    def test_ignores_external_urls(self, tmp_path):
+        markdown = "![Ext](https://example.org/x.png) ![Data](data:image/png;base64,AA==)"
+        assert find_missing_images(markdown, tmp_path) == []
+
+    def test_unrecognized_relative_path_is_missing(self, tmp_path):
+        (tmp_path / "x.png").write_text("")
+        assert find_missing_images("![X](images/x.png)", tmp_path) == ["images/x.png"]
+
+    def test_existing_topics_have_no_missing_images(self):
+        for topic_dir in sorted(Path("topics").iterdir()):
+            if not topic_dir.is_dir() or topic_dir.name.startswith('.'):
+                continue
+            errors, _ = validate_topic(topic_dir)
+            assert not [e for e in errors if "Missing image" in e], topic_dir.name
