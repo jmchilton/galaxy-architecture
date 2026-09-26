@@ -105,6 +105,7 @@ clean:
 	rm -rf doc/build
 	rm -rf outputs/training-slides/generated
 	rm -rf outputs/sphinx-docs/generated
+	rm -rf doc/source/architecture
 	@make -C images clean
 	@echo "✓ Cleaned"
 

@@ -41,7 +41,7 @@ version = "master"
 release = "master"
 
 # Exclude patterns
-exclude_patterns = ["**/_*.*", "_build"]
+exclude_patterns = ["**/_*.*", "_build", "_images"]
 
 # -- HTML output options --------------------------------------------------
 
