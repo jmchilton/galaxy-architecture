@@ -33,6 +33,10 @@ MMDC := $(shell command -v ../node_modules/.bin/mmdc 2>/dev/null || command -v m
 check-mermaid:
 	@if [ -n "$(MERMAID_INPUTS)" ]; then \
 		if [ -z "$(MMDC)" ]; then \
+			if [ -n "$(MERMAID_REQUIRED)" ]; then \
+				echo "Error: mermaid-cli not found and MERMAID_REQUIRED is set."; \
+				exit 1; \
+			fi; \
 			echo "Warning: mermaid-cli not found."; \
 			echo "Install with: npm install (uses package.json) or npm install -g @mermaid-js/mermaid-cli"; \
 			echo "Skipping Mermaid diagram generation."; \
@@ -42,7 +46,7 @@ check-mermaid:
 
 $(MERMAID_OUTPUTS): %.mermaid.svg: %.mermaid.txt
 	@if [ -n "$(MMDC)" ]; then \
-		$(MMDC) -i $< -o $@ -b transparent; \
+		$(MMDC) -p puppeteer-config.json -i $< -o $@ -b transparent; \
 	else \
 		echo "Skipping $@ (mermaid-cli not installed)"; \
 		echo "  Install with: npm install -g @mermaid-js/mermaid-cli"; \
