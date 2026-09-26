@@ -55,7 +55,7 @@ in a manager instead of in the model.
 
 ## Galaxy Models
 
-- Database interactions powered by SQLAlchemy - [https://www.sqlalchemy.org/.](https://www.sqlalchemy.org/.)
+- Database interactions powered by SQLAlchemy - [https://www.sqlalchemy.org/](https://www.sqlalchemy.org/).
 - Galaxy doesn't think in terms of "rows" but "objects".
 - Classes for Galaxy model objects defined in `lib/galaxy/model/__init__.py`.
 - Classes mapped to database objects in same module via "declarative mapping".
@@ -68,7 +68,7 @@ in a manager instead of in the model.
 
 - Automated execution of incremental, reversible changes to the database schema.
 - Performed to update or revert the database schema to a newer or older version.
-- Powered by Alembic - [https://alembic.sqlalchemy.org/.](https://alembic.sqlalchemy.org/.)
+- Powered by Alembic - [https://alembic.sqlalchemy.org/](https://alembic.sqlalchemy.org/).
   - (as of 22.05; prior to that by SQLAlchemy Migrate)
 - Each file in `lib/galaxy/model/migrations/alembic/versions_gxy` represents a migration description
   - `e7b6dcb09efd_create_gxy_branch.py`

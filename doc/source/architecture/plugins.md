@@ -23,7 +23,7 @@
 
 ![Datatype Files](../_images/core_files_datatypes.mindmap.plantuml.svg)
 
-Developer docs on adding new datatypes can be found at [https://docs.galaxyproject.org/en/latest/dev/data_types.html.](https://docs.galaxyproject.org/en/latest/dev/data_types.html.)
+Developer docs on adding new datatypes can be found at [https://docs.galaxyproject.org/en/latest/dev/data_types.html](https://docs.galaxyproject.org/en/latest/dev/data_types.html).
 
 ## Tools
 
@@ -62,7 +62,7 @@ Adding new visualizations to a Galaxy instance
 - Additional static data if needed (CSS, JS, …)
 
 
-[Learn more about it with our visualization tutorial.]({% link topics/dev/tutorials/visualization-generic/slides.html %})
+[Learn more about it with our visualization tutorial.](https://training.galaxyproject.org/training-material/topics/dev/tutorials/visualization-generic/slides.html)
 
 ```xml
 <?xml version="1.0" encoding="UTF-8"?>
@@ -106,6 +106,10 @@ Data providers process data before sending to browser - slice, filter, reformat,
 
 ## Object Store
 
+
+:::{admonition} Deprecated
+:class: warning
+
 ```python
 >>> fh = open(dataset.file_path, 'w')
 >>> fh.write('foo')
@@ -113,6 +117,8 @@ Data providers process data before sending to browser - slice, filter, reformat,
 >>> fh = open(dataset.file_path, 'r')
 >>> fh.read()
 ```
+:::
+
 
 ```python
 >>> app.objectstore.update_from_file(dataset, file_name='foo.txt')
