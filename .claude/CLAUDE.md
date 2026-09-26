@@ -23,7 +23,6 @@ Experimental POC to prove that maintaining architecture content as structured ma
 
 ## Key Files
 
-- **PLAN.md** - Detailed implementation plan with all phases, templates, examples
 - **docs/SCHEMA.md** - Auto-generated schema documentation from Pydantic models
 - **Makefile** - Top-level build targets (validate, build-slides, build-sphinx, etc.)
 - **scripts/models.py** - Pydantic v2 models for validation (metadata.yaml, content.yaml)
@@ -137,7 +136,7 @@ All content validated with Pydantic v2 models before build.
 
 ## Current Topics
 
-- **dependency-injection** - How Galaxy uses DI patterns
+16 topics in `topics/`: application-components, client, dependencies, dependency-injection, ecosystem, file-sources, files, frameworks, markdown, plugins, principles, production, project-management, startup, tasks, tests.
 
 ## Output Formats
 
@@ -153,10 +152,6 @@ Documentation is automatically built and published to GitHub Pages on every push
 - See **docs/GITHUB_PAGES_SETUP.md** for technical details
 - Workflow: `.github/workflows/deploy-docs.yml`
 - Published URL: https://jmchilton.github.io/galaxy-architecture/
-
-## Implementation Status
-
-See PLAN.md for detailed phases.
 
 ## Slash Commands
 
@@ -196,7 +191,6 @@ Generate structured slide plan by analyzing research notes.
 
 ## When helping with this repo
 
-- Follow the PLAN.md phases
 - Validate before committing
 - Keep tooling simple
 - Document pain points for iteration
