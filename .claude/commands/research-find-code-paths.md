@@ -29,7 +29,7 @@ Extract relevant code paths from PR diffs and add to topic metadata.
    - Main API endpoints
    - Key frontend components
    - Important utilities
-4. Verifies each path exists in `~/workspace/galaxy`
+4. Verifies each path exists in `$GALAXY_ROOT`
 5. Adds verified paths to `related_code_paths` in `metadata.yaml` (appends, doesn't replace existing)
 
 ## Path selection criteria
@@ -55,4 +55,4 @@ Each code path added includes:
 ## Requirements
 
 - Topic must have been researched with `/research-topic` (needs `.diff` files)
-- Galaxy repository must exist at `~/workspace/galaxy`
+- `GALAXY_ROOT` must point at a galaxyproject/galaxy checkout

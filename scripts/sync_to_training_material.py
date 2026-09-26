@@ -20,6 +20,7 @@ from pathlib import Path
 # Add scripts to path for models
 sys.path.insert(0, str(Path(__file__).parent))
 from models import load_metadata
+from repo_roots import RepoRootError, resolve_gtn_root
 from sync_images import sync_topic_images
 
 
@@ -144,8 +145,7 @@ def main():
     parser.add_argument(
         '--training-material-root',
         type=Path,
-        default=Path.home() / 'workspace' / 'training-material',
-        help='Path to training-material repository'
+        help='Path to training-material repository (default: $GTN_ROOT)'
     )
     parser.add_argument(
         '--rebuild-slides',
@@ -158,8 +158,10 @@ def main():
     if not args.all and not args.topic:
         parser.error("Either specify a topic or use --all")
 
-    if not args.training_material_root.exists():
-        print(f"❌ Training-material not found: {args.training_material_root}")
+    try:
+        args.training_material_root = resolve_gtn_root(args.training_material_root)
+    except RepoRootError as e:
+        print(f"❌ {e}")
         sys.exit(1)
 
     # Rebuild slides if requested

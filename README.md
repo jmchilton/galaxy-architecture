@@ -62,13 +62,24 @@ uv sync
 uv sync --extra dev
 ```
 
+### External Checkouts
+
+Some targets need other repositories. Point these environment variables at local clones:
+
+| Variable | Repository | Used by |
+|---|---|---|
+| `GALAXY_ROOT` | galaxyproject/galaxy | `make validate-files`, `/research-find-code-paths` |
+| `GTN_ROOT` | galaxyproject/training-material | `make compare-slides`, `make sync-to-training`, `make validate-sync` |
+
+Scripts also accept `--galaxy-root` / `--training-material-root`.
+
 ### Build Targets
 
 ```bash
 # Validate all topics and metadata
 make validate
 
-# Verify file references in mindmaps exist in ~/workspace/galaxy
+# Verify file references in mindmaps exist in $GALAXY_ROOT
 make validate-files
 
 # Build PlantUML diagrams from source
@@ -266,15 +277,14 @@ Regular tasks to keep the repository healthy:
 
 ### File Reference Validation
 
-The `make validate-files` target verifies that all file paths referenced in architecture mindmaps exist in `~/workspace/galaxy`. This ensures documentation stays in sync with the actual codebase.
+The `make validate-files` target verifies that all file paths referenced in file-structure mindmaps (`images/*files*.mindmap.yml`) exist in `$GALAXY_ROOT`. This ensures documentation stays in sync with the actual codebase.
 
 **When to run:**
 - Before committing changes to mindmap files
 - When Galaxy repository is updated with new/moved files
-- As part of CI/CD pipeline
 
 **What it checks:**
-- All files in `images/*.mindmap.yml` files exist in Galaxy repo
+- All entries in `images/*files*.mindmap.yml` (except `...` placeholders) exist in the Galaxy checkout
 - Reports missing files with their mindmap source
 - Returns non-zero exit code if any files are missing
 
