@@ -3,7 +3,6 @@
 Sync images to training-material repository.
 
 Only copies rendered images (SVG, PNG, JPG), not source files (.plantuml.txt, .mindmap.yml).
-Per IMAGE_HANDLING.md and BACK_TO_TRAINING_PLAN.md.
 
 Usage:
     uv run python scripts/sync_images.py --topic ecosystem

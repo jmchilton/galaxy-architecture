@@ -16,7 +16,7 @@ This repository maintains Galaxy architecture knowledge as structured content (m
 **Live site**: https://jmchilton.github.io/galaxy-architecture/
 
 The documentation is automatically built and published to GitHub Pages on every push to `main`. Includes:
-- Sphinx HTML documentation for all 13 architecture topics
+- Sphinx HTML documentation for all 16 architecture topics
 - Embedded Remark.js slide presentations
 - PlantUML diagrams and mindmaps
 - Full-text search and navigation
@@ -37,20 +37,9 @@ Architecture knowledge was previously locked in presentation slides within the G
 ## Quick Links
 
 - **[Published Documentation](https://jmchilton.github.io/galaxy-architecture/)** - Live Sphinx docs with embedded slides
-- **[PLAN.md](PLAN.md)** - Detailed implementation plan with phases and progress
 - **[docs/SCHEMA.md](docs/SCHEMA.md)** - Complete metadata schema documentation
 - **[docs/GITHUB_PAGES_QUICKSTART.md](docs/GITHUB_PAGES_QUICKSTART.md)** - GitHub Pages publishing setup
 - **[docs/GITHUB_PAGES_SETUP.md](docs/GITHUB_PAGES_SETUP.md)** - Technical deployment details
-- **[BACK_TO_TRAINING_PLAN.md](BACK_TO_TRAINING_PLAN.md)** - Sync strategy to training-material
-
-## Current Status
-
-- ✅ **Phase 0-4**: Core infrastructure, validation, and slide generation
-- ✅ **Phase 5**: All 13 architecture topics migrated from training-material
-- ✅ **Phase 7**: PlantUML/mindmap diagram infrastructure
-- ✅ **Phase 8**: Sphinx documentation with GitHub Pages publishing
-- ✅ **Phase 9**: Training-material back-sync infrastructure
-- ⏳ **Phase 10**: Hub articles and Galaxy repo integration (future)
 
 ## Quick Start
 
@@ -136,7 +125,7 @@ See [docs/SCHEMA.md](docs/SCHEMA.md) for the metadata and content.yaml schema.
 
 ```
 galaxy-architecture/
-├── topics/                     # 13 architectural topics
+├── topics/                     # 16 architectural topics
 │   └── ecosystem/
 │       ├── metadata.yaml       # Topic metadata (training, sphinx)
 │       ├── content.yaml        # Ordered content blocks
@@ -175,7 +164,7 @@ galaxy-architecture/
 
 ### ✅ Implemented
 
-- **13 Architecture Topics**: Ecosystem, project management, principles, files, frameworks, DI, tasks, components, plugins, client, dependencies, startup, production
+- **16 Architecture Topics**: Ecosystem, project management, principles, files, frameworks, DI, tasks, components, plugins, client, dependencies, startup, production, file sources, markdown, tests
 - **Structured Content**: `metadata.yaml` + `content.yaml` with content blocks
 - **Slide Generation**: GTN-compatible Remark.js slides (Jekyll markdown + standalone HTML)
 - **Sphinx Documentation**: Published to GitHub Pages with embedded slides

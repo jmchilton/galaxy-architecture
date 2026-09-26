@@ -3,7 +3,7 @@
 Sync generated slides to training-material repository.
 
 Copies Jekyll markdown slides (slides.md) to training-material as slides.html.
-Also syncs images per IMAGE_HANDLING.md (SVG/PNG/JPG only, not source files).
+Also syncs images (SVG/PNG/JPG only, not source files).
 
 Usage:
     uv run python scripts/sync_to_training_material.py ecosystem
