@@ -175,13 +175,6 @@ def validate_topic(topic_dir: Path) -> tuple[list[str], list[str]]:
 
     # Validate agentic operations
     if metadata.agentic_operations:
-        # Check for suggestions directory
-        suggestions_dir = topic_dir / "suggestions"
-        if not suggestions_dir.exists():
-            warnings.append(
-                "Consider creating suggestions/ directory for operation feedback"
-            )
-
         # Check operation quality
         for op in metadata.agentic_operations:
             if len(op.prompt) < 20:
