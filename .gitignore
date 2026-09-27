@@ -55,3 +55,9 @@ Thumbs.db
 # Temporary files
 *.tmp
 .cache/
+
+# Local research scratch written by slash commands (not published)
+topics/*/notes/
+topics/*/plan/
+topics/*/suggestions/
+topics/*/harmonize/

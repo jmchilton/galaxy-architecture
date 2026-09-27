@@ -155,6 +155,8 @@ Documentation is automatically built and published to GitHub Pages on every push
 
 ## Slash Commands
 
+Research commands write to `topics/<id>/{notes,plan,suggestions,harmonize}/` - local scratch, gitignored.
+
 ### /research-topic <topic-id>
 Research a topic using its metadata to prepare for content generation.
 - Loads metadata.yaml, creates `notes/` directory
