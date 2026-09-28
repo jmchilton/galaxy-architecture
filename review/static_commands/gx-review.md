@@ -10,19 +10,25 @@ and other target commands in the same directory as this command for each precond
 should evaluate each precondition and if it is met, launch a subagent to perform the review
 of the supplied changes to this agent.
 
-- Precondition: These changes contain Python Code.
+- Precondition: These changes contain Python code.
   Command: py-review-code-structure.md
-- Precondition: These changes contain client test code (src/client/*test.js or src/client/*test.ts)
-  Command: gx-vitest-review.md
-- Precondition: These changes contain Python code that add or modify an API endpoint.
-  Command: py-fastapi-review.md
-- Precondition: These changes contain Python code that add or modify an API endpoint.
-  Command: review-business-logic-organization.md
-- Precondition: These changes contain Python code/
-  Command: review-di.md
+- Precondition: These changes contain Python code.
+  Command: gx-review-di.md
+- Precondition: These changes contain Python code that touches async code, ASGI/FastAPI request handling, or code called from the event loop.
+  Command: gx-review-async-sync.md
+- Precondition: These changes contain Python code that adds or modifies an API endpoint.
+  Command: gx-fastapi-review.md
+- Precondition: These changes contain Python code that adds or modifies an API endpoint.
+  Command: gx-review-business-logic-organization.md
+- Precondition: These changes add or modify tests (under `lib/galaxy_test/`, `test/`, or `client/src/`).
+  Command: gx-review-test-types.md
 - Precondition: These changes contain Python tests.
   Command: py-challenge-patches.md
-- Precondition: These changes contain an alembic database migration.
+- Precondition: These changes contain client unit tests (`client/src/**/*.test.js` or `client/src/**/*.test.ts`).
+  Command: gx-vitest-review.md
+- Precondition: These changes contain E2E tests (`lib/galaxy_test/selenium/` or `test/integration_selenium/`).
+  Command: gx-e2e-review.md
+- Precondition: These changes contain client Vue components (`client/src/**/*.vue`).
+  Command: gx-review-ui-components.md
+- Precondition: These changes contain an Alembic database migration.
   Command: gx-review-migration.md
-- Precondition: These changes contain a new database model.
-  Command: gx-review-model.md
