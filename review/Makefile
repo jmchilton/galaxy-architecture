@@ -30,7 +30,7 @@ legacy: sync-generated $(COMMANDS_DIR)
 
 sync-generated:
 	@echo "Syncing generated agentic operations..."
-	python sync_generated.py
+	uv run python sync_generated.py
 
 $(PLUGIN_COMMANDS_DIR):
 	mkdir -p $(PLUGIN_COMMANDS_DIR)

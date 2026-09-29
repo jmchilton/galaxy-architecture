@@ -283,8 +283,8 @@ This virtuous cycle means:
 |---------|--------|-------------|
 | `/generate-agentic-op` | Built-in | Generate review command from topic |
 | `/gx-arch-review:gx-review` | Plugin | Orchestrator - runs applicable sub-reviews |
-| `/gx-arch-review:review-di` | Generated | Dependency injection patterns |
-| `/gx-arch-review:review-business-logic-organization` | Generated | Controller/Service/Manager layers |
+| `/gx-arch-review:gx-review-di` | Generated | Dependency injection patterns |
+| `/gx-arch-review:gx-review-business-logic-organization` | Generated | Controller/Service/Manager layers |
 | `/gx-arch-review:py-challenge-patches` | Static | Mock/patch quality in tests |
 | `/gx-arch-review:gx-vitest-review` | Static | Vue/TypeScript test review |
 
