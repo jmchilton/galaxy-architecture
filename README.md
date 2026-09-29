@@ -297,14 +297,15 @@ Regular tasks to keep the repository healthy:
 
 ### File Reference Validation
 
-The `make validate-files` target verifies that all file paths referenced in file-structure mindmaps (`images/*files*.mindmap.yml`) exist in `$GALAXY_ROOT`. This ensures documentation stays in sync with the actual codebase.
+The `make validate-files` target verifies that Galaxy code referenced in diagrams exists in `$GALAXY_ROOT`: file paths in file-structure mindmaps (`images/*files*.mindmap.yml`), and paths, dotted names (`galaxy.structured_app.StructuredApp`) and `galaxy_*` class-diagram namespaces in hand-written `images/*.mmd`. This ensures documentation stays in sync with the actual codebase.
 
 **When to run:**
-- Before committing changes to mindmap files
+- Before committing changes to mindmap or diagram files
 - When Galaxy repository is updated with new/moved files
 
 **What it checks:**
 - All entries in `images/*files*.mindmap.yml` (except `...` placeholders) exist in the Galaxy checkout
+- In `images/*.mmd`: repo paths exist; dotted names resolve to a module and a top-level name; `galaxy_*` namespaces resolve to a package that defines their classes
 - Reports missing files with their mindmap source
 - Returns non-zero exit code if any files are missing
 

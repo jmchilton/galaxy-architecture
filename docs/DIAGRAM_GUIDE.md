@@ -93,7 +93,7 @@ classDiagram
 ```
 
 **Key patterns:**
-- `namespace` groups classes (identifiers can't contain dots - use underscores)
+- `namespace` groups classes (identifiers can't contain dots - use underscores). Name it after the real package (`galaxy_files_sources`) - `make validate-files` checks the package exists and defines its classes
 - Dotted module paths go in a label: `class Short["galaxy.module.Short"]`
 - `<<abstract>>`, `<<interface>>`, `<<Protocol>>` stereotypes; `method()*` marks abstract methods
 - Cardinality on relationships: `A "*" --> "1" B`
