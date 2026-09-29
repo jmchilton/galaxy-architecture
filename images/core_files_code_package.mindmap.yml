@@ -3,17 +3,14 @@ items:
 - label: packages/tool_util/
   items:
   - label: pyproject.toml
-    doc: project defintion defining use of setuptools
-  - label: setup.cfg
-    doc: metadata for project loaded setuptools  includes version, requirements, extras
+    doc: project definition (setuptools) - version, requirements, extras
   - label: scripts/
     doc: project management scripting
   - label: Makefile
     doc: targets for building, publishing package
-  - label: galaxy/
+  - label: src/galaxy/
+    doc: implicit namespace package (no __init__.py)
     items:
-    - label: __init__.py
-      doc: namespace package def
     - label: tool_util/
       doc: symlink to lib/galaxy/tool_util
   - label: tests/
