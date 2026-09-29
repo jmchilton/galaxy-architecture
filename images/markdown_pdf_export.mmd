@@ -1,0 +1,31 @@
+---
+title: PDF Export Pipeline
+---
+sequenceDiagram
+    participant input as Internal<br>Galaxy Markdown
+    participant handler as ToBasicMarkdown<br>Handler
+    participant mdlib as markdown<br>library
+    participant sanitize as sanitizer
+    participant weasy as WeasyPrint
+    participant output as PDF
+
+    input->>handler: Galaxy markdown
+    activate handler
+    Note right of handler: Fully expands directives:<br>- Tables from datasets<br>- Base64 images<br>- Formatted text
+    handler-->>mdlib: basic markdown
+    deactivate handler
+
+    activate mdlib
+    Note right of mdlib: Standard markdown<br>to HTML conversion
+    mdlib-->>sanitize: raw HTML
+    deactivate mdlib
+
+    activate sanitize
+    Note right of sanitize: Security layer:<br>- Remove scripts<br>- Whitelist tags<br>- Prevent XSS
+    sanitize-->>weasy: safe HTML
+    deactivate sanitize
+
+    activate weasy
+    Note right of weasy: HTML to PDF:<br>- Apply CSS<br>- Render layout<br>- Generate file
+    weasy-->>output: PDF bytes
+    deactivate weasy

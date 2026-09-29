@@ -110,16 +110,19 @@ class TestImageReferences:
         assert find_missing_images(markdown, tmp_path) == []
 
     def test_generated_svg_resolves_to_diagram_source(self, tmp_path):
-        (tmp_path / "seq.plantuml.txt").write_text("@startuml\n@enduml")
+        (tmp_path / "seq.mmd").write_text("sequenceDiagram")
         (tmp_path / "tree.mindmap.yml").write_text("label: root")
-        (tmp_path / "flow.mermaid.txt").write_text("graph TD")
         markdown = (
-            "![S](../../images/seq.plantuml.svg) "
-            "![T](../../images/tree.mindmap.plantuml.svg) "
-            "![F](../../images/flow.mermaid.svg) "
-            "![N](../../images/nosource.plantuml.svg)"
+            "![S](../../images/seq.mmd.svg) "
+            "![T](../../images/tree.mindmap.mmd.svg) "
+            "![N](../../images/nosource.mmd.svg)"
         )
-        assert find_missing_images(markdown, tmp_path) == ["../../images/nosource.plantuml.svg"]
+        assert find_missing_images(markdown, tmp_path) == ["../../images/nosource.mmd.svg"]
+
+    def test_plantuml_svg_no_longer_resolves(self, tmp_path):
+        (tmp_path / "seq.plantuml.txt").write_text("@startuml\n@enduml")
+        markdown = "![S](../../images/seq.plantuml.svg)"
+        assert find_missing_images(markdown, tmp_path) == ["../../images/seq.plantuml.svg"]
 
     def test_ignores_external_urls(self, tmp_path):
         markdown = "![Ext](https://example.org/x.png) ![Data](data:image/png;base64,AA==)"

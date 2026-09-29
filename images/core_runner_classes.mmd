@@ -1,0 +1,24 @@
+classDiagram
+    namespace galaxy_jobs_runners {
+        class BaseJobRunner {
+            <<abstract>>
+        }
+        class AsynchronousJobRunner {
+            <<abstract>>
+        }
+        class LocalJobRunner
+        class DRMAAJobRunner
+        class SlurmJobRunner
+        class UnivaJobRunner
+        class PBSJobRunner
+        class CondorJobRunner
+        class KubernetesJobRunner
+    }
+    BaseJobRunner <|-- AsynchronousJobRunner
+    BaseJobRunner <|-- LocalJobRunner
+    AsynchronousJobRunner <|-- DRMAAJobRunner
+    AsynchronousJobRunner <|-- PBSJobRunner
+    AsynchronousJobRunner <|-- CondorJobRunner
+    AsynchronousJobRunner <|-- KubernetesJobRunner
+    DRMAAJobRunner <|-- SlurmJobRunner
+    DRMAAJobRunner <|-- UnivaJobRunner

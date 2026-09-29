@@ -1,0 +1,44 @@
+---
+config:
+  layout: elk
+---
+flowchart TB
+    subgraph server["Galaxy Server (node)"]
+        cfs["ConfiguredFileSources"]
+        subgraph stock["Stock POSIX Plugins"]
+            ftp["FTP Directory<br>gxftp://"]
+            lib["Library Import<br>gximport://"]
+            user_import["User Import<br>gxuserimport://"]
+        end
+    end
+
+    subgraph fs["Filesystem (database)"]
+        subgraph ftp_dir["${user.ftp_dir}"]
+            f1@{ shape: doc, label: "uploaded.fastq" }
+            f2@{ shape: doc, label: "data.csv" }
+        end
+        subgraph lib_dir["${config.library_import_dir}"]
+            f3@{ shape: doc, label: "reference.fa" }
+            f4@{ shape: doc, label: "annotations.gff" }
+        end
+        subgraph user_lib_base["${config.user_library_import_dir}"]
+            subgraph user_lib_dir["${user.username}"]
+                f5@{ shape: doc, label: "my_data.txt" }
+            end
+        end
+    end
+
+    cfs --> ftp
+    cfs --> lib
+    cfs --> user_import
+
+    ftp -- "read-only<br>per-user path" --> ftp_dir
+    lib -- "read-only<br>admin access" --> lib_dir
+    user_import -- "writable<br>per-user path" --> user_lib_dir
+
+    n1@{ shape: comment, label: "Template: root=${user.ftp_dir}<br>writable: false<br>delete_on_realize: true (move)" }
+    n2@{ shape: comment, label: "Template: root=${config.library_import_dir}<br>writable: false<br>requires_roles: admin" }
+    n3@{ shape: comment, label: "Template: root=${config.user_library_import_dir}/${user.username}<br>writable: true<br>Atomic writes via .part files" }
+    ftp -.- n1
+    lib -.- n2
+    user_import -.- n3

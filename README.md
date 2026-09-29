@@ -18,7 +18,7 @@ This repository maintains Galaxy architecture knowledge as structured content (m
 The documentation is automatically built and published to GitHub Pages on every push to `main`. Includes:
 - Sphinx HTML documentation for all 16 architecture topics
 - Embedded Remark.js slide presentations
-- PlantUML diagrams and mindmaps
+- Mermaid diagrams, file trees and mindmaps
 - Full-text search and navigation
 
 See [docs/GITHUB_PAGES_QUICKSTART.md](docs/GITHUB_PAGES_QUICKSTART.md) for setup details.
@@ -53,13 +53,13 @@ The goal of this repository is to move that content into `galaxyproject/galaxy`:
 
 - **Versioned with the code.** docs.galaxyproject.org already builds per release, so architecture pages would describe the release you run, and a PR that changes the architecture can update its docs in the same diff.
 - **Checked against the code.** Topics name the files they describe (`related_code_paths`, file-structure mindmaps). Inside Galaxy, a test can fail when those paths move; out here, ~40 went stale unnoticed.
-- **No new tooling.** Galaxy's Sphinx build already uses `myst_parser` and `sphinx_rtd_theme`, already generates pages from YAML at build time (`doc/gen_authoring_doc.py`), and already commits rendered PlantUML SVGs. These pages render unchanged under Galaxy's pins, with no Java or Node in docs CI.
+- **No new tooling.** Galaxy's Sphinx build already uses `myst_parser` and `sphinx_rtd_theme`, already generates pages from YAML at build time (`doc/gen_authoring_doc.py`), and is moving its diagrams to Mermaid via `sphinxcontrib-mermaid` ([#23801](https://github.com/galaxyproject/galaxy/pull/23801), open), the same diagram language used here. The prose pages render unchanged under Galaxy's pins, with no Java in docs CI. Diagrams here are prebuilt to SVG with mermaid-cli (Node) for slides; in Galaxy they could render through `sphinxcontrib-mermaid` instead, though `treeView-beta` and the ELK/tidy-tree layouts need Mermaid 11 with its layout plugins.
 - **One source, GTN still served.** Reference prose lives in Sphinx; GTN slides are exported from the same source, so the two stop drifting apart.
 - **More than one maintainer.** Today this is a single-author repository outside the org; in Galaxy, subsystem owners review the topics for their code.
 
 **Didn't Galaxy try this before?** Yes: Remark architecture slides lived in `doc/source/slideshow/` from 2016 (galaxyproject/galaxy#2244) until 2019, when they were removed because GTN hosted them. That was a second copy of a slideshow with its own HTML/JS toolchain. This is reference prose Galaxy lacks, built by Galaxy's existing Sphinx setup, with GTN remaining the home for slides.
 
-**Why not generate diagrams with a tool like [Archify](https://github.com/tt-a1i/archify)?** Archify is impressive: an agent writes a typed JSON spec, and a deterministic renderer turns it into a polished, interactive diagram with source links pinned to a commit. But it does not fit how Galaxy distributes docs. Galaxy docs are text in the repository, built by Sphinx per release branch into static HTML on docs.galaxyproject.org, read as plain Markdown on GitHub, and reused as static images in GTN Remark slides. Archify's output is an ~800 KB self-contained HTML app per diagram, with no command-line export to SVG. That renders in none of those places (at best an iframe in Sphinx), would add a Node toolchain to docs CI, and bloats the repository across dozens of diagrams. Its node positions are hand-placed coordinates, so reviewers would diff numbers rather than meaning. Its "verified source" badges only check that a file and line range exist, not that the diagram is right. PlantUML text next to a committed SVG, the pattern `doc/source/dev/` already uses, diffs cleanly and renders everywhere. Archify's authoring rules (at most ~12 nodes, one main path, detail in cards) are worth borrowing. The tool is not.
+**Why not generate diagrams with a tool like [Archify](https://github.com/tt-a1i/archify)?** Archify is impressive: an agent writes a typed JSON spec, and a deterministic renderer turns it into a polished, interactive diagram with source links pinned to a commit. But it does not fit how Galaxy distributes docs. Galaxy docs are text in the repository, built by Sphinx per release branch into static HTML on docs.galaxyproject.org, read as plain Markdown on GitHub, and reused as static images in GTN Remark slides. Archify's output is an ~800 KB self-contained HTML app per diagram, with no command-line export to SVG. That renders in none of those places (at best an iframe in Sphinx), would add a Node toolchain to docs CI, and bloats the repository across dozens of diagrams. Its node positions are hand-placed coordinates, so reviewers would diff numbers rather than meaning. Its "verified source" badges only check that a file and line range exist, not that the diagram is right. Mermaid text diffs cleanly, renders in Galaxy's Sphinx and on GitHub, and builds to static SVG for slides. Archify's authoring rules (at most ~12 nodes, one main path, detail in cards) are worth borrowing. The tool is not.
 
 ## Quick Links
 
@@ -109,7 +109,7 @@ make validate
 # Verify file references in mindmaps exist in $GALAXY_ROOT
 make validate-files
 
-# Build PlantUML diagrams from source
+# Build Mermaid diagrams from source (needs `npm install`)
 make images
 
 # Generate training slides
@@ -185,9 +185,10 @@ galaxy-architecture/
 │   ├── sync_to_training_material.py  # Sync slides to GTN
 │   ├── sync_images.py         # Sync image assets
 │   └── compare_slides.py      # Diff with training-material
-├── images/                     # PlantUML diagrams and mindmaps
-│   ├── *.plantuml.txt         # PlantUML source files
-│   ├── *.mindmap.yml          # YAML mindmap definitions
+├── images/                     # Mermaid diagrams, file trees and mindmaps
+│   ├── *.mmd                  # Mermaid source files
+│   ├── *.mindmap.yml          # YAML file tree / mindmap definitions
+│   ├── mermaid_config.json    # Galaxy theme for all diagrams
 │   └── Makefile              # Diagram build rules
 ├── docs/                      # Documentation
 │   ├── SCHEMA.md             # Auto-generated from Pydantic models
@@ -207,7 +208,7 @@ galaxy-architecture/
 - **Slide Generation**: GTN-compatible Remark.js slides (Jekyll markdown + standalone HTML)
 - **Sphinx Documentation**: Published to GitHub Pages with embedded slides
 - **GitHub Pages**: Automated deployment on push to main
-- **PlantUML Diagrams**: Build infrastructure for architecture diagrams and mindmaps
+- **Mermaid Diagrams**: Build infrastructure for architecture diagrams, file trees and mindmaps
 - **Training-Material Sync**: Scripts to sync slides back to training-material repo
 - **Validation Framework**: Pydantic v2 models with file reference checking
 - **CI Integration**: Automated validation and deployment

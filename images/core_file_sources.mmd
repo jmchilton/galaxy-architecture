@@ -1,0 +1,58 @@
+classDiagram
+    namespace galaxy_files_sources {
+        class FilesSource
+        class BaseFilesSource
+        class PosixFileSource["posix.PosixFileSource"] {
+            plugin_type: 'posix'
+        }
+        class S3FilesSource["s3.S3FilesSource"] {
+            plugin_type: 's3'
+            required_package: "fs-s3fs"
+        }
+        class PyFilesystem2FilesSource["_pyfilesystem2.PyFilesystem2FilesSource"]
+        class FtpFilesSource["ftp.FtpFilesSource"] {
+            plugin_type: 'ftp'
+            required_package: "fs.ftpfs"
+        }
+        class DropboxFilesSource["dropbox.DropboxFilesSource"] {
+            plugin_type: 'dropbox'
+            required_package: 'fs.dropboxfs'
+        }
+        class AnVILFilesSource["anvil.AnVILFilesSource"] {
+            plugin_type: 'anvil'
+            required_package: "fs.anvilfs"
+        }
+        class UserFtpFilesSource["galaxy.UserFtpFilesSource"] {
+            plugin_type: 'gxftp'
+        }
+        class LibraryImportFilesSource["galaxy.LibraryImportFilesSource"] {
+            plugin_type: 'gximport'
+        }
+        class UserLibraryImportFilesSource["galaxy.UserLibraryImportFilesSource"] {
+            plugin_type: 'gxuserimport'
+        }
+        class S3FsFilesSource["s3fs.S3FsFilesSource"] {
+            plugin_type: 's3fs'
+        }
+        class SshFilesSource["ssh.SshFilesSource"] {
+            plugin_type: "ssh"
+            required_package: "fs.sshfs"
+        }
+        class WebDavFilesSource["webdav.WebDavFilesSource"] {
+            plugin_type: 'webdav'
+            required_package: "fs.webdavfs"
+        }
+    }
+    FilesSource <|-- BaseFilesSource
+    BaseFilesSource <|-- PosixFileSource
+    BaseFilesSource <|-- S3FsFilesSource
+    BaseFilesSource <|-- PyFilesystem2FilesSource
+    PyFilesystem2FilesSource <|-- FtpFilesSource
+    PyFilesystem2FilesSource <|-- DropboxFilesSource
+    PyFilesystem2FilesSource <|-- AnVILFilesSource
+    PyFilesystem2FilesSource <|-- S3FilesSource
+    PyFilesystem2FilesSource <|-- SshFilesSource
+    PyFilesystem2FilesSource <|-- WebDavFilesSource
+    PosixFileSource <|-- UserFtpFilesSource
+    PosixFileSource <|-- LibraryImportFilesSource
+    PosixFileSource <|-- UserLibraryImportFilesSource

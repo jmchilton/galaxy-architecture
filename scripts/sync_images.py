@@ -2,7 +2,7 @@
 """
 Sync images to training-material repository.
 
-Only copies rendered images (SVG, PNG, JPG), not source files (.plantuml.txt, .mindmap.yml).
+Only copies rendered images (SVG, PNG, JPG), not source files (.mmd, .mindmap.yml).
 
 Usage:
     uv run python scripts/sync_images.py --topic ecosystem
@@ -25,17 +25,8 @@ from repo_roots import RepoRootError, resolve_gtn_root
 
 def should_copy_image(image_path: Path) -> bool:
     """Only copy rendered images, not source files."""
-    # Copy these extensions
-    if image_path.suffix.lower() in ['.svg', '.png', '.jpg', '.jpeg', '.gif']:
-        # BUT skip source files for PlantUML/mindmaps
-        if '.plantuml.txt' in image_path.name:
-            return False
-        if '.mindmap.yml' in image_path.name:
-            return False
-        return True
-
-    # Don't copy these
-    return False
+    # Diagram sources (.mmd, .mindmap.yml) fall outside these extensions
+    return image_path.suffix.lower() in ['.svg', '.png', '.jpg', '.jpeg', '.gif']
 
 
 def find_referenced_images(topic_id: str) -> Set[str]:
@@ -84,13 +75,13 @@ def categorize_image_source(image_name: str, images_dir: Path) -> str:
     Determine image category.
 
     Returns:
-        'plantuml' - PlantUML/mindmap SVG diagram
+        'diagram' - rendered Mermaid/mindmap SVG
         'shared' - Shared GTN image (like GTNLogo1000.png, conda_logo.png)
         'dev' - Dev topic image
     """
-    # PlantUML/mindmap diagrams
-    if '.plantuml.svg' in image_name or '.mindmap.plantuml.svg' in image_name:
-        return 'plantuml'
+    # Rendered Mermaid/mindmap diagrams
+    if image_name.endswith('.mmd.svg'):
+        return 'diagram'
 
     # Shared images (hardcoded common ones)
     shared_images = ['GTNLogo1000.png', 'conda_logo.png', 'gtn_logo.png']
@@ -142,7 +133,7 @@ def sync_topic_images(
 
         if category == 'shared':
             dst_path = training_material_root / 'shared' / 'images' / image_name
-        else:  # plantuml or dev
+        else:  # diagram or dev
             dst_path = training_material_root / 'topics' / 'dev' / 'images' / image_name
 
         # Create destination directory

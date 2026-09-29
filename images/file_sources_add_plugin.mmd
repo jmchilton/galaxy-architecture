@@ -1,0 +1,26 @@
+flowchart TD
+    s(( )) --> base["Choose base class"]
+    base --> pag{"Need server-side pagination?"}
+    pag -- yes --> py["Use PyFilesystem2FilesSource"]
+    pag -- no --> fx{"fsspec backend exists?"}
+    fx -- yes --> fs["Use FsspecFilesSource"]
+    fx -- no --> bfs["Use BaseFilesSource"]
+    fs -.- n1@{ shape: comment, label: "Preferred for most cases" }
+
+    py --> ptype["Set plugin_type class variable"]
+    fs --> ptype
+    bfs --> ptype
+
+    ptype --> open["Implement _open_fs()"]
+    open -.- n2@{ shape: comment, label: "Return filesystem object<br>(fsspec or PyFilesystem2)" }
+
+    open --> models["Add Pydantic config models"]
+    models -.- n3@{ shape: comment, label: "TemplateConfiguration<br>+ FileSourceConfiguration" }
+
+    models --> reg["Register in sources/__init__.py"]
+    reg --> udt{"User-defined template?"}
+    udt -- yes --> yml["Add to file_source_templates.yml"]
+    udt -- no --> test
+    yml --> test["Test plugin"]
+    test -.- n4@{ shape: comment, label: "pytest + integration tests" }
+    test --> e((( )))

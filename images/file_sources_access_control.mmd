@@ -1,0 +1,87 @@
+---
+config:
+  layout: elk
+---
+flowchart TD
+    s(( )) --> req["User requests file source access"]
+
+    subgraph ctx["Context Collection"]
+        extract["Extract FileSourcesUserContext"]
+        n1@{ shape: comment, label: "- email, username<br>- roles (set)<br>- groups (set)<br>- is_admin<br>- vault access" }
+        extract -.- n1
+    end
+    req --> extract
+
+    subgraph filt["Plugin Filtering"]
+        rq{"requires_roles configured?"}
+        radm{"is_admin?"}
+        rbypass["Bypass"]
+        rparse["Parse role expression"]
+        n2@{ shape: comment, label: "Boolean logic:<br>#quot;admin#quot; (single)<br>#quot;not restricted#quot; (negation)<br>#quot;data_access AND verified#quot;<br>#quot;researcher OR collaborator#quot;" }
+        rhas{"User has required roles?"}
+        rok["Role check passed"]
+        rden["Access denied (403)"]
+        rnone["No role restriction"]
+        rparse -.- n2
+
+        gq{"requires_groups configured?"}
+        gadm{"is_admin?"}
+        gbypass["Bypass"]
+        gparse["Parse group expression"]
+        ghas{"User in required groups?"}
+        gok["Group check passed"]
+        gden["Access denied (403)"]
+        gnone["No group restriction"]
+
+        rq -- yes --> radm
+        rq -- no --> rnone
+        radm -- yes --> rbypass
+        radm -- no --> rparse --> rhas
+        rhas -- yes --> rok
+        rhas -- no --> rden
+        rbypass --> gq
+        rok --> gq
+        rnone --> gq
+
+        gq -- yes --> gadm
+        gq -- no --> gnone
+        gadm -- yes --> gbypass
+        gadm -- no --> gparse --> ghas
+        ghas -- yes --> gok
+        ghas -- no --> gden
+    end
+    extract --> rq
+    rden --> e1((( )))
+    gden --> e2((( )))
+
+    subgraph auth["Operation Authorization"]
+        acc["Plugin accessible to user"]
+        wq{"Write operation requested?"}
+        wr{"writable: true?"}
+        wok["Write authorized"]
+        wden["Write denied (403)"]
+        rop["Read operation"]
+        acc --> wq
+        wq -- yes --> wr
+        wq -- no --> rop
+        wr -- yes --> wok
+        wr -- no --> wden
+    end
+    gbypass --> acc
+    gok --> acc
+    gnone --> acc
+    wden --> e3((( )))
+
+    subgraph cred["Credential Resolution"]
+        tmpl["Resolve template variables"]
+        n3@{ shape: comment, label: "${user.username}<br>${user.email}<br>${secrets.api_key}" }
+        vault["Inject credentials from Vault"]
+        n4@{ shape: comment, label: "User vault (personal)<br>App vault (shared)" }
+        tmpl -.- n3
+        tmpl --> vault
+        vault -.- n4
+    end
+    wok --> tmpl
+    rop --> tmpl
+
+    vault --> granted["Access granted with resolved config"] --> e4((( )))

@@ -1,0 +1,16 @@
+classDiagram
+    namespace galaxy_tools_toolbox {
+        class AbstractToolBox {
+            <<abstract>>
+        }
+    }
+    namespace galaxy_tools {
+        class ToolBox
+        class Tool
+    }
+    namespace galaxy_tools_action {
+        class ToolAction
+    }
+    AbstractToolBox <|-- ToolBox
+    ToolBox "1" o-- "*" Tool
+    Tool -- ToolAction

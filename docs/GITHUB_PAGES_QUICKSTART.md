@@ -105,7 +105,7 @@ https://github.com/jmchilton/galaxy-architecture/actions
 
 Common fixes:
 - Ensure `make build` works locally first
-- Check PlantUML diagrams are valid
+- Check Mermaid diagrams are valid
 - Run `make validate` to catch errors early
 
 ### Site Shows 404
@@ -161,7 +161,7 @@ https://jmchilton.github.io/galaxy-architecture/
 ├── _downloads/
 │   └── */slides.html              # Standalone slide presentations
 ├── images/
-│   ├── *.svg                      # PlantUML diagrams
+│   ├── *.svg                      # Mermaid diagrams (rendered)
 │   └── *.png                      # Screenshots
 └── _static/                       # Sphinx CSS/JS
 ```

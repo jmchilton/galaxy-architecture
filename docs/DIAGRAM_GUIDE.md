@@ -2,21 +2,23 @@
 
 Reference for creating effective diagrams in Galaxy architecture documentation. Used by `/plan-a-topic` command.
 
+All diagrams are [Mermaid](https://mermaid.js.org/) (matching Galaxy's own docs). Sources live in `images/`; `make images` renders them to SVG with the Galaxy theme in `images/mermaid_config.json`.
+
 ## Philosophy
 
 Choose the diagram type that best communicates your point. These are patterns we've found effective - not rules. If a different diagram type serves your purpose better, use it.
 
 ## Diagram Types We Use
 
-| Type | Purpose | Examples |
-|------|---------|----------|
-| **Sequence** | Call chains, request flows | asgi_app, core_tool_sequence, core_backend_celery |
-| **Class/Object** | Data models, inheritance | core_runner_classes, hda_dataset, objectstore |
-| **Component** | Package dependencies | core_packages |
-| **File Mindmap** | Directory structure (validated) | core_files_ci, core_files_code |
-| **Concept Mindmap** | Abstract relationships | markdown_design_principles, core_branches |
-| **Mermaid Timeline** | Evolution over time | (see MERMAID.md) |
-| **Mermaid Flowchart** | Decision trees, user flows | (see MERMAID.md) |
+| Type | Mermaid | Purpose | Examples |
+|------|---------|---------|----------|
+| **Sequence** | `sequenceDiagram` | Call chains, request flows | asgi_app, core_tool_sequence, core_backend_celery |
+| **Class/Object** | `classDiagram` | Data models, inheritance | core_runner_classes, hda_dataset, objectstore |
+| **Component** | `flowchart` + `subgraph` | Package dependencies, deployment | core_packages, file_sources_posix_deployment |
+| **Activity** | `flowchart TD` | Decision processes | file_sources_access_control |
+| **File Tree** | `treeView-beta` (from YAML) | Directory structure (validated) | core_files_ci, core_files_code |
+| **Concept Mindmap** | `mindmap` (from YAML) | Abstract relationships | markdown_design_principles, core_plugins_overview |
+| **Timeline / State / Gantt** | `timeline`, `stateDiagram-v2`, `gantt` | Evolution, lifecycles, plans | - |
 
 ## Sequence Diagrams
 
@@ -28,81 +30,33 @@ Trace call chains through the system. Show what calls what and in what order.
 - Task processing (Celery flows)
 - Any multi-component interaction
 
-### Example: ASGI Request Flow
-```plantuml
-@startuml
-!include plantuml_options.txt
+### Example
+```mermaid
+sequenceDiagram
+    participant client as *client*
+    participant ToolsController
+    participant toolbox as app.toolbox
+    participant execute as execute.py
 
-participant Browser
-participant "ASGI Server"
-participant FastAPI
-participant Starlette
-participant Middleware
-participant router
-participant Controller
-participant Service
-participant Manager
+    Note over client,execute: Render Tool Form
+    client->>+ToolsController: build()
+    ToolsController->>toolbox: get_tool(tool_id)
+    ToolsController-->>-client: tool form
 
-note over "ASGI Server", router: Framework
-note over Controller, Manager: Galaxy Backend
-
-Browser -> "ASGI Server": TCP/IP Request
-activate "ASGI Server"
-"ASGI Server" -> FastAPI: asgi args
-activate FastAPI
-
-FastAPI -> Starlette: asgi args
-activate Starlette
-
-... (abbreviated) ...
-
-Manager --> Service: pydantic
-Service --> Controller: pydantic
-Controller --> router: pydantic
-
-@enduml
+    Note over client,execute: Submit Tool Form
+    client->>+ToolsController: create()
+    loop over mapped parameter combinations
+        ToolsController->>execute: handle_single_execution()
+    end
+    deactivate ToolsController
 ```
 
 **Key patterns:**
-- Use `activate`/`deactivate` for lifelines
-- Add `note over X, Y: Label` to group components
-- Use `==` sections to separate phases (e.g., "Render Tool Form", "Submit Tool Form")
-- Use `group` for optional/conditional blocks
+- `->>` for calls, `-->>` for returns; `+`/`-` suffixes (or `activate`/`deactivate`) for lifelines
+- `Note over A,B: Phase` spanning all participants separates phases (Mermaid has no `== Section ==`)
+- `loop`, `alt`/`else`, `opt` for control flow; `box Name ... end` to group participants
 - Show data types passed between components (e.g., "pydantic", "json")
-
-### Example: Tool Execution Sequence
-```plantuml
-@startuml
-participant "*client*"
-participant "ToolsController"
-participant "app.toolbox"
-participant tool
-participant "execute.py"
-participant "tool.tool_action"
-participant "app.job_manager"
-
-== Render Tool Form ==
-
-"*client*" -> "ToolsController": build()
-activate "ToolsController"
-"ToolsController" -> "app.toolbox": get_tool(tool_id)
-...
-
-== Submit Tool Form ==
-
-"*client*" -> "ToolsController": create()
-loop over mapped parameter combinations
-"execute.py" -> tool: handle_single_execution()
-...
-end
-
-@enduml
-```
-
-**Key patterns:**
-- Use `== Section ==` to separate logical phases
-- Use `loop` for iteration
-- Show method names in arrow labels
+- Use `<br>` for line breaks in labels and notes
 
 ## Class/Object Diagrams
 
@@ -114,177 +68,79 @@ Show type hierarchies, model relationships, and interface structure.
 - Interface layering (StructuredApp hierarchy)
 - Abstract class → concrete implementations
 
-### Example: Inheritance Hierarchy
-```plantuml
-@startuml
-!include plantuml_options.txt
-
-package "galaxy.jobs.runners" {
-
-abstract class BaseJobRunner {
-}
-
-abstract class AsynchronousJobRunner {
-}
-
-class LocalJobRunner {}
-class DRMAAJobRunner {}
-class SlurmJobRunner {}
-class KubernetesJobRunner {}
-
-}
-
-BaseJobRunner <|-- AsynchronousJobRunner
-BaseJobRunner <|-- LocalJobRunner
-AsynchronousJobRunner <|-- DRMAAJobRunner
-AsynchronousJobRunner <|-- KubernetesJobRunner
-DRMAAJobRunner <|-- SlurmJobRunner
-
-@enduml
+### Example
+```mermaid
+classDiagram
+    namespace galaxy_jobs_runners {
+        class BaseJobRunner {
+            <<abstract>>
+        }
+        class AsynchronousJobRunner {
+            <<abstract>>
+        }
+        class LocalJobRunner
+        class SlurmJobRunner
+    }
+    class StructuredApp["galaxy.structured_app.StructuredApp"] {
+        object_store: ObjectStore
+        job_config: JobConfig
+    }
+    BaseJobRunner <|-- AsynchronousJobRunner
+    BaseJobRunner <|-- LocalJobRunner
+    AsynchronousJobRunner <|-- SlurmJobRunner
+    HistoryDatasetAssociation "*" --> "1" Dataset
+    note for AsynchronousJobRunner "Polls external<br>job managers"
 ```
 
 **Key patterns:**
-- Use `package` to group related classes
-- Use `abstract class` for base classes
+- `namespace` groups classes (identifiers can't contain dots - use underscores)
+- Dotted module paths go in a label: `class Short["galaxy.module.Short"]`
+- `<<abstract>>`, `<<interface>>`, `<<Protocol>>` stereotypes; `method()*` marks abstract methods
+- Cardinality on relationships: `A "*" --> "1" B`
+- Free-text commentary goes in `note for X "..."` (class bodies hold members only)
 - Show only key methods/attributes (don't list everything)
-- Use `<|--` for inheritance
-
-### Example: Data Model with Attributes
-```plantuml
-@startuml
-!include plantuml_options.txt
-
-class HistoryDatasetAssociation {
-    hid: integer
-    history_id: integer
-    dataset_id: integer
-    state: string
-    name: string
-}
-
-class Dataset {
-    object_store_id: string
-    file_size: integer
-    total_size: integer
-}
-
-HistoryDatasetAssociation "*" -> "1" Dataset
-@enduml
-```
-
-**Key patterns:**
-- Show key attributes only (not all)
-- Use cardinality on relationships ("*" → "1")
-- Keep classes focused and small
-
-### Example: Interface Layering
-```plantuml
-@startuml
-!include plantuml_options.txt
-
-class galaxy.structured_app.BasicApp {
-    name: str
-    config: GalaxyAppConfiguration
-    model: GalaxyModelMapping
-    toolbox: ToolBox
-}
-
-class galaxy.structured_app.MinimalApp {
-    is_webapp: bool
-    tag_handler: GalaxyTagHandler
-}
-
-class galaxy.structured_app.StructuredApp {
-    object_store: ObjectStore
-    job_config: JobConfig
-    workflow_manager: WorkflowsManager
-}
-
-galaxy.structured_app.BasicApp <|-- galaxy.structured_app.MinimalApp
-galaxy.structured_app.MinimalApp <|-- galaxy.structured_app.StructuredApp
-galaxy.structured_app.StructuredApp <|-- galaxy.app.UniverseApplication
-
-@enduml
-```
-
-**Key patterns:**
-- Use full module path for clarity
-- Show progressive enhancement of attributes
-- Interface → implementation hierarchy
 
 ## Component Diagrams
 
 Show package/module dependencies. Good for understanding build structure.
 
-### When to Use
-- Package dependency graphs
-- Module relationships
-- Understanding import structure
-
-### Example: Package Dependencies
-```plantuml
-@startuml
-!include plantuml_options.txt
-
-package galaxy {
-component util
-component files
-component data
-component objectstore
-component [tool-util] as tool_util
-component app
-component [web-apps] as web_apps
-}
-
-[tool_util] --> [util]
-[files] --> [util]
-[objectstore] --> [util]
-[data] --> [objectstore]
-[data] --> [files]
-[app] --> [tool_util]
-[web_apps] --> [app]
-
-@enduml
+### Example
+```mermaid
+flowchart TB
+    subgraph galaxy
+        util
+        files
+        data
+        objectstore
+        tool_util["tool-util"]
+        app
+    end
+    tool_util --> util
+    files --> util
+    objectstore --> util
+    data --> objectstore
+    data --> files
+    app --> tool_util
+    app -. optional .-> data
 ```
 
 **Key patterns:**
-- Use `component` for modules
-- Use `[name] as alias` for hyphenated names
-- Show dependency direction with `-->`
-- Use `..>` for optional dependencies with label
+- `subgraph id["Label"] ... end` for packages, servers and folders (subgraphs can't take shapes)
+- Leaf shapes: `db[("Database")]`, `f@{ shape: doc, label: "file.txt" }`
+- Notes: `n1@{ shape: comment, label: "..." }` linked with `-.-`
+- `-.->` for optional dependencies
+- If the layout tangles, add front-matter `config: {layout: elk}`
 
-## File Mindmaps (Validated)
+## File Trees (Validated)
 
 **Primary use case:** Show directory/file structure with documentation.
 
-These are special - they're YAML files that:
-1. Can be programmatically validated against actual filesystem
-2. Generate PlantUML mindmaps automatically
+These are YAML files (`name.mindmap.yml`) that:
+1. Are validated against a Galaxy checkout (`scripts/check_mindmap_paths.py`)
+2. Generate a Mermaid `treeView-beta` directory listing (`images/mindmap_yaml_to_mermaid.py`)
 3. Include documentation for each entry
 
-### When to Use
-- Explaining repository layout
-- Documenting which files matter for a topic
-- Orienting developers to codebase structure
-
-### Example: Directory Structure
-```yaml
-# core_files_ci.mindmap.yml
-label: /
-items:
-- label: .circleci/
-  items:
-  - label: config.yml
-    doc: lint, tool validation, etc.. on CircleCI
-- label: .github/workflows
-  items:
-  - label: api.yaml
-    doc: run API test suite with GitHub Actions
-  - label: integration.yaml
-  - label: jest.yaml
-```
-
-### Example: Code Structure
+### Example
 ```yaml
 # core_files_code.mindmap.yml
 label: /
@@ -294,66 +150,28 @@ items:
   items:
   - label: galaxy/
     doc: most of the code that makes up the backend
-  - label: tool_shed/
-    doc: source code for the Galaxy ToolShed
-- label: packages/
-  doc: Python backend decomposed into pieces (same files)
 - label: client/
   doc: Galaxy frontend project
 ```
 
 **Key patterns:**
-- Start with `label: /` for root
-- Use `items:` for children
-- Add `doc:` for explanations
-- Keep structure shallow (2-3 levels max)
-- Only include files relevant to the topic
-
-### When NOT to Use File Mindmaps
-- Don't list every file in a directory
-- Don't go deeper than 3 levels
-- Don't include files unrelated to the topic
+- Root `label` is a path (`/`, `/client`, `/lib/galaxy/managers`) - that's what makes it a file tree
+- `items:` for children, `doc:` for explanations (rendered as `name  —  doc`)
+- Keep structure shallow (2-3 levels max); only include files relevant to the topic
 
 ## Concept Mindmaps
 
-Show abstract relationships and categorizations.
+Show abstract relationships and categorizations. Same YAML format, but the root label is not a path; renders as a Mermaid `mindmap` with the tidy-tree layout.
 
-### When to Use
-- High-level design principles
-- Categorizing abstract concepts
-- Showing relationships between ideas
-
-### Note
-File mindmaps (validated YAML) are often better for code structure. Class diagrams are often better for type hierarchies. But concept mindmaps work well for truly abstract concepts.
-
-### Example: Design Principles
 ```yaml
 # markdown_design_principles.mindmap.yml
 label: Design Principles
 items:
-  - label: Two-Layer Addressing
-    items:
-      - label: Workflow labels
-      - label: Instance IDs
-      - label: "= Portability"
   - label: Lazy Resolution
-    items:
-      - label: Resolve at render time
-      - label: Works across instances
+    doc: Resolve at appropriate boundary, not eagerly
 ```
 
-### Example: Simple Categorization
-```yaml
-# core_branches.mindmap.yml
-label: Branches
-items:
-- label: dev
-  doc: Most active development happens here!
-- label: master
-  doc: References latest stable branch.
-- label: release_25.1
-  doc: Release branches - named by year and version.
-```
+The tidy-tree layout alternates siblings left and right. When sibling order matters (e.g. `core_branches`), add `diagram: flowchart` to the YAML to render an ordered left-to-right flowchart instead. `diagram: tree` forces a file tree.
 
 ## Diagram Selection Quick Reference
 
@@ -361,54 +179,36 @@ items:
 |------------|-------------|
 | Call chain / request flow | Sequence Diagram |
 | Type hierarchy / inheritance | Class Diagram |
-| Data model relationships | Object Diagram |
-| Package/module dependencies | Component Diagram |
-| File/directory structure | File Mindmap (YAML) |
-| Abstract concepts | Concept Mindmap |
-| Evolution over time | Mermaid Timeline |
-| Decision process | Mermaid Flowchart |
-| State transitions | Mermaid State Diagram |
+| Package/module dependencies | Component (flowchart) |
+| Decision process | Activity (flowchart) |
+| File/directory structure | File Tree (YAML) |
+| Abstract concepts | Concept Mindmap (YAML) |
+| Evolution over time | Timeline |
+| State transitions | State Diagram |
 
 These are starting points, not requirements. Use what communicates best.
 
 ## Tips for Effective Diagrams
 
-### 1. Right Tool for the Job
-Consider whether another diagram type might communicate better. A sequence diagram showing a call chain is clearer than a mindmap listing the same components.
+1. **Right tool for the job.** A sequence diagram showing a call chain is clearer than a mindmap listing the same components.
+2. **Keep class diagrams focused.** Show only key methods/attributes relevant to the point.
+3. **Use activation in sequence diagrams** to show component lifetime.
+4. **Separate phases in long sequences** with spanning notes.
+5. **Keep file trees shallow.** 2-3 levels, only relevant files, with doc strings.
+6. **Keep diagrams small.** Around a dozen primary nodes and one obvious main path; put detail in notes or prose rather than extra edges.
 
-### 2. Keep Class Diagrams Focused
-**Bad:** Listing every method and attribute
-**Good:** Show only key methods/attributes relevant to the point
+## Style
 
-### 3. Missing Activation in Sequence Diagrams
-**Bad:** Flat arrows with no lifeline activation
-**Good:** Use `activate`/`deactivate` to show component lifetime
+Don't set themes, colours or `look: handDrawn` per diagram - `images/mermaid_config.json` applies the Galaxy theme (the `themeVariables` from Galaxy's Sphinx `mermaid_config` in #23801, plus `labelTextColor` for readable loop/alt labels). Use `classDef` only when colour carries meaning.
 
-### 4. No Section Breaks in Long Sequences
-**Bad:** One long sequence with no logical grouping
-**Good:** Use `== Section ==` to separate phases
+## File Naming and Building
 
-### 5. Deep File Mindmaps
-**Bad:** 5+ levels of nesting showing every file
-**Good:** 2-3 levels, only relevant files, with doc strings
+- Mermaid: `name.mmd` → `make images` generates `name.mmd.svg`
+- YAML: `name.mindmap.yml` → generates `name.mindmap.mmd` → `name.mindmap.mmd.svg`
+- Rendered SVGs and generated `.mindmap.mmd` files are gitignored and built in CI.
+- Reference from content as `![Alt](../../images/name.mmd.svg)`.
 
-## PlantUML Style
-
-All diagrams should include:
-```plantuml
-@startuml
-!include plantuml_options.txt
-... diagram content ...
-@enduml
-```
-
-The `plantuml_options.txt` file contains standard styling.
-
-## File Naming
-
-- PlantUML: `name.plantuml.txt` → generates `name.plantuml.svg`
-- Mindmap YAML: `name.mindmap.yml` → generates `name.mindmap.plantuml.svg`
-- Mermaid: `name.mermaid.txt` → generates `name.mermaid.svg`
+Requires mermaid-cli: `npm install` (uses `package.json`; the Makefile prefers `node_modules/.bin/mmdc` over a global install). `make watch-images` rebuilds on change.
 
 ## Diagram TODO Format for Planning
 
@@ -419,7 +219,7 @@ When proposing diagrams in slide plans:
 - Participants: client, ToolsController, app.toolbox, tool, execute.py
 - Two phases: "Render Form" and "Submit Form"
 - Show loop for parameter combinations
-- Reference: images/core_tool_sequence.plantuml.txt (similar pattern)
+- Reference: images/core_tool_sequence.mmd (similar pattern)
 ```
 
 Include:

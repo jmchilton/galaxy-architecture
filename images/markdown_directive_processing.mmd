@@ -1,0 +1,46 @@
+---
+title: Frontend Galaxy Directive Processing
+---
+sequenceDiagram
+    participant ext as (caller)
+    participant galaxy as MarkdownGalaxy.vue
+    participant validate as Validation
+    participant stores as Pinia Stores
+    participant api as API
+    participant element as Element<br>Component
+
+    ext->>galaxy: directive block
+    activate galaxy
+
+    galaxy->>galaxy: parse directive<br>name + args
+
+    galaxy->>validate: check directive
+    activate validate
+    Note right of validate: Mode-aware:<br>- Available in page/report?<br>- Valid object reference?
+    validate-->>galaxy: valid / error
+    deactivate validate
+
+    alt validation passed
+        galaxy->>stores: fetch data
+        activate stores
+        alt cache hit
+            stores-->>galaxy: cached data
+        else cache miss
+            stores->>api: request
+            activate api
+            api-->>stores: response
+            deactivate api
+            stores-->>galaxy: fresh data
+        end
+        deactivate stores
+
+        galaxy->>element: render with data
+        activate element
+        element-->>galaxy: rendered UI
+        deactivate element
+    else validation failed
+        galaxy->>galaxy: show error alert
+    end
+
+    galaxy-->>ext: rendered output
+    deactivate galaxy

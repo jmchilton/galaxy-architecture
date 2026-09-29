@@ -5,7 +5,7 @@ Validate sync to training-material.
 Checks that:
 - All topics have slides in training-material
 - All referenced images exist
-- No .plantuml.txt or .mindmap.yml files copied
+- No .mmd or .mindmap.yml files copied
 - Front matter matches metadata.yaml
 
 Usage:
@@ -66,7 +66,7 @@ def validate_topic(topic_id: str, tm_root: Path) -> dict:
                 result['valid'] = False
 
         # Check no source files copied
-        for src_pattern in ['*.plantuml.txt', '*.mindmap.yml']:
+        for src_pattern in ['*.mmd', '*.mindmap.yml']:
             found = list(tm_images_dir.glob(src_pattern))
             if found:
                 result['errors'].append(f"Source files found in training-material: {[f.name for f in found]}")

@@ -1,0 +1,24 @@
+---
+title: Backend Parser Architecture
+---
+flowchart TB
+    subgraph managers["galaxy.managers"]
+        parse["markdown_parse.py"]
+        util["markdown_util.py"]
+        pages["pages.py"]
+        workflows["workflows.py"]
+    end
+
+    subgraph external["External"]
+        gxformat["gxformat2"]
+    end
+
+    n_parse@{ shape: comment, label: "<b>Pure Parsing</b><br>- No Galaxy dependencies<br>- Syntax validation<br>- Directive recognition<br>- Reusable externally" }
+    n_util@{ shape: comment, label: "<b>Galaxy Integration</b><br>- ID resolution<br>- Object loading<br>- Handler pattern<br>- PDF/HTML export" }
+    parse -.- n_parse
+    util -.- n_util
+
+    util -- "validates syntax" --> parse
+    pages -- "renders pages" --> util
+    workflows -- "renders reports" --> util
+    gxformat -- "reuses parser" --> parse

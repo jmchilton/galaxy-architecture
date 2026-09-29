@@ -25,7 +25,7 @@
   id: contextual_addressing
   class: center
   content: |
-    ![Contextual Addressing](../../images/markdown_contextual_addressing.plantuml.svg)
+    ![Contextual Addressing](../../images/markdown_contextual_addressing.mmd.svg)
 
 - type: prose
   id: prose_contextual_addressing
@@ -73,7 +73,7 @@
   id: parser_architecture
   class: center
   content: |
-    ![Parser Components](../../images/markdown_parser_components.plantuml.svg)
+    ![Parser Components](../../images/markdown_parser_components.mmd.svg)
 
     `lib/galaxy/managers/markdown_parse.py`
 
@@ -189,7 +189,7 @@
   id: transformation_pipeline
   class: center
   content: |
-    ![Transformation Pipeline](../../images/markdown_transformation_pipeline.plantuml.svg)
+    ![Transformation Pipeline](../../images/markdown_transformation_pipeline.mmd.svg)
 
 - type: prose
   id: prose_transformation_pipeline
@@ -214,7 +214,7 @@
   id: handler_pattern
   class: center
   content: |
-    ![Handler Pattern](../../images/markdown_handler_pattern.plantuml.svg)
+    ![Handler Pattern](../../images/markdown_handler_pattern.mmd.svg)
 
     `lib/galaxy/managers/markdown_util.py`
 
@@ -289,7 +289,7 @@
   id: pdf_export
   class: center
   content: |
-    ![PDF Export Pipeline](../../images/markdown_pdf_export.plantuml.svg)
+    ![PDF Export Pipeline](../../images/markdown_pdf_export.mmd.svg)
 
     `lib/galaxy/managers/markdown_util.py:internal_galaxy_markdown_to_pdf()`
 
@@ -314,7 +314,7 @@
   id: component_tree
   class: center
   content: |
-    ![Frontend Component Tree](../../images/markdown_frontend_components.plantuml.svg)
+    ![Frontend Component Tree](../../images/markdown_frontend_components.mmd.svg)
 
     `client/src/components/Markdown/Markdown.vue`
 
@@ -368,7 +368,7 @@
   id: directive_processing
   class: center
   content: |
-    ![Galaxy Directive Processing](../../images/markdown_directive_processing.plantuml.svg)
+    ![Galaxy Directive Processing](../../images/markdown_directive_processing.mmd.svg)
 
     `client/src/components/Markdown/Sections/MarkdownGalaxy.vue`
 
@@ -421,7 +421,7 @@
   id: store_data_flow
   class: center
   content: |
-    ![Store-Centric Data Flow](../../images/markdown_store_data_flow.plantuml.svg)
+    ![Store-Centric Data Flow](../../images/markdown_store_data_flow.mmd.svg)
 
 - type: prose
   id: prose_store_data_flow
@@ -444,7 +444,7 @@
   id: dual_mode_editor
   class: center
   content: |
-    ![Editor Architecture](../../images/markdown_editor_architecture.plantuml.svg)
+    ![Editor Architecture](../../images/markdown_editor_architecture.mmd.svg)
 
     `client/src/components/Markdown/MarkdownEditor.vue`
 
@@ -522,7 +522,7 @@
   id: design_principles
   class: center
   content: |
-    ![Design Principles](../../images/markdown_design_principles.mindmap.plantuml.svg)
+    ![Design Principles](../../images/markdown_design_principles.mindmap.mmd.svg)
 
 - type: prose
   id: prose_design_principles
@@ -590,7 +590,7 @@
   id: architecture_overview
   class: center
   content: |
-    ![Architecture Overview](../../images/markdown_architecture_overview.plantuml.svg)
+    ![Architecture Overview](../../images/markdown_architecture_overview.mmd.svg)
 
 - type: prose
   id: prose_architecture_overview

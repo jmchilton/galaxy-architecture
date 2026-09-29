@@ -74,7 +74,7 @@
   heading: Which Test Type?
   class: center
   content: |
-    ![Test Type Decision Tree](../../images/tests-decision-tree.mermaid.svg)
+    ![Test Type Decision Tree](../../images/tests-decision-tree.mmd.svg)
 
 - type: prose
   id: decision-tree-explanation

@@ -25,7 +25,7 @@
   heading: "Core Abstractions"
   class: reduce70
   content: |
-    ![FilesSource Interface Hierarchy](../../images/file_sources_interface_hierarchy.plantuml.svg)
+    ![FilesSource Interface Hierarchy](../../images/file_sources_interface_hierarchy.mmd.svg)
 
     **Three interfaces:** `SingleFileSource`, `SupportsBrowsing`, `FilesSource`
 
@@ -34,7 +34,7 @@
   heading: "URI Routing & Plugin Scoring"
   class: reduce70
   content: |
-    ![URI Resolution Scoring](../../images/file_sources_uri_resolution.plantuml.svg)
+    ![URI Resolution Scoring](../../images/file_sources_uri_resolution.mmd.svg)
 
 - type: slide
   id: uri_scoring
@@ -63,7 +63,7 @@
   heading: "User Context & Access Control"
   class: reduce70
   content: |
-    ![Access Control Decision Flow](../../images/file_sources_access_control.plantuml.svg)
+    ![Access Control Decision Flow](../../images/file_sources_access_control.mmd.svg)
 
 - type: slide
   id: access_control_config
@@ -119,7 +119,7 @@
   heading: "fsspec"
   class: reduce70
   content: |
-    ![fsspec Plugin Hierarchy](../../images/file_sources_fsspec_hierarchy.plantuml.svg)
+    ![fsspec Plugin Hierarchy](../../images/file_sources_fsspec_hierarchy.mmd.svg)
 
 - type: slide
   id: fsspec_simplicity
@@ -169,7 +169,7 @@
   heading: "Adding a Plugin: The Pattern"
   class: reduce70
   content: |
-    ![Add Plugin Checklist](../../images/file_sources_add_plugin.plantuml.svg)
+    ![Add Plugin Checklist](../../images/file_sources_add_plugin.mmd.svg)
 
     **Key insight:** `FsspecFilesSource` handles file operations—you implement only `_open_fs()`
 
@@ -222,7 +222,7 @@
   heading: "Stock Plugins: Built-in Sources"
   class: reduce90
   content: |
-    ![POSIX Deployment](../../images/file_sources_posix_deployment.plantuml.svg)
+    ![POSIX Deployment](../../images/file_sources_posix_deployment.mmd.svg)
 
     Three sources in `lib/galaxy/files/sources/galaxy.py` extend `PosixFilesSource`:
 
@@ -305,7 +305,7 @@
   heading: "Template System: Pydantic Models"
   class: center
   content: |
-    ![Two-Tier Configuration Models](../../images/file_sources_pydantic_models.plantuml.svg)
+    ![Two-Tier Configuration Models](../../images/file_sources_pydantic_models.mmd.svg)
 
 - type: slide
   id: pydantic_two_tier
@@ -333,7 +333,7 @@
   heading: "Template Expansion: Jinja2 Resolution"
   class: center
   content: |
-    ![Template Expansion Data Flow](../../images/file_sources_template_expansion.plantuml.svg)
+    ![Template Expansion Data Flow](../../images/file_sources_template_expansion.mmd.svg)
 
 - type: slide
   id: jinja2_contexts
@@ -359,7 +359,7 @@
   heading: "User Instance Lifecycle"
   class: center
   content: |
-    ![Instance Creation Sequence](../../images/file_sources_instance_creation.plantuml.svg)
+    ![Instance Creation Sequence](../../images/file_sources_instance_creation.mmd.svg)
 
 - type: slide
   id: instance_crud
@@ -405,7 +405,7 @@
   heading: "OAuth 2.0 Authorization Flow"
   class: center
   content: |
-    ![OAuth Flow Sequence](../../images/file_sources_oauth_sequence.plantuml.svg)
+    ![OAuth Flow Sequence](../../images/file_sources_oauth_sequence.mmd.svg)
 
 # Theme 5: URL Convergence & API
 
@@ -453,7 +453,7 @@
   heading: "API Integration"
   class: center
   content: |
-    ![Remote Files API Flow](../../images/file_sources_api_flow.plantuml.svg)
+    ![Remote Files API Flow](../../images/file_sources_api_flow.mmd.svg)
 
 - type: slide
   id: api_endpoints
@@ -478,4 +478,4 @@
   heading: "Evolution Timeline"
   class: center
   content: |
-    ![File Sources Evolution](../../images/file_sources_evolution.mermaid.svg)
+    ![File Sources Evolution](../../images/file_sources_evolution.mmd.svg)

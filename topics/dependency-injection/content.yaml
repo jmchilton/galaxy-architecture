@@ -2,7 +2,7 @@
   id: app_interconnected
   class: center
   content: |
-    ![Big Interconnected App Python 2](../../images/app_py2.plantuml.svg)
+    ![Big Interconnected App Python 2](../../images/app_py2.mmd.svg)
 
 - type: slide
   id: god_object
@@ -39,7 +39,7 @@
   id: app_types_no_interface
   class: center
   content: |
-    ![Big Interconnected App Python 3 - no right](../../images/app_types_no_interface.plantuml.svg)
+    ![Big Interconnected App Python 3 - no right](../../images/app_types_no_interface.mmd.svg)
 
 - type: slide
   id: problematic_dependency_graph
@@ -94,7 +94,7 @@
   id: app_types
   class: center
   content: |
-    ![Big Interconnected App with Python 3 Types](../../images/app_types.plantuml.svg)
+    ![Big Interconnected App with Python 3 Types](../../images/app_types.mmd.svg)
 
 - type: slide
   id: benefits_of_typing
@@ -372,4 +372,4 @@
   id: app_decomposed
   class: center
   content: |
-    ![Decomposed App](../../images/app_decomposed.plantuml.svg)
+    ![Decomposed App](../../images/app_decomposed.mmd.svg)

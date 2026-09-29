@@ -1,0 +1,45 @@
+---
+title: URI Resolution & Plugin Scoring
+---
+sequenceDiagram
+    participant client as Client
+    participant configured as ConfiguredFileSources
+    participant registry as Plugin Registry
+    participant s3 as S3FsFilesSource
+    participant http as HTTPFilesSource
+    participant posix as PosixFilesSource
+
+    client->>configured: get_file_source_path("s3://my-bucket/data.csv")
+    activate configured
+
+    configured->>configured: find_best_match(url)
+    activate configured
+
+    configured->>registry: iterate all plugins
+    activate registry
+
+    registry->>s3: score_url_match(url)
+    activate s3
+    s3-->>registry: 15 (len "s3://my-bucket/")
+    deactivate s3
+
+    registry->>http: score_url_match(url)
+    activate http
+    http-->>registry: 0 (no match)
+    deactivate http
+
+    registry->>posix: score_url_match(url)
+    activate posix
+    posix-->>registry: 0 (no match)
+    deactivate posix
+
+    registry-->>configured: best_match = S3FsFilesSource
+    deactivate registry
+
+    deactivate configured
+
+    configured-->>client: (S3FsFilesSource, "data.csv")
+    deactivate configured
+
+    Note right of s3: Higher score = better match<br>0 = not supported<br>len(prefix) = exact match
+    Note right of configured: Evaluates stock plugins<br>+ user-defined instances

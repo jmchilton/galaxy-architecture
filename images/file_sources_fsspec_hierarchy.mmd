@@ -1,0 +1,56 @@
+classDiagram
+    namespace galaxy_files_sources {
+        class FsspecFilesSource {
+            <<abstract>>
+            +realize_to()
+            +write_from()
+            +list()
+            #_open_fs()*
+        }
+        class S3FsFilesSource {
+            plugin_type = "s3fs"
+            #_open_fs()
+        }
+        class HuggingFaceFilesSource {
+            plugin_type = "huggingface"
+            #_open_fs()
+        }
+        class AzureFileSource {
+            plugin_type = "azure"
+            #_open_fs()
+        }
+        class TempFilesSource {
+            plugin_type = "temp"
+            #_open_fs()
+        }
+    }
+
+    namespace fsspec_external {
+        class AbstractFileSystem {
+            <<abstract>>
+            +open()
+            +ls()
+            +info()
+            +cat()
+            +put()
+        }
+        class S3FileSystem
+        class HfFileSystem
+        class AzureBlobFileSystem
+        class LocalFileSystem
+    }
+
+    FsspecFilesSource <|-- S3FsFilesSource
+    FsspecFilesSource <|-- HuggingFaceFilesSource
+    FsspecFilesSource <|-- AzureFileSource
+    FsspecFilesSource <|-- TempFilesSource
+
+    FsspecFilesSource ..> AbstractFileSystem : _open_fs() returns
+
+    AbstractFileSystem <|-- S3FileSystem
+    AbstractFileSystem <|-- HfFileSystem
+    AbstractFileSystem <|-- AzureBlobFileSystem
+    AbstractFileSystem <|-- LocalFileSystem
+
+    note for FsspecFilesSource "Subclasses only implement<br>_open_fs() method<br><br>10x code reduction<br>40+ backends available"
+    note for AbstractFileSystem "Unified API across<br>all storage backends"

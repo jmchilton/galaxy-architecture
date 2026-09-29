@@ -1,0 +1,38 @@
+sequenceDiagram
+    participant Browser
+    participant ASGI as ASGI Server
+    participant FastAPI
+    participant Starlette
+    participant Middleware
+    participant router
+    participant Controller
+    participant Service
+    participant Manager
+
+    Note over ASGI,router: Framework
+    Note over Controller,Manager: Galaxy Backend
+
+    Browser->>+ASGI: TCP/IP Request
+    Note left of Browser: Static content<br>CSS, JS, Image
+    ASGI-->>-Browser: 
+
+    Browser->>+ASGI: TCP/IP Request
+    ASGI->>+FastAPI: asgi args
+    FastAPI->>+Starlette: asgi args
+    Starlette->>+Middleware: asgi args
+    Middleware->>+router: asgi args
+    router->>+Controller: pydantic
+    Controller->>+Service: pydantic
+    Service->>+Manager: pydantic
+
+    Note left of Browser: API Request
+    Note right of Manager: Vanilla Python function calls.<br>Use application components<br>to perform "business logic"
+
+    Manager-->>-Service: pydantic
+    Service-->>-Controller: pydantic
+    Controller-->>-router: pydantic
+    router-->>-Middleware: 
+    Middleware-->>-Starlette: 
+    Starlette-->>-FastAPI: 
+    FastAPI-->>-ASGI: 
+    ASGI-->>-Browser: 

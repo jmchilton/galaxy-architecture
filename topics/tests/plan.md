@@ -147,7 +147,7 @@ Source: `/Users/jxc755/projects/worktrees/galaxy/branch/writing-tests-docs/doc/s
 
 ## Diagrams Needed
 
-1. **Decision Tree Flowchart** (Mermaid) - slide 4 - `../../images/tests-decision-tree.mermaid.svg` ✓ DONE
+1. **Decision Tree Flowchart** (Mermaid) - slide 4 - `../../images/tests-decision-tree.mmd.svg` ✓ DONE
 2. **Populator Relationships** (class diagram) - slide 30
 3. **Smart Component Hierarchy** (mindmap or tree) - slide 54
 

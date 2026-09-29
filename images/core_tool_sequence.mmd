@@ -1,0 +1,51 @@
+sequenceDiagram
+    participant client as *client*
+    participant ToolsController
+    participant toolbox as app.toolbox
+    participant tool
+    participant execute as execute.py
+    participant tool_action as tool.tool_action
+    participant job_manager as app.job_manager
+
+    Note over client,job_manager: Render Tool Form
+    client->>ToolsController: build()
+    activate ToolsController
+    ToolsController->>toolbox: get_tool(tool_id)
+    activate toolbox
+    toolbox-->>ToolsController: tool
+    deactivate toolbox
+    ToolsController->>tool: to_json()
+    activate tool
+    tool-->>ToolsController: 
+    deactivate tool
+    ToolsController-->>client: 
+    deactivate ToolsController
+
+    Note over client,job_manager: Submit Tool Form
+    client->>ToolsController: create()
+    activate ToolsController
+    ToolsController->>toolbox: get_tool(tool_id)
+    activate toolbox
+    toolbox-->>ToolsController: tool
+    deactivate toolbox
+    ToolsController->>tool: handle_input(trans, incoming, history)
+    activate tool
+    tool->>execute: execute()
+    activate execute
+    loop over mapped parameter combinations
+        execute->>tool: handle_single_execution()
+        activate tool
+        tool->>tool_action: execute()
+        activate tool_action
+        tool_action->>job_manager: enqueue(job)
+        tool_action-->>tool: 
+        deactivate tool_action
+        tool-->>execute: job
+        deactivate tool
+    end
+    execute-->>tool: jobs
+    deactivate execute
+    tool-->>ToolsController: 
+    deactivate tool
+    ToolsController-->>client: 
+    deactivate ToolsController

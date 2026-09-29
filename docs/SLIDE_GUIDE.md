@@ -13,7 +13,7 @@ The best slides lead with diagrams/visuals, not text. A centered diagram with mi
   id: app_decomposed
   class: center
   content: |
-    ![Decomposed App](../../images/app_decomposed.plantuml.svg)
+    ![Decomposed App](../../images/app_decomposed.mmd.svg)
 ```
 
 **Weak:**
@@ -103,7 +103,7 @@ content: |
 - type: slide
   id: celery-overview
   class: center
-  content: '![Celery Overview](../../images/core_backend_celery.plantuml.svg)'
+  content: '![Celery Overview](../../images/core_backend_celery.mmd.svg)'
 ```
 
 ### Code Pattern Slides
@@ -225,7 +225,7 @@ Prose blocks appear in generated documentation but not in slides - perfect for d
   id: celery-infrastructure
   class: center
   content: |
-    ![Infrastructure including Celery](../../images/core_backend_celery.plantuml.svg)
+    ![Infrastructure including Celery](../../images/core_backend_celery.mmd.svg)
 
 - type: prose
   id: celery-infrastructure-explanation

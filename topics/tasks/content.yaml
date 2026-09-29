@@ -3,7 +3,7 @@
   heading: ''
   class: center
   content: |-
-    ![Processing requests on the server](../../images/asgi_app.plantuml.svg)
+    ![Processing requests on the server](../../images/asgi_app.mmd.svg)
 - type: slide
   id: web-servers-are-a-terrible-place-to-do-work
   class: enlarge120
@@ -20,13 +20,13 @@
   id: zoom-in-on-backendimagescore
   heading: ''
   class: center
-  content: '![Zoom in on Backend](../../images/core_backend_controllers.plantuml.svg)'
+  content: '![Zoom in on Backend](../../images/core_backend_controllers.mmd.svg)'
 - type: slide
   id: infrastructure-including-celery
   heading: ''
   class: center
   content: |-
-    ![Infrastructure including Celery](../../images/core_backend_celery.plantuml.svg)
+    ![Infrastructure including Celery](../../images/core_backend_celery.mmd.svg)
 
     ???
 

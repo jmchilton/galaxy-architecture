@@ -1,0 +1,40 @@
+---
+title: Contextual Addressing → Internal Galaxy Markdown
+config:
+  layout: elk
+---
+flowchart TB
+    subgraph ctx["Context-Specific Formats"]
+        workflow_md["Workflow<br>Markdown"]
+        tool_md["Tool Output<br>Markdown"]
+        page_api["Page API<br>(encoded)"]
+        history_md["History<br>Markdown"]
+        n_wf@{ shape: comment, label: "step=&quot;bwa_mem&quot;<br>output=&quot;results&quot;" }
+        n_tool@{ shape: comment, label: "output references<br>extra files" }
+        n_page@{ shape: comment, label: "history_dataset_id=<br>a1b2c3d4e5f6" }
+        n_hist@{ shape: comment, label: "(future)<br>history-relative refs" }
+        workflow_md -.- n_wf
+        tool_md -.- n_tool
+        page_api -.- n_page
+        history_md -.- n_hist
+    end
+
+    subgraph canon["Canonical Form"]
+        n_int@{ shape: comment, label: "history_dataset_id=12345<br>job_id=67890<br>(numeric IDs)" }
+        internal_md["Internal<br>Galaxy Markdown"]
+        n_int -.- internal_md
+    end
+
+    subgraph out["Output"]
+        render["Rendered<br>Document"]
+    end
+
+    workflow_md -- "resolve<br>labels" --> internal_md
+    tool_md -- "resolve<br>outputs" --> internal_md
+    page_api -- "decode<br>IDs" --> internal_md
+    history_md -. "(planned)" .-> internal_md
+
+    internal_md -- "render<br>(HTML/PDF/UI)" --> render
+
+    classDef future fill:#e9ecef,stroke:#adb5bd,color:#6c757d
+    class history_md future

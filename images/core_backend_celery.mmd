@@ -1,0 +1,41 @@
+sequenceDiagram
+    participant Controller
+    participant Service
+    participant CeleryClient as Celery Client
+    participant MQ as Message Queue
+    participant CeleryServer as Celery Server
+    participant GalaxyTask as Galaxy Task
+    participant Manager
+
+    Note over Controller,Service: Galaxy Code on Web Server
+    Note over GalaxyTask,Manager: Galaxy Code on Celery Worker
+
+    activate MQ
+    activate CeleryServer
+    activate Controller
+    Controller->>Service: pydantic
+    activate Service
+    Service->>CeleryClient: pydantic
+    activate CeleryClient
+    CeleryClient->>MQ: json
+    CeleryClient-->>Service: Task
+    deactivate CeleryClient
+    Service-->>Controller: AsyncTaskResult
+    deactivate Service
+    deactivate Controller
+
+    rect rgba(37,83,123,0.06)
+    Note over MQ,Manager: On Task Available
+    CeleryServer-->>MQ: json
+    CeleryServer->>GalaxyTask: pydantic
+    activate GalaxyTask
+    GalaxyTask->>Manager: pydantic
+    activate Manager
+    Note right of Manager: Potentially long running tasks.
+    Manager-->>GalaxyTask: 
+    deactivate Manager
+    GalaxyTask-->>CeleryServer: 
+    deactivate GalaxyTask
+    end
+    deactivate MQ
+    deactivate CeleryServer

@@ -83,7 +83,7 @@ build-sphinx: images
 	@echo "✓ Sphinx documentation built"
 
 images:
-	@echo "Building PlantUML diagrams..."
+	@echo "Building Mermaid diagrams..."
 	@make -C images all
 
 build: validate build-slides build-sphinx lint-sphinx
@@ -120,7 +120,7 @@ watch-sphinx:
 watch-images:
 	@echo "Watching image sources for changes..."
 	@echo "Press Ctrl+C to stop"
-	find images -name '*.plantuml.txt' -o -name '*.mindmap.yml' -o -name '*.mermaid.txt' | entr -c make images
+	find images -name '*.mmd' -o -name '*.mindmap.yml' -o -name mermaid_config.json | entr -c make images
 
 # Sync to training-material targets
 compare-slides:

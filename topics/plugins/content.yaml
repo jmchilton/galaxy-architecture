@@ -2,18 +2,18 @@
   id: models-and-managersimagescore
   heading: ''
   class: center
-  content: '![Models and Managers](../../images/core_models_managers.plantuml.svg)'
+  content: '![Models and Managers](../../images/core_models_managers.mmd.svg)'
 - type: slide
   id: plugins-all-the-way-down
   heading: Plugins All the Way Down
   class: center
-  content: '![Plugins](../../images/core_plugins_overview.mindmap.plantuml.svg)'
+  content: '![Plugins](../../images/core_plugins_overview.mindmap.mmd.svg)'
 - type: slide
   id: datatypes
   heading: Datatypes
   class: center
   content: |-
-    ![Datatype Files](../../images/core_files_datatypes.mindmap.plantuml.svg)
+    ![Datatype Files](../../images/core_files_datatypes.mindmap.mmd.svg)
 
     Developer docs on adding new datatypes can be found at https://docs.galaxyproject.org/en/latest/dev/data_types.html.
 - type: slide
@@ -21,7 +21,7 @@
   heading: Tools
   class: center
   content: |-
-    ![ToolBox Classes](../../images/core_toolbox_classes.plantuml.svg)
+    ![ToolBox Classes](../../images/core_toolbox_classes.mmd.svg)
 
     Three major classes can be summarized as - the `ToolBox` contains `Tool` objects
     that execute a `ToolAction`.
@@ -29,12 +29,12 @@
   id: subclasses-of-tool
   heading: Subclasses of Tool
   class: center
-  content: '![Tool Classes](../../images/core_tool_classes.plantuml.svg)'
+  content: '![Tool Classes](../../images/core_tool_classes.mmd.svg)'
 - type: slide
   id: running-toolsimagescore-tool
   heading: ''
   class: center
-  content: '![Running Tools](../../images/core_tool_sequence.plantuml.svg)'
+  content: '![Running Tools](../../images/core_tool_sequence.mmd.svg)'
 - type: slide
   id: a-little-about-jobs
   heading: A Little About Jobs
@@ -47,12 +47,12 @@
   id: job-runners
   heading: Job Runners
   class: center
-  content: '![Job Runners](../../images/core_runner_classes.plantuml.svg)'
+  content: '![Job Runners](../../images/core_runner_classes.mmd.svg)'
 - type: slide
   id: handling-jobsimagescore-jobs
   heading: ''
   class: center
-  content: '![Handling Jobs](../../images/core_jobs_sequence.plantuml.svg)'
+  content: '![Handling Jobs](../../images/core_jobs_sequence.mmd.svg)'
 - type: slide
   id: data-managersimagesdata-manag
   heading: ''
@@ -134,14 +134,14 @@
   heading: ''
   class: center
   content: |-
-    ![Object Store](../../images/objectstore.plantuml.svg)
+    ![Object Store](../../images/objectstore.mmd.svg)
 
     These implementation are found below `lib/galaxy/objectstore/`.
 - type: slide
   id: file-source-pluginsimagescore
   heading: ''
   class: center
-  content: '![File Source Plugins](../../images/core_file_sources.plantuml.svg)'
+  content: '![File Source Plugins](../../images/core_file_sources.mmd.svg)'
 - type: slide
   id: filesources-vs-objectstores
   heading: FileSources vs ObjectStores
@@ -159,7 +159,7 @@
   heading: Workflow Modules
   class: center
   content: |-
-    ![Workflow Modules](../../images/core_workflow_modules.plantuml.svg)
+    ![Workflow Modules](../../images/core_workflow_modules.mmd.svg)
 
     All these modules are found in `lib/galaxy/workflow/modules.py`.
 - type: slide
@@ -172,7 +172,7 @@
 - type: slide
   id: libgalaxyutilplugin-configpy-example-files
   heading: '`lib/galaxy/util/plugin_config.py` Example Files'
-  content: '![Workflow Modules](../../images/core_files_plugin_example.mindmap.plantuml.svg)'
+  content: '![Workflow Modules](../../images/core_files_plugin_example.mindmap.mmd.svg)'
 - type: slide
   id: libgalaxyutilplugin-configpy-plugin-implementations
   heading: '`lib/galaxy/util/plugin_config.py` Plugin Implementations'
