@@ -1,5 +1,5 @@
 classDiagram
-    class BasicApp["galaxy.structured_app.BasicApp"] {
+    class BasicSharedApp["galaxy.structured_app.BasicSharedApp"] {
         name: str
         config: GalaxyAppConfiguration
         auth_manager: AuthManager
@@ -40,7 +40,7 @@ classDiagram
         api_keys_manager: ApiKeyManager
     }
     class UniverseApplication["galaxy.app.UniverseApplication"]
-    BasicApp <|-- MinimalApp
+    BasicSharedApp <|-- MinimalApp
     MinimalApp <|-- MinimalManagerApp
     MinimalManagerApp <|-- StructuredApp
     StructuredApp <|-- UniverseApplication

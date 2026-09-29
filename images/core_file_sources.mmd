@@ -2,12 +2,8 @@ classDiagram
     namespace galaxy_files_sources {
         class FilesSource
         class BaseFilesSource
-        class PosixFileSource["posix.PosixFileSource"] {
+        class PosixFilesSource["posix.PosixFilesSource"] {
             plugin_type: 'posix'
-        }
-        class S3FilesSource["s3.S3FilesSource"] {
-            plugin_type: 's3'
-            required_package: "fs-s3fs"
         }
         class PyFilesystem2FilesSource["_pyfilesystem2.PyFilesystem2FilesSource"]
         class FtpFilesSource["ftp.FtpFilesSource"] {
@@ -44,15 +40,14 @@ classDiagram
         }
     }
     FilesSource <|-- BaseFilesSource
-    BaseFilesSource <|-- PosixFileSource
+    BaseFilesSource <|-- PosixFilesSource
     BaseFilesSource <|-- S3FsFilesSource
     BaseFilesSource <|-- PyFilesystem2FilesSource
     PyFilesystem2FilesSource <|-- FtpFilesSource
     PyFilesystem2FilesSource <|-- DropboxFilesSource
     PyFilesystem2FilesSource <|-- AnVILFilesSource
-    PyFilesystem2FilesSource <|-- S3FilesSource
     PyFilesystem2FilesSource <|-- SshFilesSource
     PyFilesystem2FilesSource <|-- WebDavFilesSource
-    PosixFileSource <|-- UserFtpFilesSource
-    PosixFileSource <|-- LibraryImportFilesSource
-    PosixFileSource <|-- UserLibraryImportFilesSource
+    PosixFilesSource <|-- UserFtpFilesSource
+    PosixFilesSource <|-- LibraryImportFilesSource
+    PosixFilesSource <|-- UserLibraryImportFilesSource
