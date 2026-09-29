@@ -3,7 +3,7 @@
 # Mindmap YAML generates an intermediate .mindmap.mmd; hand-written diagrams are *.mmd
 MINDMAPS := $(wildcard *.mindmap.yml)
 MINDMAP_SOURCES := $(MINDMAPS:.yml=.mmd)
-MERMAID_SOURCES := $(sort $(filter-out $(MINDMAP_SOURCES), $(wildcard *.mmd)) $(MINDMAP_SOURCES))
+MERMAID_SOURCES := $(sort $(filter-out %.mindmap.mmd, $(wildcard *.mmd)) $(MINDMAP_SOURCES))
 MERMAID_OUTPUTS := $(MERMAID_SOURCES:=.svg)
 
 # Keep generated .mindmap.mmd files (make would otherwise delete intermediates)
@@ -12,7 +12,10 @@ MERMAID_OUTPUTS := $(MERMAID_SOURCES:=.svg)
 # Prefer local node_modules install, fall back to global
 MMDC := $(shell command -v ../node_modules/.bin/mmdc 2>/dev/null || command -v mmdc 2>/dev/null)
 
-all: check-mermaid $(MERMAID_OUTPUTS)
+all: $(MERMAID_OUTPUTS)
+
+# Order-only so a missing mmdc fails once, before any parallel render
+$(MERMAID_OUTPUTS): | check-mermaid
 
 check-mermaid:
 	@if [ -z "$(MMDC)" ]; then \

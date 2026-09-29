@@ -199,7 +199,7 @@ These are starting points, not requirements. Use what communicates best.
 
 ## Style
 
-Don't set themes, colours or `look: handDrawn` per diagram - `images/mermaid_config.json` applies the Galaxy theme (the same `themeVariables` as Galaxy's Sphinx `mermaid_config`). Use `classDef` only when colour carries meaning.
+Don't set themes, colours or `look: handDrawn` per diagram - `images/mermaid_config.json` applies the Galaxy theme (the `themeVariables` from Galaxy's Sphinx `mermaid_config` in #23801, plus `labelTextColor` for readable loop/alt labels). Use `classDef` only when colour carries meaning.
 
 ## File Naming and Building
 
