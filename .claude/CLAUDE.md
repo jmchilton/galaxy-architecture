@@ -31,8 +31,7 @@ Experimental POC to prove that maintaining architecture content as structured ma
 - **outputs/training-slides/build.py** - Generates GTN-compatible slides
 - **outputs/sphinx-docs/build.py** - Generates Sphinx markdown with URL conversion
 - **docs/SLIDE_GUIDE.md** - GTN slide syntax, formatting, speaker notes (MUST READ before writing slides)
-- **docs/DIAGRAM_GUIDE.md** - PlantUML/Mermaid usage guide (MUST READ before creating diagrams)
-- **images/MERMAID.md** - Mermaid diagram support documentation (PlantUML vs Mermaid usage guide)
+- **docs/DIAGRAM_GUIDE.md** - Mermaid diagram guide: types, conventions, file naming, build (MUST READ before creating diagrams)
 
 ## Common Tasks
 
@@ -85,14 +84,14 @@ make build
 
 ### Build diagrams
 ```bash
-# Build all PlantUML and Mermaid diagrams
+# Build all Mermaid diagrams (needs `npm install`)
 make images
 
 # Watch for diagram source changes
 make watch-images
 ```
 
-See **images/MERMAID.md** for details on PlantUML vs Mermaid diagram types and usage.
+See **docs/DIAGRAM_GUIDE.md** for diagram types and conventions.
 
 ## Content Model
 
@@ -189,7 +188,7 @@ Generate structured slide plan by analyzing research notes.
 - Read **docs/SLIDE_GUIDE.md** - GTN slide syntax, formatting rules, speaker notes
 
 **Before creating diagrams/images**:
-- Read **docs/DIAGRAM_GUIDE.md** - PlantUML vs Mermaid usage, file naming, build process
+- Read **docs/DIAGRAM_GUIDE.md** - diagram types, file naming, build process
 
 ## When helping with this repo
 

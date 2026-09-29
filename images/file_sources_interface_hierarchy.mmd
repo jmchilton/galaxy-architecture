@@ -1,0 +1,50 @@
+---
+title: FilesSource Interface Hierarchy
+---
+classDiagram
+    namespace galaxy_files_sources {
+        class SingleFileSource {
+            <<interface, Protocol>>
+            +realize_to(source_path, native_path)
+            +write_from(target_path, native_path)
+            +score_url_match(url) int
+        }
+        class SupportsBrowsing {
+            <<interface, Protocol>>
+            +list(path, recursive, user_context, opts)
+        }
+        class FilesSource {
+            <<interface, Protocol>>
+            id: str
+            label: str
+            doc: str
+            scheme: str
+            writable: bool
+        }
+        class BaseFilesSource {
+            <<abstract>>
+            plugin_type: str
+            +_serialize_entry()
+            +_resolve_template()
+            #_list()*
+            #_realize_to()*
+            #_write_from()*
+        }
+        class PyFilesystem2FilesSource {
+            +_open_fs() FS
+        }
+        class FsspecFilesSource {
+            +_open_fs() AbstractFileSystem
+        }
+    }
+
+    SingleFileSource <|.. FilesSource
+    SupportsBrowsing <|.. FilesSource
+    FilesSource <|.. BaseFilesSource
+    BaseFilesSource <|-- PyFilesystem2FilesSource
+    BaseFilesSource <|-- FsspecFilesSource
+
+    note for SingleFileSource "Operates on single file/URI<br>at a time, no browsing"
+    note for FilesSource "Combines SingleFileSource<br>and SupportsBrowsing<br><br>Combined protocol for<br>all file source operations"
+    note for PyFilesystem2FilesSource "Server-side pagination<br>via filterdir(page=...)"
+    note for FsspecFilesSource "40+ backends<br>10x code reduction<br><br>Preferred for new plugins"

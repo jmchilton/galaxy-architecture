@@ -1,0 +1,24 @@
+classDiagram
+    namespace galaxy_tools {
+        class Tool
+        class SetMetadataTool
+        class OutputParameterJSONTool
+        class DataManagerTool
+        class DataSourceTool
+        class ExpressionTool
+        class InteractiveTool
+        class DatabaseOperationTool
+        class ZipCollectionTool
+        class MergeCollectionTool
+        class RelabelFromFileTool
+    }
+    Tool <|-- SetMetadataTool
+    Tool <|-- OutputParameterJSONTool
+    OutputParameterJSONTool <|-- DataManagerTool
+    OutputParameterJSONTool <|-- DataSourceTool
+    Tool <|-- ExpressionTool
+    Tool <|-- InteractiveTool
+    Tool <|-- DatabaseOperationTool
+    DatabaseOperationTool <|-- ZipCollectionTool
+    DatabaseOperationTool <|-- MergeCollectionTool
+    DatabaseOperationTool <|-- RelabelFromFileTool

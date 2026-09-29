@@ -32,17 +32,6 @@ jobs:
         with:
           python-version: '3.11'
 
-      - name: Install Java for PlantUML
-        uses: actions/setup-java@v6
-        with:
-          distribution: 'temurin'
-          java-version: '17'
-
-      - name: Install Graphviz for PlantUML
-        run: |
-          sudo apt-get update
-          sudo apt-get install -y graphviz
-
       - name: Set up Node for Mermaid
         uses: actions/setup-node@v7
         with:
@@ -58,17 +47,11 @@ jobs:
         run: |
           uv sync --all-extras
 
-      - name: Cache PlantUML jar
-        uses: actions/cache@v6
-        with:
-          path: images/plantuml.jar
-          key: plantuml-jar-v1
-
       - name: Validate topics
         run: make validate
 
       - name: Build documentation
-        run: make build MERMAID_REQUIRED=1
+        run: make build
 
       - name: Create .nojekyll file
         run: touch doc/build/html/.nojekyll

@@ -1,0 +1,27 @@
+classDiagram
+    class ObjectStore {
+        <<abstract>>
+        exists(obj)
+        file_ready(obj)
+        create(obj)
+        size(obj)
+        delete(obj)
+        get_data(obj)
+        get_filename(obj)
+        update_from_file(obj)
+        get_store_usage_percent()
+    }
+    class DiskObjectStore
+    class NestedObjectStore {
+        <<abstract>>
+    }
+    class S3ObjectStore
+    class IRODSObjectStore
+    class DistributedObjectStore
+    class HierarchicalObjectStore
+    ObjectStore <|-- DiskObjectStore
+    ObjectStore <|-- NestedObjectStore
+    ObjectStore <|-- S3ObjectStore
+    DiskObjectStore <|-- IRODSObjectStore
+    NestedObjectStore <|-- DistributedObjectStore
+    NestedObjectStore <|-- HierarchicalObjectStore

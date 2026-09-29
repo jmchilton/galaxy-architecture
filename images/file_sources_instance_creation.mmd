@@ -1,0 +1,73 @@
+---
+title: User Instance Creation Sequence (Accurate)
+---
+sequenceDiagram
+    participant user as User
+    participant api as File Sources API
+    participant manager as InstancesManager
+    participant catalog as TemplateCatalog
+    participant jinja as Jinja2
+    participant plugin as Plugin
+    participant db as user_file_source<br>(database)
+    participant vault as Vault
+
+    Note over user,vault: Pre-flight Validation
+
+    user->>api: POST /file_source_instances/test
+    activate api
+
+    api->>manager: plugin_status(payload)
+    activate manager
+
+    manager->>catalog: get_template(id, version)
+    activate catalog
+    catalog-->>manager: template
+    deactivate catalog
+
+    manager->>jinja: expand(template, variables, secrets)
+    activate jinja
+    jinja-->>manager: resolved config
+    deactivate jinja
+
+    manager->>plugin: test connection (list root)
+    activate plugin
+    plugin-->>manager: OK
+    deactivate plugin
+
+    manager-->>api: status: OK
+    deactivate manager
+
+    api-->>user: 200 OK
+    deactivate api
+
+    Note over user,vault: Instance Creation
+
+    user->>api: POST /file_source_instances
+    activate api
+
+    api->>manager: create_instance(payload)
+    activate manager
+
+    manager->>catalog: get_template(id, version)
+    catalog-->>manager: template
+
+    manager->>db: persist instance
+    activate db
+    db-->>manager: OK
+    deactivate db
+
+    manager->>vault: store secrets
+    activate vault
+    vault-->>manager: OK
+    deactivate vault
+
+    manager->>db: update (record secret names)
+    activate db
+    db-->>manager: OK
+    deactivate db
+
+    manager-->>api: instance UUID
+    deactivate manager
+
+    api-->>user: 201 Created
+    deactivate api

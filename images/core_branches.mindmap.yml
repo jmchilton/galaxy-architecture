@@ -1,4 +1,5 @@
 label: Branches
+diagram: flowchart
 items:
 - label: dev
   doc: Most active development happens here!  New features must be added here

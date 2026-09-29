@@ -1,0 +1,35 @@
+---
+config:
+  layout: elk
+---
+flowchart TD
+    s(( )) --> yaml["YAML Template Config"]
+    yaml -.- n1@{ shape: comment, label: "bucket: #quot;{{ variables.bucket }}#quot;<br>key: #quot;{{ secrets.access_key }}#quot;" }
+
+    yaml --> sugar["Apply Syntactic Sugar"]
+    sugar -.- n2@{ shape: comment, label: "Inline includes, shorthand notation" }
+
+    sugar --> ctx["Build Jinja2 Context"]
+    ctx --> fork@{ shape: fork }
+
+    fork --> vars["variables"]
+    fork --> secrets["secrets"]
+    fork --> user["user"]
+    fork --> environ["environ"]
+    vars -.- nv@{ shape: comment, label: "User form input" }
+    secrets -.- ns@{ shape: comment, label: "From Vault" }
+    user -.- nu@{ shape: comment, label: "username, email, roles" }
+    environ -.- ne@{ shape: comment, label: "Environment vars" }
+
+    vars --> join@{ shape: fork }
+    secrets --> join
+    user --> join
+    environ --> join
+
+    join --> expand["Jinja2 Expansion"]
+    expand -.- n3@{ shape: comment, label: "bucket: #quot;my-data-bucket#quot;<br>key: #quot;AKIA...#quot;" }
+
+    expand --> pyd["Pydantic Validation"]
+    pyd -.- n4@{ shape: comment, label: "FileSourceConfiguration" }
+
+    pyd --> resolved["Resolved Config"] --> e((( )))

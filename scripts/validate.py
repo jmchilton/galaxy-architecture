@@ -27,9 +27,8 @@ IMAGE_PREFIX_RE = re.compile(
 EXTERNAL_PREFIXES = ('http://', 'https://', 'data:')
 # Rendered SVGs are gitignored and built by images/Makefile; accept their source
 GENERATED_IMAGE_SOURCES = (
-    ('.mindmap.plantuml.svg', '.mindmap.yml'),
-    ('.plantuml.svg', '.plantuml.txt'),
-    ('.mermaid.svg', '.mermaid.txt'),
+    ('.mindmap.mmd.svg', '.mindmap.yml'),
+    ('.mmd.svg', '.mmd'),
 )
 
 

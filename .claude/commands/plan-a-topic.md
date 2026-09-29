@@ -76,9 +76,9 @@ Key diagram guidance:
 - Creates diagram TODO list at end of plan
 
 **Note:** Agents run in parallel to generate distinct perspectives. Diagrams can be:
-- Inline PlantUML (` ```plantuml ` blocks) if agent has enough info
+- Inline Mermaid (` ```mermaid ` blocks) if agent has enough info
 - Descriptive proposals (e.g., "Activity diagram showing markdown processing pipeline")
-- References to separate files (e.g., "See diagrams/markdown_pipeline.puml")
+- References to separate files (e.g., "See images/markdown_pipeline.mmd")
 
 ### 3. Main Agent: Merge & Flow Proposals
 
@@ -167,9 +167,8 @@ topics/<topic-id>/plan/
 **See `docs/DIAGRAM_GUIDE.md` for examples and patterns.**
 
 Available diagram types:
-- **PlantUML**: Sequence, Class, Component, Object, Activity, Mindmap
-- **Mermaid**: Timeline, Flowchart, State, Gantt, User Journey
-- **File Mindmaps** (YAML): Validated directory structures
+- **Mermaid**: Sequence, Class, Component/Activity (flowchart), Timeline, State, Gantt
+- **File Trees / Mindmaps** (YAML): Validated directory structures and concept maps
 
 Choose based on what communicates best. See `images/` for existing examples.
 
@@ -179,14 +178,14 @@ Diagram TODO format:
 - Participants: client, ToolsController, app.toolbox, tool
 - Phases: "Render Form", "Submit Form"
 - Show loop for parameter combinations
-- Reference: images/core_tool_sequence.plantuml.txt
+- Reference: images/core_tool_sequence.mmd
 ```
 
 ## Next Steps After Planning
 
 After this command completes with `final_plan.md`:
 1. Review and refine the plan
-2. Create diagrams from TODO list (using PlantUML)
+2. Create diagrams from TODO list (Mermaid, see `docs/DIAGRAM_GUIDE.md`)
 3. Generate actual `content.yaml` with slide content (separate command/process)
 4. Build slides using `make build-slides`
 

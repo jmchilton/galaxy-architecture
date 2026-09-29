@@ -1,0 +1,35 @@
+---
+title: Store-Centric Data Flow
+---
+flowchart LR
+    subgraph elements["Element Components"]
+        el_table["HistoryDatasetAsTable"]
+        el_workflow["WorkflowImage"]
+        el_metrics["JobMetrics"]
+        el_outputs["InvocationOutputs"]
+    end
+
+    subgraph stores["Pinia Stores"]
+        store_inv["invocationStore"]
+        store_wf["workflowStore"]
+        store_ds["datasetStore"]
+    end
+
+    subgraph api["API Endpoints"]
+        api_inv["/api/invocations"]
+        api_wf["/api/workflows"]
+        api_ds["/api/datasets"]
+    end
+
+    el_table --> store_ds
+    el_table --> store_inv
+    el_workflow --> store_wf
+    el_metrics --> store_inv
+    el_outputs --> store_inv
+
+    store_inv --> api_inv
+    store_wf --> api_wf
+    store_ds --> api_ds
+
+    n_stores@{ shape: comment, label: "<b>Caching benefits:</b><br>- Multiple elements share data<br>- Single fetch per resource<br>- Reactive updates" }
+    stores -.- n_stores

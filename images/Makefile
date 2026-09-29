@@ -1,58 +1,32 @@
 .PHONY: all clean check-mermaid
 
-# PlantUML sources and outputs
+# Mindmap YAML generates an intermediate .mindmap.mmd; hand-written diagrams are *.mmd
 MINDMAPS := $(wildcard *.mindmap.yml)
-MINDMAP_INPUTS := $(MINDMAPS:.mindmap.yml=.mindmap.plantuml.txt)
-OTHER_PLANTUML_INPUTS := $(filter-out %.mindmap.plantuml.txt, $(wildcard *.plantuml.txt))
-ALL_PLANTUML_INPUTS := $(MINDMAP_INPUTS) $(OTHER_PLANTUML_INPUTS)
-PLANTUML_OUTPUTS := $(ALL_PLANTUML_INPUTS:.txt=.svg)
+MINDMAP_SOURCES := $(MINDMAPS:.yml=.mmd)
+MERMAID_SOURCES := $(sort $(filter-out $(MINDMAP_SOURCES), $(wildcard *.mmd)) $(MINDMAP_SOURCES))
+MERMAID_OUTPUTS := $(MERMAID_SOURCES:=.svg)
 
-# Mermaid sources and outputs
-MERMAID_INPUTS := $(wildcard *.mermaid.txt)
-MERMAID_OUTPUTS := $(MERMAID_INPUTS:.txt=.svg)
+# Keep generated .mindmap.mmd files (make would otherwise delete intermediates)
+.SECONDARY: $(MINDMAP_SOURCES)
 
-# Combined outputs
-ALL_OUTPUTS := $(PLANTUML_OUTPUTS) $(MERMAID_OUTPUTS)
-
-all: plantuml.jar check-mermaid $(ALL_OUTPUTS)
-
-# PlantUML targets
-$(MINDMAP_INPUTS): $(MINDMAPS)
-	uv run python mindmap_yaml_to_plantuml.py $(MINDMAPS)
-
-$(PLANTUML_OUTPUTS): $(ALL_PLANTUML_INPUTS)
-	java -jar plantuml.jar -c plantuml_options.txt -tsvg $(ALL_PLANTUML_INPUTS)
-
-plantuml.jar:
-	wget https://github.com/plantuml/plantuml/releases/download/v1.2026.0/plantuml-1.2026.0.jar -O plantuml.jar || curl -L --output plantuml.jar https://github.com/plantuml/plantuml/releases/download/v1.2026.0/plantuml-1.2026.0.jar
-
-# Mermaid targets
 # Prefer local node_modules install, fall back to global
 MMDC := $(shell command -v ../node_modules/.bin/mmdc 2>/dev/null || command -v mmdc 2>/dev/null)
 
+all: check-mermaid $(MERMAID_OUTPUTS)
+
 check-mermaid:
-	@if [ -n "$(MERMAID_INPUTS)" ]; then \
-		if [ -z "$(MMDC)" ]; then \
-			if [ -n "$(MERMAID_REQUIRED)" ]; then \
-				echo "Error: mermaid-cli not found and MERMAID_REQUIRED is set."; \
-				exit 1; \
-			fi; \
-			echo "Warning: mermaid-cli not found."; \
-			echo "Install with: npm install (uses package.json) or npm install -g @mermaid-js/mermaid-cli"; \
-			echo "Skipping Mermaid diagram generation."; \
-			exit 0; \
-		fi \
+	@if [ -z "$(MMDC)" ]; then \
+		echo "Error: mermaid-cli not found."; \
+		echo "Install with: npm install (uses package.json) or npm install -g @mermaid-js/mermaid-cli"; \
+		exit 1; \
 	fi
 
-$(MERMAID_OUTPUTS): %.mermaid.svg: %.mermaid.txt
-	@if [ -n "$(MMDC)" ]; then \
-		$(MMDC) -p puppeteer-config.json -i $< -o $@ -b transparent; \
-	else \
-		echo "Skipping $@ (mermaid-cli not installed)"; \
-		echo "  Install with: npm install -g @mermaid-js/mermaid-cli"; \
-	fi
+%.mindmap.mmd: %.mindmap.yml mindmap_yaml_to_mermaid.py
+	uv run python mindmap_yaml_to_mermaid.py $<
+
+%.mmd.svg: %.mmd mermaid_config.json
+	$(MMDC) -q -p puppeteer-config.json -c mermaid_config.json -i $< -o $@ -b transparent
 
 clean:
-	rm -f *.plantuml.svg
-	rm -f *.mermaid.svg
-	rm -f *.mindmap.plantuml.txt
+	rm -f *.mmd.svg
+	rm -f *.mindmap.mmd

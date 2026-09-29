@@ -1,0 +1,23 @@
+classDiagram
+    namespace Template_Stage {
+        class S3FsTemplateConfiguration {
+            type: Literal["s3fs"]
+            bucket: Union[str, TemplateExpansion]
+            region: Union[str, TemplateExpansion]
+            access_key_id: Union[str, TemplateExpansion]
+        }
+    }
+
+    namespace Resolved_Stage {
+        class S3FsFileSourceConfiguration {
+            type: Literal["s3fs"]
+            bucket: str
+            region: str
+            access_key_id: str
+        }
+    }
+
+    S3FsTemplateConfiguration ..> S3FsFileSourceConfiguration : Jinja2 expand<br>+ validate
+
+    note for S3FsTemplateConfiguration "#quot;{{ variables.bucket }}#quot;<br>#quot;{{ secrets.key }}#quot;<br><br>TemplateExpansion is a<br>type alias (str) for<br>documentation clarity<br><br>Stage 1: Validate template syntax<br>Stage 2: Validate user input"
+    note for S3FsFileSourceConfiguration "Concrete values only:<br>#quot;my-data-bucket#quot;<br><br>Stage 3: Validate resolved config<br>Used at runtime"

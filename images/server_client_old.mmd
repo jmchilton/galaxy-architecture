@@ -1,0 +1,9 @@
+sequenceDiagram
+    participant Browser
+    participant Server
+    Note over Browser,Server: HTTP
+
+    Browser->>+Server: Page Request
+    Note right of Server: Build HTML fragments<br>using Mako Python library<br>in Galaxy "web" controllers
+    Server-->>-Browser: Static Content (HTML+JS+CSS)
+    Note left of Browser: Render HTML fragments<br>with JavaScript

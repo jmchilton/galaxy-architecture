@@ -1,0 +1,29 @@
+---
+title: Markdown Directive Handler Pattern
+---
+classDiagram
+    namespace galaxy_managers_markdown_util {
+        class GalaxyInternalMarkdownDirectiveHandler {
+            <<abstract>>
+            +trans
+            +export_markdown_directive()
+            handle_dataset_display()*
+            handle_dataset_as_image()*
+            handle_dataset_as_table()*
+            handle_workflow_display()*
+            handle_job_metrics()*
+            ...()
+        }
+        class ReadyForExportMarkdownDirectiveHandler {
+            +extra_rendering_data: dict
+        }
+        class ToBasicMarkdownDirectiveHandler
+    }
+
+
+    note for GalaxyInternalMarkdownDirectiveHandler "Abstract base defines<br>directive handling interface"
+    note for ReadyForExportMarkdownDirectiveHandler "Lazy expansion:<br>Collects metadata<br>Preserves directives<br>For frontend rendering<br><br>Used by: Frontend UI<br>Returns: JSON metadata"
+    note for ToBasicMarkdownDirectiveHandler "Eager expansion:<br>Fully expands directives<br>Tables, images, text<br>For PDF export<br><br>Used by: PDF export<br>Returns: Standard markdown"
+
+    GalaxyInternalMarkdownDirectiveHandler <|-- ReadyForExportMarkdownDirectiveHandler
+    GalaxyInternalMarkdownDirectiveHandler <|-- ToBasicMarkdownDirectiveHandler

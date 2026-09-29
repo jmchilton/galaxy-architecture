@@ -1,0 +1,8 @@
+classDiagram
+    class Router["starlette.routing.Router"]
+    class APIRouter["fastapi.APIRouter"]
+    class InferringRouter["fastapi_utils.inferring_router.InferringRouter"]
+    class GalaxyRouter["galaxy.webapps.galaxy.api.Router"]
+    Router <|-- APIRouter
+    APIRouter <|-- InferringRouter
+    InferringRouter <|-- GalaxyRouter

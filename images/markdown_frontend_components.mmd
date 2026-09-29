@@ -1,0 +1,51 @@
+---
+title: Frontend Markdown Component Tree
+---
+flowchart LR
+    subgraph mdvue["Markdown.vue"]
+        parse["parseMarkdown()"]
+        wrapper["SectionWrapper"]
+        parse -- "Section[]" --> wrapper
+    end
+
+    subgraph renderers["Section Renderers"]
+        md_default["MarkdownDefault<br>(standard + KaTeX)"]
+        md_galaxy["MarkdownGalaxy<br>(Galaxy directives)"]
+        md_vega["MarkdownVega<br>(Vega-Lite)"]
+        md_viz["MarkdownVisualization<br>(Galaxy viz)"]
+        md_vitessce["MarkdownVitessce<br>(spatial data)"]
+    end
+
+    subgraph elements["Galaxy Elements (21+)"]
+        el_table["HistoryDatasetAsTable"]
+        el_image["HistoryDatasetAsImage"]
+        el_workflow["WorkflowImage"]
+        el_metrics["JobMetrics"]
+        el_stdout["ToolStdout"]
+    end
+
+    subgraph stores["Stores (Pinia)"]
+        store_inv["invocationStore"]
+        store_wf["workflowStore"]
+    end
+
+    wrapper --> md_default
+    wrapper --> md_galaxy
+    wrapper --> md_vega
+    wrapper --> md_viz
+    wrapper --> md_vitessce
+
+    md_galaxy --> el_table
+    md_galaxy --> el_image
+    md_galaxy --> el_workflow
+    md_galaxy --> el_metrics
+    md_galaxy --> el_stdout
+
+    el_table --> store_inv
+    el_workflow --> store_wf
+    el_metrics --> store_inv
+
+    n_wrap@{ shape: comment, label: "Dispatches by<br>section type" }
+    n_stores@{ shape: comment, label: "Caches data,<br>prevents redundant fetches" }
+    wrapper -.- n_wrap
+    stores -.- n_stores

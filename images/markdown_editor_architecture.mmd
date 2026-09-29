@@ -1,0 +1,47 @@
+---
+title: Editor Architecture (Dual Mode)
+config:
+  layout: elk
+---
+flowchart TB
+    subgraph editor["MarkdownEditor.vue"]
+        switcher["Mode Switcher"]
+    end
+
+    subgraph text_mode["Text Mode"]
+        text_ed["TextEditor"]
+    end
+
+    subgraph cell_mode["Cell Mode (Jupyter-like)"]
+        cell_ed["CellEditor"]
+        md_cell["Markdown Cell"]
+        gal_cell["Galaxy Cell"]
+    end
+
+    subgraph shared["Shared Resources"]
+        directives["directives.yml<br>(metadata)"]
+        templates["templates.yml<br>(insertion)"]
+        palette["Directive Palette"]
+    end
+
+    preview["Live Preview"]
+
+    switcher -- "raw mode" --> text_ed
+    switcher -- "structured mode" --> cell_ed
+
+    cell_ed -- "prose content" --> md_cell
+    cell_ed -- "Galaxy directives" --> gal_cell
+
+    palette -- "reads metadata" --> directives
+    palette -- "reads templates" --> templates
+    palette -- "inserts directive" --> gal_cell
+
+    text_ed --> preview
+    cell_ed --> preview
+
+    n_text@{ shape: comment, label: "Full markdown control<br>Power users" }
+    n_cell@{ shape: comment, label: "Add/remove/reorder cells<br>Guided editing" }
+    n_pal@{ shape: comment, label: "Mode-aware:<br>Shows available<br>directives for<br>page vs report" }
+    text_ed -.- n_text
+    cell_ed -.- n_cell
+    palette -.- n_pal

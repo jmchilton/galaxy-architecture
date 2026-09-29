@@ -3,7 +3,7 @@
   heading: ''
   class: center
   content: |-
-    ![Client-Server Communications](../../images/server_client_vuejs.plantuml.svg)
+    ![Client-Server Communications](../../images/server_client_vuejs.mmd.svg)
 
     Bits and pieces of older client technologies appear throughout - ranging from Python
     mako templates to generate HTML, lower-level jQuery, Axios interactions, and Backbone legacy MVC.
@@ -13,7 +13,7 @@
   class: center
   heading: ''
   content: |-
-    ![Processing requests on the server](../../images/asgi_app.plantuml.svg)
+    ![Processing requests on the server](../../images/asgi_app.mmd.svg)
 
     Expanding the right side of that diagram. We will move through the components left to right.
 - type: slide
@@ -110,7 +110,7 @@
   id: processing-requests-on-the-server-1
   heading: ''
   class: center
-  content: '![Processing requests on the server](../../images/asgi_app.plantuml.svg)'
+  content: '![Processing requests on the server](../../images/asgi_app.mmd.svg)'
 - type: slide
   id: fastapi-call
   heading: FastAPI `__call__`
@@ -249,7 +249,7 @@
   heading: ''
   class: center
   content: |-
-    ![Router Class Diagram](../../images/routers.plantuml.svg)
+    ![Router Class Diagram](../../images/routers.mmd.svg)
 
     - https://www.starlette.io/routing/
     - https://fastapi.tiangolo.com/tutorial/bigger-applications/#apirouter
@@ -365,7 +365,7 @@
   heading: ''
   class: center
   content: |-
-    ![Router Class Diagram](../../images/routers.plantuml.svg)
+    ![Router Class Diagram](../../images/routers.mmd.svg)
 
     - https://www.starlette.io/routing/
     - https://fastapi.tiangolo.com/tutorial/bigger-applications/#apirouter
@@ -394,7 +394,7 @@
 - type: slide
   id: processing-requests-on-the-server-2
   heading: ''
-  content: '![Processing requests on the server](../../images/wsgi_app.plantuml.svg)'
+  content: '![Processing requests on the server](../../images/wsgi_app.mmd.svg)'
 - type: slide
   id: wsgi-middleware
   heading: WSGI Middleware
@@ -426,17 +426,17 @@
   id: processing-requests-on-the-server-wsg
   heading: ''
   class: center
-  content: '![Processing requests on the server (WSGI)](../../images/wsgi_app.plantuml.svg)'
+  content: '![Processing requests on the server (WSGI)](../../images/wsgi_app.mmd.svg)'
 - type: slide
   id: instances
   heading: Instances
   class: center
-  content: '![webapp](../../images/webapp.plantuml.svg)'
+  content: '![webapp](../../images/webapp.mmd.svg)'
 - type: slide
   id: classes
   heading: Classes
   class: center
-  content: '![GalaxyWebApplication class diagram](../../images/webapp_classes.plantuml.svg)'
+  content: '![GalaxyWebApplication class diagram](../../images/webapp_classes.mmd.svg)'
 - type: slide
   id: routes
   heading: Routes
@@ -563,7 +563,7 @@
 - type: slide
   id: event-loop-blocking-diagram
   class: center
-  content: '![Event Loop Blocking vs Threadpool](../../images/event_loop_blocking.mermaid.svg)'
+  content: '![Event Loop Blocking vs Threadpool](../../images/event_loop_blocking.mmd.svg)'
 - type: slide
   id: why-event-loop-blocking
   heading: Why This Breaks Galaxy

@@ -9,7 +9,7 @@ This repository is configured to automatically build and publish documentation t
    - Validates all topics
    - Generates training slides (Remark.js presentations)
    - Generates Sphinx documentation
-   - Builds PlantUML diagrams
+   - Builds Mermaid diagrams
    - Creates final HTML output in `doc/build/html/`
 3. **Deployment** uploads `doc/build/html/` to GitHub Pages
 4. **Site is live** at: `https://jmchilton.github.io/galaxy-architecture/`
@@ -59,8 +59,7 @@ After ~5 minutes:
 
 The workflow (`../.github/workflows/deploy-docs.yml`) installs:
 - Python 3.11 with uv package manager
-- Java 17 (for PlantUML)
-- PlantUML and Graphviz
+- Node 22 + mermaid-cli (`npm ci`, headless Chrome for rendering)
 - All Python dependencies from `pyproject.toml`
 
 ### Build Steps
@@ -95,7 +94,7 @@ https://github.com/jmchilton/galaxy-architecture/actions
 ```
 
 Common issues:
-- **PlantUML errors**: Check diagram syntax in `images/*.plantuml.txt`
+- **Mermaid errors**: Check diagram syntax in `images/*.mmd` (`make images` prints the parse error)
 - **Validation errors**: Run `make validate` locally first
 - **Python errors**: Ensure `pyproject.toml` dependencies are correct
 

@@ -1,0 +1,33 @@
+flowchart TB
+    subgraph db_node["(database)"]
+        database[("database")]
+    end
+    models["models"]
+    jobs["jobs"]
+    auth["auth"]
+    toolbox["toolbox"]
+    workflows["workflows"]
+    metadata["metadata"]
+    objectstore["objectstore"]
+    jobmetrics["jobmetrics"]
+    managers["managers"]
+    services["services"]
+    api["api"]
+
+    models -.-> database
+    jobs -.-> models
+    auth -.-> models
+    toolbox -.-> models
+    workflows -.-> models
+    metadata -.-> models
+    objectstore -.-> models
+    jobmetrics -.-> models
+    managers -.-> jobmetrics
+    managers -.-> metadata
+    managers -.-> objectstore
+    managers -.-> workflows
+    managers -.-> toolbox
+    managers -.-> auth
+    managers -.-> jobs
+    services -.-> managers
+    api -.-> services

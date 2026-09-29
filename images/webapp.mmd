@@ -1,0 +1,18 @@
+classDiagram
+    class webapp {
+        <<object>>
+        controllers : dict
+        api_controllers : dict
+        mapper : routes.Mapper
+        handle_request : #40;environ, start_response#41; -> #40;#41;
+        transaction_factory : #40;environ#41; -> GalaxyWebTransaction
+    }
+    class app {
+        <<object>>
+    }
+    class trans {
+        <<object>>
+    }
+    webapp --> "app" app
+    trans --> "app" app
+    webapp *-- trans

@@ -1,0 +1,14 @@
+sequenceDiagram
+    participant Browser
+    participant Server
+    Note over Browser,Server: HTTP
+
+    Browser->>+Server: Page Request
+    Server-->>-Browser: Static Content (HTML+JS+CSS)
+
+    Note left of Browser: Components built with VueJS.<br>openapi-fetch used to build service layer.
+    Browser->>+Server: API Request (JSON)
+    Note right of Server: Build JSON response<br>in Galaxy "API" controllers
+    Server-->>-Browser: API Response (JSON)
+
+    Note left of Browser: JSON objects stored in Vuex store<br>or consumed by components.<br>HTML rendered from VueJS<br>component templates.

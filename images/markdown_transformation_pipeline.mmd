@@ -1,0 +1,48 @@
+---
+title: Galaxy Markdown Transformation Pipeline
+---
+sequenceDiagram
+    participant raw as Raw<br>Markdown
+    participant import as Import
+    participant validate as Validate
+    participant resolve as Resolve
+    participant export as Export
+    participant render as Render
+
+    Note over raw: Context-specific format<br>(workflow labels, encoded IDs, etc.)
+
+    Note over raw,render: Stage 1: Import
+    raw->>import: markdown text
+    activate import
+    Note right of import: Decode external IDs → internal<br>a1b2c3d4 → 12345
+    import-->>validate: internal IDs
+    deactivate import
+
+    Note over raw,render: Stage 2: Validate
+    activate validate
+    Note right of validate: Syntax validation<br>(markdown_parse.py)<br>- Fence tracking<br>- Directive syntax<br>- Argument validation
+    validate-->>resolve: validated markdown
+    deactivate validate
+
+    Note over raw,render: Stage 3: Resolve
+    activate resolve
+    Note right of resolve: Expand context references<br>output="results" → history_dataset_id=98765<br>step="bwa" → job_id=54321
+    resolve-->>export: resolved markdown
+    deactivate resolve
+
+    Note over raw,render: Stage 4: Export
+    activate export
+    alt Lazy (ReadyForExport)
+        Note right of export: Collect metadata only<br>Preserve directives<br>(for frontend rendering)
+        export-->>render: metadata + directives
+    else Eager (ToBasicMarkdown)
+        Note right of export: Fully expand directives<br>Tables, images, text<br>(for PDF export)
+        export-->>render: standard markdown
+    end
+    deactivate export
+
+    Note over raw,render: Stage 5: Render
+    activate render
+    Note right of render: Output format:<br>- HTML (markdown lib)<br>- PDF (WeasyPrint)<br>- Interactive UI (Vue)
+    render-->>raw: rendered document
+    deactivate render
