@@ -1,15 +1,17 @@
 label: /client
 items: 
   - label: package.json
-    doc: Defines top-level node project - including dependencies, yarn targets.
-  - label: webpack.config.js
-    doc: Webpack bundling configuration.
+    doc: Defines top-level node project - including dependencies, pnpm scripts.
+  - label: vite.config.mjs
+    doc: Vite bundling configuration.
+  - label: vitest.config.mts
+    doc: Vitest unit test configuration.
   - label: prettier.config.js
     doc: Code format configuration.
   - label: tests/
-    doc: Configurations for running unit tests (jest, qunit, etc.)
+    doc: Vitest setup, mocks and helpers.
   - label: docs/
-    doc: Vue Styleguidist entrypoint.
+    doc: Client developer guides.
   - label: src/
     doc: Client source code.
     items:

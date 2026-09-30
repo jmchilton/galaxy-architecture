@@ -10,7 +10,8 @@ items:
     doc: run API test suite with GitHub Actions
   - label: integration.yaml
   - label: integration_selenium.yaml
-  - label: jest.yaml
+  - label: client-unit.yaml
+    doc: client unit tests (Vitest)
   - label: toolshed.yaml
   - label: converter_tests.yaml
     doc: run tool tests for datatype converts

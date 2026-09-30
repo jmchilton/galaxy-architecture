@@ -8,7 +8,7 @@ items:
   doc: '"expectations for participants within the Galaxy community"'
 - label: LICENSE.txt
   doc: MIT license
-- label: CITATION
+- label: CITATION.cff
   doc: description of how to cite Galaxy
 - label: CONTRIBUTORS.md
   doc: list of people who have contributed

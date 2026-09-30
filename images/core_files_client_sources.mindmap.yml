@@ -3,15 +3,13 @@ items:
 - label: components/
   doc: VueJS components and related code.
 - label: entry/
-  doc: Entrypoints for webpack bundles.
+  doc: Entrypoints for Vite bundles.
   items:
   - analysis
-  - admin
-  - login
+  - generic.js
+  - label: libs.js
+    doc: globals exposed on window, loaded before app bundles
 - label: onload/
   doc: Frontend initialization framework.
 - label: stores/
   doc: Pinia stores for the project.
-- label: bundleEntries.js
-  doc: globals hacked onto Window
-- label: polyfill.js

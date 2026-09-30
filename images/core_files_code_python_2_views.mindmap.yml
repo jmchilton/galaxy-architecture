@@ -17,10 +17,10 @@ items:
   items:
   - label: util/
     items:
-    - label: galaxy/util/__init__.py
+    - label: src/galaxy/util/__init__.py
   - label: data/
     items:
-    - label: galaxy/model/mapping.py
+    - label: src/galaxy/model/mapping.py
   - label: web_framework/
     items:
-    - label: galaxy/web/framework/
+    - label: src/galaxy/web/framework/
