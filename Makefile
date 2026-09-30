@@ -8,7 +8,7 @@ help:
 	@echo ""
 	@echo "Verification:"
 	@echo "  make validate          Validate all topics (metadata.yaml, content.yaml)"
-	@echo '  make validate-files    Verify file references in mindmaps exist in $$GALAXY_ROOT'
+	@echo '  make validate-files    Verify Galaxy refs in mindmaps/diagrams exist in $$GALAXY_ROOT'
 	@echo "  make lint-sphinx       Check Sphinx build for broken image references"
 	@echo ""
 	@echo "Build:"
@@ -48,8 +48,11 @@ validate:
 	uv run python scripts/validate.py
 
 validate-files:
-	@echo "Validating file references in mindmaps..."
-	uv run python scripts/check_mindmap_paths.py
+	@echo "Validating Galaxy references in mindmaps and diagrams..."
+	@status=0; \
+	uv run python scripts/check_mindmap_paths.py || status=1; \
+	uv run python scripts/check_diagram_refs.py || status=1; \
+	exit $$status
 
 lint-sphinx:
 	@echo "Linting Sphinx output for broken images..."

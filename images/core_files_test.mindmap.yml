@@ -6,8 +6,8 @@ items:
     doc: VueJS components define tests next to source file
   - label: tests/
     items:
-    - label: jest/
-      doc: standalone JS mocha unit tests
+    - label: vitest/
+      doc: Vitest setup, mocks and helpers
 - label: lib/galaxy_test/
   doc: properly packaged Python tests
   items:
